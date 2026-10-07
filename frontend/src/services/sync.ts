@@ -64,8 +64,8 @@ class SyncManager {
 
   public async checkConnectivity(): Promise<boolean> {
     try {
-      const res = await fetch('/api/v1/manifest', { method: 'HEAD', cache: 'no-store' });
-      const online = res.ok;
+      const res = await fetch('/api/v1/health', { method: 'HEAD', cache: 'no-store' });
+      const online = res.ok || res.status < 400;
       if (online !== this.isOnline) {
         this.isOnline = online;
         this.notify();

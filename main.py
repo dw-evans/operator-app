@@ -44,7 +44,13 @@ app.add_middleware(
 )
 
 
-@app.get("/api/v1/manifest", response_model=schemas.ManifestResponse)
+@app.api_route("/api/v1/health", methods=["GET", "HEAD"])
+def health_check():
+    """Lightweight connectivity ping endpoint."""
+    return {"status": "ok"}
+
+
+@app.api_route("/api/v1/manifest", methods=["GET", "HEAD"], response_model=schemas.ManifestResponse)
 def get_manifest(db: Session = Depends(get_db)):
     """Return all live documents for slots 1-10."""
     live_docs = (
@@ -69,7 +75,7 @@ def get_manifest(db: Session = Depends(get_db)):
     }
 
 
-@app.get("/api/v1/slots", response_model=List[schemas.SlotSummary])
+@app.api_route("/api/v1/slots", methods=["GET", "HEAD"], response_model=List[schemas.SlotSummary])
 def get_slots_summary(db: Session = Depends(get_db)):
     """Return summary for all 10 slots (1-10) with live document and feedback counts."""
     summaries = []

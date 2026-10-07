@@ -16,7 +16,13 @@ def clean_db():
 
 
 def test_empty_manifest_and_slots():
-    # Manifest should be empty list initially
+    # Manifest should support GET and HEAD
+    head_resp = client.head("/api/v1/manifest")
+    assert head_resp.status_code == 200
+
+    head_health = client.head("/api/v1/health")
+    assert head_health.status_code == 200
+
     resp = client.get("/api/v1/manifest")
     assert resp.status_code == 200
     data = resp.json()
