@@ -39,7 +39,6 @@ def test_admin_upload_and_versioning():
     # Upload version 1 for slot 1
     resp = client.post(
         "/api/v1/admin/upload/1",
-        data={"title": "Gearbox Assembly Manual"},
         files={"file": file_v1},
     )
     assert resp.status_code == 200
@@ -47,7 +46,7 @@ def test_admin_upload_and_versioning():
     assert data["status"] == "success"
     assert data["slot_id"] == 1
     assert data["version"] == 1
-    assert data["title"] == "Gearbox Assembly Manual"
+    assert data["title"] == "test_manual.pdf"
 
     # Manifest should now contain slot 1
     manifest_resp = client.get("/api/v1/manifest")
@@ -56,7 +55,7 @@ def test_admin_upload_and_versioning():
     assert len(m_docs) == 1
     assert m_docs[0]["slot_id"] == 1
     assert m_docs[0]["version"] == 1
-    assert m_docs[0]["title"] == "Gearbox Assembly Manual"
+    assert m_docs[0]["title"] == "test_manual.pdf"
 
     # Upload version 2 for slot 1
     pdf_content_v2 = b"%PDF-1.4 Mock PDF content version 2 updated"
@@ -64,12 +63,12 @@ def test_admin_upload_and_versioning():
 
     resp2 = client.post(
         "/api/v1/admin/upload/1",
-        data={"title": "Gearbox Assembly Manual Rev B"},
         files={"file": file_v2},
     )
     assert resp2.status_code == 200
     data2 = resp2.json()
     assert data2["version"] == 2
+    assert data2["title"] == "test_manual_v2.pdf"
 
     # Check history endpoint
     hist_resp = client.get("/api/v1/admin/history/1")
@@ -104,7 +103,6 @@ def test_feedback_submission_and_status():
     pdf_content = b"%PDF-1.4 Motor manual"
     client.post(
         "/api/v1/admin/upload/2",
-        data={"title": "Motor Installation"},
         files={"file": ("motor.pdf", io.BytesIO(pdf_content), "application/pdf")},
     )
 
@@ -190,14 +188,12 @@ def test_feedback_idempotency():
 def test_invalid_slot_validation():
     resp_low = client.post(
         "/api/v1/admin/upload/0",
-        data={"title": "Bad"},
         files={"file": ("test.pdf", io.BytesIO(b"data"), "application/pdf")},
     )
     assert resp_low.status_code == 400
 
     resp_high = client.post(
         "/api/v1/admin/upload/11",
-        data={"title": "Bad"},
         files={"file": ("test.pdf", io.BytesIO(b"data"), "application/pdf")},
     )
     assert resp_high.status_code == 400

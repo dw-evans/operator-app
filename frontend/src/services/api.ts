@@ -38,13 +38,9 @@ export async function updateFeedbackStatus(
 
 export async function adminUploadManual(
   slotId: number,
-  file: File,
-  title?: string
+  file: File
 ): Promise<any> {
   const formData = new FormData();
-  if (title && title.trim()) {
-    formData.append('title', title.trim());
-  }
   formData.append('file', file);
 
   const res = await fetch(`${API_BASE}/api/v1/admin/upload/${slotId}`, {

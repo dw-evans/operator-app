@@ -248,10 +248,9 @@ def update_feedback_status(
 async def admin_upload(
     slot_id: int,
     file: UploadFile = File(...),
-    title: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
-    """Upload or replace a manual for a slot (1-10). Defaults title to filename and records upload date."""
+    """Upload or replace a manual for a slot (1-10). Uses filename as document title and records upload date."""
     if slot_id < 1 or slot_id > 10:
         raise HTTPException(status_code=400, detail="Slot ID must be between 1 and 10")
 
@@ -264,7 +263,7 @@ async def admin_upload(
     with open(file_path, "wb") as f:
         f.write(content)
 
-    doc_title = title.strip() if title and title.strip() else (file.filename or f"Manual Slot {slot_id}")
+    doc_title = file.filename or f"Manual Slot {slot_id}"
 
     # Mark existing live document for this slot as obsolete
     existing = (
