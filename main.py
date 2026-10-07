@@ -360,7 +360,11 @@ app.mount("/media", StaticFiles(directory="storage/media"), name="media")
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
     """Serve static PWA files with index.html fallback for client-side routing."""
-    target = STATIC_PWA_DIR / full_path
+    clean_path = full_path.lstrip("/")
+    if clean_path.startswith(("api/", "manuals/", "media/")) or clean_path in ("api", "manuals", "media"):
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    target = STATIC_PWA_DIR / clean_path
     if target.is_file():
         return FileResponse(target)
 

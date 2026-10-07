@@ -229,4 +229,10 @@ def test_static_pwa_serving():
     assert resp_spa.status_code == 200
     assert "Assembly Station Instructions & Feedback" in resp_spa.text
 
+    # Missing manual/media files must return 404, NEVER index.html fallback
+    resp_bad_manual = client.get("/manuals/non_existent_file.pdf")
+    assert resp_bad_manual.status_code == 404
+    assert "Assembly Station Instructions & Feedback" not in resp_bad_manual.text
+
+
 
