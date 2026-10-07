@@ -14,6 +14,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      manifestFilename: 'manifest.json',
       registerType: 'autoUpdate',
       includeAssets: [
         'favicon.ico',
@@ -22,6 +23,7 @@ export default defineConfig({
         'pwa-512x512.png',
         'pwa-maskable-512x512.png',
         'pwa-192x192.svg',
+        'manifest.json',
       ],
       manifest: {
         id: '/',
@@ -30,10 +32,11 @@ export default defineConfig({
         name: 'Assembly Station Instructions & Feedback',
         short_name: 'Assembly PWA',
         description: 'Air-gapped offline-first assembly instruction and feedback system',
-        theme_color: '#09090b',
-        background_color: '#09090b',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
         display: 'standalone',
         orientation: 'landscape',
+        prefer_related_applications: false,
         icons: [
           {
             src: '/pwa-192x192.png',
@@ -42,10 +45,22 @@ export default defineConfig({
             purpose: 'any'
           },
           {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
             src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           },
           {
             src: '/pwa-maskable-512x512.png',
