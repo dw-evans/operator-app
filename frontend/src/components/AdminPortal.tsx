@@ -3,7 +3,7 @@ import type { FC, FormEvent } from 'react';
 import {
   Upload,
   History,
-  CheckCircle,
+  CheckCircle2,
   Download,
   X,
   Lock,
@@ -20,6 +20,34 @@ import {
   fetchSlotFeedback,
   updateFeedbackStatus,
 } from '../services/api';
+
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
 
 interface AdminPortalProps {
   onClose: () => void;
@@ -145,172 +173,123 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       );
       await loadSlots();
       onSlotsUpdated();
-    } catch (err) {
+    } catch {
       alert('Failed to update status');
     }
   };
 
   if (isPinLocked) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-sm w-full shadow-lg text-center">
-          <div className="w-10 h-10 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center mx-auto mb-3">
-            <Lock className="w-5 h-5" />
-          </div>
-          <h2 className="text-base font-semibold text-zinc-100">Admin PIN Required</h2>
-          <p className="text-xs text-zinc-400 mt-1 mb-4">
-            Enter administrator PIN to access document and station management.
-          </p>
-
-          <form onSubmit={handleVerifyPin} className="space-y-3">
-            <input
-              type="password"
-              autoFocus
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              placeholder="PIN"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-4 py-2 text-center text-lg tracking-widest text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
-            />
-
-            {pinError && <p className="text-xs text-rose-400">{pinError}</p>}
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-1/2 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="w-1/2 py-2 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-900 text-xs font-medium transition-colors shadow-sm cursor-pointer"
-              >
-                Unlock
-              </button>
-            </div>
-          </form>
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh] p-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <Lock className="mx-auto h-8 w-8 text-muted-foreground mb-1" />
+            <CardTitle>Admin PIN Required</CardTitle>
+            <CardDescription>Enter PIN to access document management.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleVerifyPin} className="space-y-4">
+              <Input
+                type="password"
+                autoFocus
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="PIN"
+                className="text-center text-lg tracking-widest font-mono"
+              />
+              {pinError && <p className="text-xs text-destructive text-center">{pinError}</p>}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="w-1/2" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="w-1/2">
+                  Unlock
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-      {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+    <div className="container mx-auto p-4 md:p-6 space-y-6">
+      {/* Header */}
+      <header className="flex items-center justify-between pb-4 border-b">
         <div>
-          <h2 className="text-xl md:text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-2">
-            <span>Management Portal</span>
-            <span className="text-xs font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-0.5 rounded-md">
-              Slots 1–10
-            </span>
-          </h2>
-          <p className="text-xs text-zinc-400 mt-1">
-            Manage manual versions, audit revisions, and review station feedback.
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">Management Portal</h1>
+            <Badge variant="outline">Slots 1–10</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Manage PDF instruction manuals and audit station feedback notes.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={loadSlots}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-md transition-colors border border-zinc-700 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSlots ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-md transition-colors border border-zinc-700 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <Button variant="outline" size="sm" onClick={loadSlots} disabled={isLoadingSlots}>
+            <RefreshCw className={`h-4 w-4 ${isLoadingSlots ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
         </div>
-      </div>
+      </header>
 
       {uploadSuccess && (
-        <div className="p-3 bg-zinc-900 border border-zinc-800 text-emerald-400 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 shrink-0" />
-          <span>{uploadSuccess}</span>
-        </div>
+        <Alert>
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertDescription>{uploadSuccess}</AlertDescription>
+        </Alert>
       )}
 
-      {/* 10 Slots Management Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 10 Slots Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {slots.map((slot) => {
           const doc = slot.live_document;
           const isSlotUploading = uploadingSlotId === slot.slot_id;
 
           return (
-            <div
-              key={slot.slot_id}
-              className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 shadow-sm flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-medium px-2 py-0.5 bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-md">
-                      SLOT {slot.slot_id}
-                    </span>
-                    {doc ? (
-                      <span className="text-xs font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-700 px-2 py-0.5 rounded-md">
-                        Rev v{doc.version}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded-md border border-zinc-850">
-                        Empty
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => openHistory(slot.slot_id)}
-                      className="flex items-center gap-1 text-xs text-zinc-300 hover:text-zinc-100 bg-zinc-800 hover:bg-zinc-750 px-2.5 py-1 rounded-md transition-colors border border-zinc-700 cursor-pointer"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                      <span>Revisions ({slot.total_revisions})</span>
-                    </button>
-
-                    <button
-                      onClick={() => openAudit(slot.slot_id)}
-                      className="flex items-center gap-1 text-xs text-zinc-300 hover:text-zinc-100 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Notes ({slot.total_feedback})</span>
-                    </button>
-                  </div>
+            <Card key={slot.slot_id} className="flex flex-col justify-between">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline">Slot {slot.slot_id}</Badge>
+                  {doc ? (
+                    <Badge variant="secondary">v{doc.version}</Badge>
+                  ) : (
+                    <Badge variant="outline">Empty</Badge>
+                  )}
                 </div>
+                <CardTitle className="text-base truncate pt-1">
+                  {doc ? doc.title : 'Empty Slot'}
+                </CardTitle>
+                <CardDescription className="text-xs truncate">
+                  {doc ? `Uploaded ${new Date(doc.upload_date).toLocaleDateString()}` : 'No PDF deployed'}
+                </CardDescription>
+              </CardHeader>
 
-                {doc ? (
-                  <div className="bg-zinc-950 p-3 rounded-md border border-zinc-800/90 mb-3 text-xs space-y-1">
-                    <div className="font-medium text-zinc-100 text-sm truncate">{doc.title}</div>
-                    <div className="text-zinc-400 flex items-center justify-between">
-                      <span className="truncate max-w-[200px]">{doc.original_filename}</span>
-                      <span className="font-mono text-[10px] text-zinc-500">MD5: {doc.file_hash}</span>
-                    </div>
-                    <div className="text-zinc-500 text-[11px] flex items-center justify-between pt-1">
-                      <span>Uploaded {new Date(doc.upload_date).toLocaleDateString()}</span>
-                      <a
-                        href={doc.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-zinc-300 hover:text-zinc-100 underline flex items-center gap-1"
-                      >
-                        <Download className="w-3 h-3" />
-                        <span>Download</span>
-                      </a>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-zinc-950/60 p-3 rounded-md border border-zinc-800/60 mb-3 text-xs text-zinc-500 text-center">
-                    No manual currently active in this slot.
+              <CardContent className="space-y-2 py-2">
+                {doc && (
+                  <div className="text-xs text-muted-foreground flex items-center justify-between">
+                    <span className="font-mono text-[11px] truncate max-w-[120px]">
+                      {doc.file_hash}
+                    </span>
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={buttonVariants({ variant: 'link', size: 'xs' })}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      PDF
+                    </a>
                   </div>
                 )}
-              </div>
+              </CardContent>
 
-              {/* File Upload Only */}
-              <div className="bg-zinc-950 p-2.5 rounded-md border border-zinc-800">
+              <CardFooter className="flex flex-col gap-2 pt-2">
                 <input
                   type="file"
                   accept="application/pdf"
@@ -319,232 +298,187 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                   disabled={isSlotUploading}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
-                      handleUpload(slot.slot_id, file);
-                    }
+                    if (file) handleUpload(slot.slot_id, file);
                     e.target.value = '';
                   }}
                 />
                 <label
                   htmlFor={`file-${slot.slot_id}`}
-                  className="w-full flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border border-zinc-750 px-3 py-2 rounded-md text-xs font-medium cursor-pointer transition-colors shadow-sm active:scale-[0.99]"
+                  className={buttonVariants({
+                    variant: 'outline',
+                    size: 'sm',
+                    className: 'w-full cursor-pointer justify-center',
+                  })}
                 >
-                  <Upload className={`w-3.5 h-3.5 ${isSlotUploading ? 'animate-bounce' : ''}`} />
-                  <span>
-                    {isSlotUploading
-                      ? 'Uploading & Saving PDF...'
-                      : doc
-                      ? 'Replace with new PDF'
-                      : 'Upload PDF File'}
-                  </span>
+                  <Upload className={`h-3.5 w-3.5 mr-1 ${isSlotUploading ? 'animate-bounce' : ''}`} />
+                  {isSlotUploading ? 'Uploading...' : doc ? 'Replace PDF' : 'Upload PDF'}
                 </label>
-              </div>
-            </div>
+
+                <div className="flex w-full gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 text-xs px-2"
+                    onClick={() => openHistory(slot.slot_id)}
+                  >
+                    <History className="h-3.5 w-3.5 mr-1" />
+                    History ({slot.total_revisions})
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 text-xs px-2"
+                    onClick={() => openAudit(slot.slot_id)}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                    Notes ({slot.total_feedback})
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
           );
         })}
       </div>
 
-      {/* Revision History Modal */}
-      {historySlotId !== null && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg max-w-3xl w-full max-h-[85vh] flex flex-col shadow-xl">
-            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-zinc-100 text-base flex items-center gap-2">
-                  <span>Slot {historySlotId} Revision History</span>
-                  <span className="text-xs font-mono bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md">
-                    {revisions.length} total
-                  </span>
-                </h3>
-              </div>
-              <button
-                onClick={() => setHistorySlotId(null)}
-                className="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Revision History Dialog */}
+      <Dialog
+        open={historySlotId !== null}
+        onOpenChange={(open) => !open && setHistorySlotId(null)}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Slot {historySlotId} Revisions</DialogTitle>
+            <DialogDescription>
+              Complete version log for Slot {historySlotId}.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="p-4 overflow-y-auto space-y-3">
-              {isLoadingHistory ? (
-                <div className="text-center py-8 text-zinc-500 text-xs">Loading revisions...</div>
-              ) : revisions.length === 0 ? (
-                <div className="text-center py-8 text-zinc-500 text-xs">No revisions found.</div>
-              ) : (
-                revisions.map((rev) => (
-                  <div
-                    key={rev.id}
-                    className={`p-3.5 rounded-md border text-xs flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-                      rev.is_live
-                        ? 'bg-zinc-950 border-zinc-700'
-                        : 'bg-zinc-950/50 border-zinc-850 opacity-70'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-zinc-100">Version {rev.version}</span>
+          <div className="overflow-y-auto flex-1 mt-2">
+            {isLoadingHistory ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Loading revisions...
+              </p>
+            ) : revisions.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No revisions found.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Version</TableHead>
+                    <TableHead>File</TableHead>
+                    <TableHead>Uploaded</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {revisions.map((rev) => (
+                    <TableRow key={rev.id}>
+                      <TableCell className="font-medium">v{rev.version}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {rev.title}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(rev.upload_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
                         {rev.is_live ? (
-                          <span className="bg-zinc-800 text-zinc-100 border border-zinc-700 text-[10px] font-mono px-1.5 py-0.5 rounded-md">
-                            CURRENT LIVE
-                          </span>
+                          <Badge variant="default">Live</Badge>
                         ) : (
-                          <span className="bg-zinc-900 text-zinc-400 border border-zinc-800 text-[10px] font-mono px-1.5 py-0.5 rounded-md">
-                            OBSOLETE
-                          </span>
+                          <Badge variant="secondary">Obsolete</Badge>
                         )}
-                        <span className="font-medium text-zinc-300">{rev.title}</span>
-                      </div>
-
-                      <div className="text-zinc-400 mt-1 space-y-0.5 text-[11px]">
-                        <div>Original File: {rev.original_filename}</div>
-                        <div>MD5 Hash: <span className="font-mono text-zinc-500">{rev.file_hash}</span></div>
-                        <div className="text-zinc-500">
-                          Uploaded: {new Date(rev.upload_date).toLocaleString()}
-                          {rev.obsolescence_date && (
-                            <> • Obsoleted: {new Date(rev.obsolescence_date).toLocaleString()}</>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <a
-                      href={rev.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-medium transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download</span>
-                    </a>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Feedback Audit Modal */}
-      {auditSlotId !== null && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg max-w-3xl w-full max-h-[85vh] flex flex-col shadow-xl">
-            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-zinc-100 text-base flex items-center gap-2">
-                  <span>Slot {auditSlotId} Notes Audit</span>
-                  <span className="text-xs font-mono bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md">
-                    {auditFeedback.length} comments
-                  </span>
-                </h3>
-              </div>
-              <button
-                onClick={() => setAuditSlotId(null)}
-                className="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 overflow-y-auto space-y-3">
-              {isLoadingAudit ? (
-                <div className="text-center py-8 text-zinc-500 text-xs">Loading feedback...</div>
-              ) : auditFeedback.length === 0 ? (
-                <div className="text-center py-8 text-zinc-500 text-xs">No feedback submitted for this slot yet.</div>
-              ) : (
-                auditFeedback.map((fb) => (
-                  <div
-                    key={fb.id}
-                    className="p-3.5 rounded-md border border-zinc-800 bg-zinc-950 text-xs space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-zinc-200">{fb.author}</span>
-                        <span className="bg-zinc-800 text-zinc-300 font-mono px-1.5 py-0.5 rounded text-[11px] border border-zinc-700">
-                          {fb.station_id}
-                        </span>
-                        <span className="bg-zinc-800 text-zinc-300 font-mono px-1.5 py-0.5 rounded text-[11px] border border-zinc-700">
-                          Page {fb.page_ref}
-                        </span>
-                        <span className="text-zinc-500 text-[11px] font-mono">
-                          {new Date(fb.timestamp).toLocaleDateString()}
-                        </span>
-                      </div>
-
-                      {/* Status management buttons */}
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleUpdateStatus(fb.id, 'open')}
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium uppercase transition-colors cursor-pointer border ${
-                            fb.status === 'open'
-                              ? 'bg-zinc-800 text-amber-400 border-zinc-700'
-                              : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300'
-                          }`}
-                        >
-                          Open
-                        </button>
-                        <button
-                          onClick={() => handleUpdateStatus(fb.id, 'reviewed')}
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium uppercase transition-colors cursor-pointer border ${
-                            fb.status === 'reviewed'
-                              ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
-                              : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300'
-                          }`}
-                        >
-                          Reviewed
-                        </button>
-                        <button
-                          onClick={() => handleUpdateStatus(fb.id, 'resolved')}
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium uppercase transition-colors cursor-pointer border ${
-                            fb.status === 'resolved'
-                              ? 'bg-zinc-800 text-emerald-400 border-zinc-700'
-                              : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300'
-                          }`}
-                        >
-                          Resolved
-                        </button>
-                      </div>
-                    </div>
-
-                    {fb.text_comment && (
-                      <p className="text-zinc-300 whitespace-pre-line">{fb.text_comment}</p>
-                    )}
-
-                    {fb.photo_urls && fb.photo_urls.length > 0 && (
-                      <div className="flex gap-2">
-                        {fb.photo_urls.map((p, idx) => (
-                          <a
-                            key={idx}
-                            href={p}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-12 h-12 rounded-md border border-zinc-800 overflow-hidden"
-                          >
-                            <img src={p} alt="photo" className="w-full h-full object-cover" />
-                          </a>
-                        ))}
-                      </div>
-                    )}
-
-                    {fb.video_url && (
-                      <div className="mt-1">
+                      </TableCell>
+                      <TableCell className="text-right">
                         <a
-                          href={fb.video_url}
+                          href={rev.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-zinc-300 hover:text-zinc-100 underline text-[11px]"
+                          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
                         >
-                          <Download className="w-3 h-3" />
-                          <span>View Video ({fb.video_filename})</span>
+                          <Download className="h-4 w-4" />
                         </a>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Feedback Audit Dialog */}
+      <Dialog
+        open={auditSlotId !== null}
+        onOpenChange={(open) => !open && setAuditSlotId(null)}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Slot {auditSlotId} Feedback Notes</DialogTitle>
+            <DialogDescription>
+              Operator notes and issues reported for Slot {auditSlotId}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="overflow-y-auto flex-1 mt-2">
+            {isLoadingAudit ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Loading notes...
+              </p>
+            ) : auditFeedback.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No notes submitted for this slot yet.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Station / Author</TableHead>
+                    <TableHead>Page</TableHead>
+                    <TableHead>Comment</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {auditFeedback.map((fb) => (
+                    <TableRow key={fb.id}>
+                      <TableCell>
+                        <div className="font-medium text-xs">{fb.station_id}</div>
+                        <div className="text-[11px] text-muted-foreground">{fb.author}</div>
+                      </TableCell>
+                      <TableCell className="text-xs font-mono">P.{fb.page_ref}</TableCell>
+                      <TableCell className="max-w-xs text-xs">
+                        <p className="line-clamp-2">{fb.text_comment}</p>
+                        <div className="flex gap-2 text-[11px] text-muted-foreground mt-1">
+                          {fb.photo_urls && fb.photo_urls.length > 0 && (
+                            <span>📷 {fb.photo_urls.length} photo(s)</span>
+                          )}
+                          {Boolean(fb.video_url || fb.video_filename) && <span>🎥 video</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={fb.status}
+                            onChange={(e) => handleUpdateStatus(fb.id, e.target.value as any)}
+                            className="text-xs border rounded px-1.5 py-0.5 bg-background text-foreground"
+                          >
+                            <option value="open">Open</option>
+                            <option value="reviewed">Reviewed</option>
+                            <option value="resolved">Resolved</option>
+                          </select>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
