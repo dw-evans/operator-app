@@ -50,7 +50,9 @@ def health_check():
     return {"status": "ok"}
 
 
-@app.api_route("/api/v1/manifest", methods=["GET", "HEAD"], response_model=schemas.ManifestResponse)
+@app.api_route(
+    "/api/v1/manifest", methods=["GET", "HEAD"], response_model=schemas.ManifestResponse
+)
 def get_manifest(db: Session = Depends(get_db)):
     """Return all live documents for slots 1-10."""
     live_docs = (
@@ -75,7 +77,9 @@ def get_manifest(db: Session = Depends(get_db)):
     }
 
 
-@app.api_route("/api/v1/slots", methods=["GET", "HEAD"], response_model=List[schemas.SlotSummary])
+@app.api_route(
+    "/api/v1/slots", methods=["GET", "HEAD"], response_model=List[schemas.SlotSummary]
+)
 def get_slots_summary(db: Session = Depends(get_db)):
     """Return summary for all 10 slots (1-10) with live document and feedback counts."""
     summaries = []
@@ -86,18 +90,16 @@ def get_slots_summary(db: Session = Depends(get_db)):
             .first()
         )
         total_revs = (
-            db.query(models.Document)
-            .filter(models.Document.slot_id == slot_id)
-            .count()
+            db.query(models.Document).filter(models.Document.slot_id == slot_id).count()
         )
         total_fb = (
-            db.query(models.Feedback)
-            .filter(models.Feedback.slot_id == slot_id)
-            .count()
+            db.query(models.Feedback).filter(models.Feedback.slot_id == slot_id).count()
         )
         open_fb = (
             db.query(models.Feedback)
-            .filter(models.Feedback.slot_id == slot_id, models.Feedback.status == "open")
+            .filter(
+                models.Feedback.slot_id == slot_id, models.Feedback.status == "open"
+            )
             .count()
         )
 
@@ -162,7 +164,9 @@ async def create_feedback(
     # Process video file
     video_filename = None
     if video and video.filename:
-        v_ext = video.filename.split(".")[-1].lower() if "." in video.filename else "mp4"
+        v_ext = (
+            video.filename.split(".")[-1].lower() if "." in video.filename else "mp4"
+        )
         video_filename = f"{id}_video.{v_ext}"
         v_path = MEDIA_DIR / video_filename
         content = await video.read()
@@ -173,7 +177,11 @@ async def create_feedback(
     photo_names = []
     for idx, photo in enumerate(photos):
         if photo and photo.filename:
-            p_ext = photo.filename.split(".")[-1].lower() if "." in photo.filename else "jpg"
+            p_ext = (
+                photo.filename.split(".")[-1].lower()
+                if "." in photo.filename
+                else "jpg"
+            )
             p_name = f"{id}_photo_{idx}.{p_ext}"
             p_path = MEDIA_DIR / p_name
             content = await photo.read()
@@ -223,7 +231,9 @@ def get_slot_feedback(slot_id: int, db: Session = Depends(get_db)):
                 author=item.author,
                 text_comment=item.text_comment,
                 video_filename=item.video_filename,
-                video_url=f"/media/{item.video_filename}" if item.video_filename else None,
+                video_url=f"/media/{item.video_filename}"
+                if item.video_filename
+                else None,
                 photo_filenames=p_names,
                 photo_urls=[f"/media/{p}" for p in p_names],
                 timestamp=item.timestamp,
@@ -309,7 +319,9 @@ async def admin_upload(
     }
 
 
-@app.get("/api/v1/admin/history/{slot_id}", response_model=List[schemas.DocumentRevision])
+@app.get(
+    "/api/v1/admin/history/{slot_id}", response_model=List[schemas.DocumentRevision]
+)
 def get_slot_history(slot_id: int, db: Session = Depends(get_db)):
     """Retrieve full revision history for a slot (live and obsolete), newest first."""
     if slot_id < 1 or slot_id > 10:
@@ -374,7 +386,39 @@ def download_ca_cert():
             media_type="application/x-x509-ca-cert",
             filename="assembly-pwa-ca.crt",
         )
-    raise HTTPException(status_code=404, detail="CA certificate not found. Run ./generate_certs.sh first.")
+    raise HTTPException(
+        status_code=404,
+        detail="CA certificate not found. Run ./generate_certs.sh first.",
+    )
+
+
+@app.get("/sw.js")
+def serve_service_worker():
+    """Explicit endpoint for service worker with Service-Worker-Allowed header."""
+    sw_file = STATIC_PWA_DIR / "sw.js"
+    if sw_file.is_file():
+        return FileResponse(
+            sw_file,
+            media_type="application/javascript",
+            headers={
+                "Service-Worker-Allowed": "/",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            },
+        )
+    raise HTTPException(status_code=404, detail="Service worker not found")
+
+
+@app.get("/manifest.json")
+def serve_manifest():
+    """Explicit endpoint for Web App Manifest with correct manifest MIME type."""
+    manifest_file = STATIC_PWA_DIR / "manifest.json"
+    if manifest_file.is_file():
+        return FileResponse(
+            manifest_file,
+            media_type="application/manifest+json",
+            headers={"Cache-Control": "no-cache"},
+        )
+    raise HTTPException(status_code=404, detail="Manifest not found")
 
 
 # SPA Fallback for static PWA
@@ -382,7 +426,14 @@ def download_ca_cert():
 async def serve_spa(full_path: str):
     """Serve static PWA files with index.html fallback for client-side routing."""
     clean_path = full_path.lstrip("/")
-    if clean_path.startswith(("api/", "manuals/", "media/")) or clean_path in ("api", "manuals", "media", "ca.crt"):
+    if clean_path.startswith(("api/", "manuals/", "media/")) or clean_path in (
+        "api",
+        "manuals",
+        "media",
+        "ca.crt",
+        "sw.js",
+        "manifest.json",
+    ):
         raise HTTPException(status_code=404, detail="Resource not found")
 
     target = STATIC_PWA_DIR / clean_path
@@ -420,5 +471,4 @@ if __name__ == "__main__":
     else:
         print("⚠️  No SSL certificates found in certs/. Starting in plain HTTP mode.")
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False, **ssl_kwargs)
-
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False, **ssl_kwargs)
