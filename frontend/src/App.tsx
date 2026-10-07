@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { SlotSelector } from './components/SlotSelector';
 import { PdfViewer } from './components/PdfViewer';
@@ -6,7 +6,7 @@ import { FeedbackEngine } from './components/FeedbackEngine';
 import { FeedbackStream } from './components/FeedbackStream';
 import { AdminPortal } from './components/AdminPortal';
 import { fetchSlots } from './services/api';
-import { getCachedManifest, saveCachedManifest } from './services/db';
+import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
 import type { SlotSummary } from './types';
 import { MessageSquare, PlusCircle } from 'lucide-react';
 
@@ -16,6 +16,41 @@ export function App() {
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState<'submit' | 'stream'>('submit');
+
+  // Synchronize UI state with current URL pathname
+  const syncStateFromUrl = useCallback(() => {
+    const pathname = window.location.pathname;
+    if (pathname === '/admin') {
+      setIsAdmin(true);
+      setSelectedSlotId(null);
+    } else {
+      const match = pathname.match(/^\/slot\/(\d+)$/);
+      if (match) {
+        setIsAdmin(false);
+        const slot = parseInt(match[1], 10);
+        setSelectedSlotId(slot);
+      } else {
+        setIsAdmin(false);
+        setSelectedSlotId(null);
+      }
+    }
+  }, []);
+
+  // Safe navigation that pushes URL into history so back button works
+  const navigateTo = (path: string) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+    }
+    syncStateFromUrl();
+  };
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigateTo('/');
+    }
+  };
 
   const loadSlots = async () => {
     setIsLoadingSlots(true);
@@ -39,8 +74,37 @@ export function App() {
   };
 
   useEffect(() => {
+    // Request persistent client storage (CacheStorage and IndexedDB)
+    requestPersistentStorage();
+
+    // Listen for browser / hardware back and forward buttons
+    window.addEventListener('popstate', syncStateFromUrl);
+
+    // Initial state parse from current URL or restore from session
+    const pathname = window.location.pathname;
+    if (pathname === '/' || pathname === '') {
+      const lastActive = sessionStorage.getItem('assembly_last_path');
+      if (lastActive && lastActive !== '/') {
+        window.history.replaceState(null, '', lastActive);
+      }
+    }
+    syncStateFromUrl();
     loadSlots();
-  }, []);
+
+    return () => {
+      window.removeEventListener('popstate', syncStateFromUrl);
+    };
+  }, [syncStateFromUrl]);
+
+  // Keep session storage updated so PWA keeps location as long as app isn't shut down
+  useEffect(() => {
+    const currentPath = isAdmin
+      ? '/admin'
+      : selectedSlotId !== null
+      ? `/slot/${selectedSlotId}`
+      : '/';
+    sessionStorage.setItem('assembly_last_path', currentPath);
+  }, [isAdmin, selectedSlotId]);
 
   const currentSlot = slots.find((s) => s.slot_id === selectedSlotId);
   const currentDoc = currentSlot?.live_document;
@@ -50,22 +114,28 @@ export function App() {
       <Navbar
         currentSlotId={selectedSlotId}
         currentSlotTitle={currentDoc?.title || null}
-        onBackToSlots={() => setSelectedSlotId(null)}
+        onBackToSlots={handleBack}
         isAdmin={isAdmin}
-        onToggleAdmin={() => setIsAdmin(!isAdmin)}
+        onToggleAdmin={() => {
+          if (isAdmin) {
+            handleBack();
+          } else {
+            navigateTo('/admin');
+          }
+        }}
       />
 
       <main className="flex-1 flex flex-col">
         {isAdmin ? (
           <AdminPortal
-            onClose={() => setIsAdmin(false)}
+            onClose={handleBack}
             onSlotsUpdated={loadSlots}
           />
         ) : selectedSlotId === null ? (
           <SlotSelector
             slots={slots}
             onSelectSlot={(slotId) => {
-              setSelectedSlotId(slotId);
+              navigateTo(`/slot/${slotId}`);
               setActiveTab('submit');
             }}
             isLoading={isLoadingSlots}

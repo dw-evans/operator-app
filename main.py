@@ -15,10 +15,11 @@ from database import Base, engine, get_db
 import models
 import schemas
 
-# Create directories
-MANUALS_DIR = Path("storage/manuals")
-MEDIA_DIR = Path("storage/media")
-STATIC_PWA_DIR = Path("static_pwa")
+# Create directories anchored to server base path
+BASE_DIR = Path(__file__).resolve().parent
+MANUALS_DIR = BASE_DIR / "storage" / "manuals"
+MEDIA_DIR = BASE_DIR / "storage" / "media"
+STATIC_PWA_DIR = BASE_DIR / "static_pwa"
 
 MANUALS_DIR.mkdir(parents=True, exist_ok=True)
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
@@ -246,11 +247,11 @@ def update_feedback_status(
 @app.post("/api/v1/admin/upload/{slot_id}")
 async def admin_upload(
     slot_id: int,
-    title: str = Form(...),
     file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
-    """Upload or replace a manual for a slot (1-10). Increments version and marks previous live doc obsolete."""
+    """Upload or replace a manual for a slot (1-10). Defaults title to filename and records upload date."""
     if slot_id < 1 or slot_id > 10:
         raise HTTPException(status_code=400, detail="Slot ID must be between 1 and 10")
 
@@ -262,6 +263,8 @@ async def admin_upload(
 
     with open(file_path, "wb") as f:
         f.write(content)
+
+    doc_title = title.strip() if title and title.strip() else (file.filename or f"Manual Slot {slot_id}")
 
     # Mark existing live document for this slot as obsolete
     existing = (
@@ -278,7 +281,7 @@ async def admin_upload(
 
     new_doc = models.Document(
         slot_id=slot_id,
-        title=title,
+        title=doc_title,
         filename=stored_filename,
         original_filename=file.filename or stored_filename,
         file_hash=file_hash,
@@ -295,7 +298,7 @@ async def admin_upload(
         "status": "success",
         "slot_id": slot_id,
         "version": new_version,
-        "title": title,
+        "title": doc_title,
         "file_hash": file_hash,
         "filename": stored_filename,
     }
@@ -352,8 +355,8 @@ def verify_admin_pin(req: schemas.PinVerifyRequest):
 
 
 # Mount storage directories
-app.mount("/manuals", StaticFiles(directory="storage/manuals"), name="manuals")
-app.mount("/media", StaticFiles(directory="storage/media"), name="media")
+app.mount("/manuals", StaticFiles(directory=str(MANUALS_DIR)), name="manuals")
+app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 
 # SPA Fallback for static PWA

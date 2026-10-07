@@ -39,9 +39,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
   const [revisions, setRevisions] = useState<DocumentRevision[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Upload form state per slot
-  const [uploadTitles, setUploadTitles] = useState<Record<number, string>>({});
-  const [uploadFiles, setUploadFiles] = useState<Record<number, File | null>>({});
+  // Upload state per slot
   const [uploadingSlotId, setUploadingSlotId] = useState<number | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
@@ -97,36 +95,13 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
     }
   };
 
-  const handleFileChange = (slotId: number, file: File | null) => {
-    setUploadFiles((prev) => ({ ...prev, [slotId]: file }));
-  };
-
-  const handleTitleChange = (slotId: number, title: string) => {
-    setUploadTitles((prev) => ({ ...prev, [slotId]: title }));
-  };
-
-  const handleUpload = async (slotId: number) => {
-    const title = uploadTitles[slotId];
-    const file = uploadFiles[slotId];
-
-    if (!title || !title.trim()) {
-      alert('Please specify a title for the manual.');
-      return;
-    }
-    if (!file) {
-      alert('Please select a PDF file to upload.');
-      return;
-    }
-
+  const handleUpload = async (slotId: number, file: File) => {
     setUploadingSlotId(slotId);
     setUploadSuccess(null);
 
     try {
-      await adminUploadManual(slotId, title.trim(), file);
-      setUploadSuccess(`Slot ${slotId} updated successfully!`);
-      // Reset input state for slot
-      setUploadFiles((prev) => ({ ...prev, [slotId]: null }));
-      setUploadTitles((prev) => ({ ...prev, [slotId]: '' }));
+      await adminUploadManual(slotId, file);
+      setUploadSuccess(`Slot ${slotId} updated with ${file.name}`);
       await loadSlots();
       onSlotsUpdated();
     } catch (err: any) {
@@ -334,45 +309,35 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                 )}
               </div>
 
-              {/* Upload New Version Widget */}
-              <div className="bg-zinc-950 p-3 rounded-md border border-zinc-800">
-                <div className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
-                  {doc ? 'Upload Revision' : 'Upload Initial Manual'}
-                </div>
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={uploadTitles[slot.slot_id] || ''}
-                    onChange={(e) => handleTitleChange(slot.slot_id, e.target.value)}
-                    placeholder={doc ? `New revision title (default: ${doc.title})` : 'Manual Title'}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
-                  />
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      id={`file-${slot.slot_id}`}
-                      className="hidden"
-                      onChange={(e) => handleFileChange(slot.slot_id, e.target.files?.[0] || null)}
-                    />
-                    <label
-                      htmlFor={`file-${slot.slot_id}`}
-                      className="flex-1 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 border border-zinc-800 px-2.5 py-1.5 rounded-md text-xs truncate cursor-pointer text-center"
-                    >
-                      {uploadFiles[slot.slot_id]?.name || 'Select PDF File'}
-                    </label>
-
-                    <button
-                      onClick={() => handleUpload(slot.slot_id)}
-                      disabled={isSlotUploading}
-                      className="flex items-center gap-1.5 bg-zinc-100 hover:bg-zinc-200 active:bg-zinc-300 disabled:opacity-50 text-zinc-900 text-xs font-medium px-3 py-1.5 rounded-md transition-colors shadow-sm cursor-pointer"
-                    >
-                      <Upload className={`w-3.5 h-3.5 ${isSlotUploading ? 'animate-bounce' : ''}`} />
-                      <span>{isSlotUploading ? 'Saving...' : 'Deploy'}</span>
-                    </button>
-                  </div>
-                </div>
+              {/* File Upload Only */}
+              <div className="bg-zinc-950 p-2.5 rounded-md border border-zinc-800">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  id={`file-${slot.slot_id}`}
+                  className="hidden"
+                  disabled={isSlotUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleUpload(slot.slot_id, file);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <label
+                  htmlFor={`file-${slot.slot_id}`}
+                  className="w-full flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border border-zinc-750 px-3 py-2 rounded-md text-xs font-medium cursor-pointer transition-colors shadow-sm active:scale-[0.99]"
+                >
+                  <Upload className={`w-3.5 h-3.5 ${isSlotUploading ? 'animate-bounce' : ''}`} />
+                  <span>
+                    {isSlotUploading
+                      ? 'Uploading & Saving PDF...'
+                      : doc
+                      ? 'Replace with new PDF'
+                      : 'Upload PDF File'}
+                  </span>
+                </label>
               </div>
             </div>
           );

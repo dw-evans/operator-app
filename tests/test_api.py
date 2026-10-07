@@ -85,6 +85,20 @@ def test_admin_upload_and_versioning():
     assert history[1]["obsolescence_date"] is not None
 
 
+def test_admin_upload_file_only():
+    pdf_content = b"%PDF-1.4 Assembly Spec Sheet"
+    file = ("Assembly_Spec_Sheet.pdf", io.BytesIO(pdf_content), "application/pdf")
+    resp = client.post(
+        "/api/v1/admin/upload/5",
+        files={"file": file},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "success"
+    assert data["slot_id"] == 5
+    assert data["title"] == "Assembly_Spec_Sheet.pdf"
+
+
 def test_feedback_submission_and_status():
     # Setup document in slot 2
     pdf_content = b"%PDF-1.4 Motor manual"

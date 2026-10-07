@@ -79,3 +79,22 @@ export async function isMediaCached(key: string): Promise<boolean> {
   const count = await db.count('media_cache', key);
   return count > 0;
 }
+
+// Request browser persistent storage to prevent eviction in Firefox / Chromium PWAs
+export async function requestPersistentStorage(): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+    try {
+      const isPersisted = await navigator.storage.persisted();
+      if (!isPersisted) {
+        const granted = await navigator.storage.persist();
+        console.log('Persistent storage requested. Granted:', granted);
+        return granted;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Persistent storage request failed:', err);
+      return false;
+    }
+  }
+  return false;
+}
