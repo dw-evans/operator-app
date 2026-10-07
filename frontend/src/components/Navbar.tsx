@@ -80,7 +80,7 @@ export const Navbar: FC<NavbarProps> = ({
             onClick={() => syncManager.triggerSync()}
             disabled={syncState.isSyncing || !syncState.isOnline}
             title={syncState.isOnline ? 'Click to sync now' : 'Offline: will sync automatically when connected'}
-            className="gap-1.5 text-xs text-amber-600"
+            className="gap-1.5 text-xs text-amber-500 border-amber-500/30 hover:bg-amber-500/10"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${syncState.isSyncing ? 'animate-spin' : ''}`} />
             <span>

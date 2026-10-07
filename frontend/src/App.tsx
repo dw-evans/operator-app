@@ -144,7 +144,7 @@ export function App() {
                   title={`Slot ${selectedSlotId}: ${currentDoc.title} (v${currentDoc.version})`}
                 />
               ) : (
-                <div className="h-[70vh] flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 text-sm">
+                <div className="h-[70vh] flex items-center justify-center bg-card border border-border rounded-xl text-muted-foreground text-sm">
                   No active manual found for Slot {selectedSlotId}.
                 </div>
               )}
@@ -153,13 +153,13 @@ export function App() {
             {/* Right 5 columns: Feedback Engine & Review Stream */}
             <div className="lg:col-span-5 flex flex-col space-y-3">
               {/* Tab Selector */}
-              <div className="flex bg-zinc-900 p-1 rounded-lg border border-zinc-800">
+              <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
                 <button
                   onClick={() => setActiveTab('submit')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                     activeTab === 'submit'
-                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
@@ -168,10 +168,10 @@ export function App() {
 
                 <button
                   onClick={() => setActiveTab('stream')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                     activeTab === 'stream'
-                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5" />

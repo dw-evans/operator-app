@@ -463,7 +463,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                           <select
                             value={fb.status}
                             onChange={(e) => handleUpdateStatus(fb.id, e.target.value as any)}
-                            className="text-xs border rounded px-1.5 py-0.5 bg-background text-foreground"
+                            className="text-xs border border-input rounded-md px-2 py-1 bg-background text-foreground focus:ring-1 focus:ring-ring focus:outline-none"
                           >
                             <option value="open">Open</option>
                             <option value="reviewed">Reviewed</option>
