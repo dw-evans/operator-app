@@ -44,13 +44,6 @@ export function App() {
     syncStateFromUrl();
   };
 
-  const handleBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      navigateTo('/');
-    }
-  };
 
   const loadSlots = async () => {
     setIsLoadingSlots(true);
@@ -114,11 +107,11 @@ export function App() {
       <Navbar
         currentSlotId={selectedSlotId}
         currentSlotTitle={currentDoc?.title || null}
-        onBackToSlots={handleBack}
+        onBackToSlots={() => navigateTo('/')}
         isAdmin={isAdmin}
         onToggleAdmin={() => {
           if (isAdmin) {
-            handleBack();
+            navigateTo('/');
           } else {
             navigateTo('/admin');
           }
@@ -128,7 +121,7 @@ export function App() {
       <main className="flex-1 flex flex-col">
         {isAdmin ? (
           <AdminPortal
-            onClose={handleBack}
+            onClose={() => navigateTo('/')}
             onSlotsUpdated={loadSlots}
           />
         ) : selectedSlotId === null ? (
