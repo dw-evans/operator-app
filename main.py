@@ -376,22 +376,6 @@ app.mount("/manuals", StaticFiles(directory=str(MANUALS_DIR)), name="manuals")
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 
-@app.get("/ca.crt")
-def download_ca_cert():
-    """Endpoint for tablets to easily download the Root CA certificate to establish HTTPS trust."""
-    ca_path = BASE_DIR / "certs" / "ca.crt"
-    if ca_path.is_file():
-        return FileResponse(
-            ca_path,
-            media_type="application/x-x509-ca-cert",
-            filename="assembly-pwa-ca.crt",
-        )
-    raise HTTPException(
-        status_code=404,
-        detail="CA certificate not found. Run ./generate_certs.sh first.",
-    )
-
-
 @app.get("/sw.js")
 def serve_service_worker():
     """Explicit endpoint for service worker with Service-Worker-Allowed header."""
@@ -430,7 +414,6 @@ async def serve_spa(full_path: str):
         "api",
         "manuals",
         "media",
-        "ca.crt",
         "sw.js",
         "manifest.json",
     ):
@@ -456,19 +439,5 @@ async def serve_spa(full_path: str):
 if __name__ == "__main__":
     import uvicorn
 
-    cert_file = BASE_DIR / "certs" / "cert.pem"
-    key_file = BASE_DIR / "certs" / "key.pem"
-
-    ssl_kwargs = {}
-    if cert_file.is_file() and key_file.is_file():
-        print(f"🔒 Starting server with HTTPS (SSL enabled)")
-        print(f"   Certificate: {cert_file}")
-        print(f"   Key:         {key_file}")
-        ssl_kwargs = {
-            "ssl_certfile": str(cert_file),
-            "ssl_keyfile": str(key_file),
-        }
-    else:
-        print("⚠️  No SSL certificates found in certs/. Starting in plain HTTP mode.")
-
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False, **ssl_kwargs)
+    print("Starting server on http://127.0.0.1:8000")
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
