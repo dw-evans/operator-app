@@ -2,17 +2,47 @@ import io
 import json
 import pytest
 from fastapi.testclient import TestClient
-from main import app
-from database import Base, engine
+import main
+from database import Base, get_db
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
-client = TestClient(app)
+# In-memory SQLite for tests to completely isolate tests from production assembly.db
+test_engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+main.app.dependency_overrides[get_db] = override_get_db
+client = TestClient(main.app)
+
 
 @pytest.fixture(autouse=True)
-def clean_db():
-    # Recreate tables before each test
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+def setup_test_environment(monkeypatch, tmp_path):
+    # Set up tables in isolated test database
+    Base.metadata.create_all(bind=test_engine)
+
+    # Use temporary isolated storage folders so tests don't touch production storage
+    test_manuals = tmp_path / "manuals"
+    test_media = tmp_path / "media"
+    test_manuals.mkdir(parents=True, exist_ok=True)
+    test_media.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(main, "MANUALS_DIR", test_manuals)
+    monkeypatch.setattr(main, "MEDIA_DIR", test_media)
+
     yield
+
+    Base.metadata.drop_all(bind=test_engine)
 
 
 def test_empty_manifest_and_slots():
