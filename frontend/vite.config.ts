@@ -9,27 +9,49 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.svg'],
+      includeAssets: [
+        'favicon.ico',
+        'apple-touch-icon.png',
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+        'pwa-maskable-512x512.png',
+        'pwa-192x192.svg',
+      ],
       manifest: {
+        id: '/',
+        start_url: '/',
+        scope: '/',
         name: 'Assembly Station Instructions & Feedback',
         short_name: 'Assembly PWA',
         description: 'Air-gapped offline-first assembly instruction and feedback system',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#09090b',
+        background_color: '#09090b',
         display: 'standalone',
         orientation: 'landscape',
         icons: [
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
           {
             src: '/pwa-192x192.svg',
             sizes: '192x192',
             type: 'image/svg+xml',
             purpose: 'any'
-          },
-          {
-            src: '/pwa-512x512.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
           }
         ]
       },
