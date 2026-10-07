@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.pytest_cache/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+assembly.db
+
+# Storage media files created at runtime (preserve directory structure via .gitkeep)
+storage/manuals/*
+!storage/manuals/.gitkeep
+storage/media/*
+!storage/media/.gitkeep
+
+# Node & Frontend dependencies and compiled build
+frontend/node_modules/
+frontend/dist/
+static_pwa/
+
+# Environment files
+.env
+.env.*
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
