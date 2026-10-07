@@ -14,11 +14,13 @@ import { cn } from '@/lib/utils';
 
 interface FeedbackEngineProps {
   slotId: number;
+  initialPageRef?: number;
   onFeedbackSubmitted: () => void;
 }
 
 export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   slotId,
+  initialPageRef,
   onFeedbackSubmitted,
 }) => {
   const [stationId, setStationId] = useState(
@@ -27,7 +29,13 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   const [author, setAuthor] = useState(
     () => localStorage.getItem('assembly_author') || ''
   );
-  const [pageRef, setPageRef] = useState<number>(1);
+  const [pageRef, setPageRef] = useState<number>(initialPageRef || 1);
+
+  useEffect(() => {
+    if (initialPageRef) {
+      setPageRef(initialPageRef);
+    }
+  }, [initialPageRef]);
   const [textComment, setTextComment] = useState('');
 
   // Media state

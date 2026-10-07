@@ -1,21 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { SlotSelector } from './components/SlotSelector';
-import { PdfViewer } from './components/PdfViewer';
-import { FeedbackEngine } from './components/FeedbackEngine';
-import { FeedbackStream } from './components/FeedbackStream';
+import { SlotViewerVariant } from './components/SlotViewerVariant';
 import { AdminPortal } from './components/AdminPortal';
 import { fetchSlots } from './services/api';
 import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
 import type { SlotSummary } from './types';
-import { MessageSquare, PlusCircle } from 'lucide-react';
 
 export function App() {
   const [slots, setSlots] = useState<SlotSummary[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(true);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<'submit' | 'stream'>('submit');
 
   // Synchronize UI state with current URL pathname
   const syncStateFromUrl = useCallback(() => {
@@ -129,14 +125,20 @@ export function App() {
             slots={slots}
             onSelectSlot={(slotId) => {
               navigateTo(`/slot/${slotId}`);
-              setActiveTab('submit');
             }}
             isLoading={isLoadingSlots}
           />
         ) : (
-          /* Operator Active Slot Workspace (Dual Panel for Tablets) */
+          /* Active Variant: Mozilla PDF.js Fullscreen Viewer with Popover Notes Drawer */
+          <SlotViewerVariant
+            slotId={selectedSlotId}
+            document={currentDoc || null}
+            totalFeedbackCount={currentSlot?.total_feedback || 0}
+            onFeedbackSubmitted={loadSlots}
+          />
+
+          /* [DISABLED FOR NOW] Legacy Dual-Panel Viewer Variant
           <div className="flex-1 p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-            {/* Left 7 columns: Native PDF Viewer */}
             <div className="lg:col-span-7 flex flex-col">
               {currentDoc ? (
                 <PdfViewer
@@ -150,9 +152,7 @@ export function App() {
               )}
             </div>
 
-            {/* Right 5 columns: Feedback Engine & Review Stream */}
             <div className="lg:col-span-5 flex flex-col space-y-3">
-              {/* Tab Selector */}
               <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
                 <button
                   onClick={() => setActiveTab('submit')}
@@ -179,7 +179,6 @@ export function App() {
                 </button>
               </div>
 
-              {/* Tab Content */}
               <div className="flex-1">
                 {activeTab === 'submit' ? (
                   <FeedbackEngine
@@ -195,6 +194,7 @@ export function App() {
               </div>
             </div>
           </div>
+          */
         )}
       </main>
     </div>
