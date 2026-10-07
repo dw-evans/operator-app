@@ -46,7 +46,7 @@ export function App() {
   const currentDoc = currentSlot?.live_document;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
       <Navbar
         currentSlotId={selectedSlotId}
         currentSlotTitle={currentDoc?.title || null}
@@ -72,7 +72,7 @@ export function App() {
           />
         ) : (
           /* Operator Active Slot Workspace (Dual Panel for Tablets) */
-          <div className="flex-1 p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="flex-1 p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3.5">
             {/* Left 7 columns: Native PDF Viewer */}
             <div className="lg:col-span-7 flex flex-col">
               {currentDoc ? (
@@ -81,7 +81,7 @@ export function App() {
                   title={`Slot ${selectedSlotId}: ${currentDoc.title} (v${currentDoc.version})`}
                 />
               ) : (
-                <div className="h-[70vh] flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-slate-500 text-sm">
+                <div className="h-[70vh] flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 text-sm">
                   No active manual found for Slot {selectedSlotId}.
                 </div>
               )}
@@ -90,29 +90,29 @@ export function App() {
             {/* Right 5 columns: Feedback Engine & Review Stream */}
             <div className="lg:col-span-5 flex flex-col space-y-3">
               {/* Tab Selector */}
-              <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <div className="flex bg-zinc-900 p-1 rounded-lg border border-zinc-800">
                 <button
                   onClick={() => setActiveTab('submit')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs md:text-sm font-medium transition-colors cursor-pointer ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                     activeTab === 'submit'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  <PlusCircle className="w-4 h-4" />
+                  <PlusCircle className="w-3.5 h-3.5" />
                   <span>Submit Note</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('stream')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs md:text-sm font-medium transition-colors cursor-pointer ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                     activeTab === 'stream'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Notes & Comments</span>
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Station Notes</span>
                 </button>
               </div>
 

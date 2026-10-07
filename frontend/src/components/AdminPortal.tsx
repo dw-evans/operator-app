@@ -177,24 +177,24 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
 
   if (isPinLocked) {
     return (
-      <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
-          <div className="w-12 h-12 rounded-xl bg-purple-950/80 text-purple-400 border border-purple-800 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-6 h-6" />
+      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-sm w-full shadow-lg text-center">
+          <div className="w-10 h-10 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center mx-auto mb-3">
+            <Lock className="w-5 h-5" />
           </div>
-          <h2 className="text-lg font-bold text-slate-100">Admin PIN Required</h2>
-          <p className="text-xs text-slate-400 mt-1 mb-5">
-            Enter the administrator PIN to manage document slots and auditing.
+          <h2 className="text-base font-semibold text-zinc-100">Admin PIN Required</h2>
+          <p className="text-xs text-zinc-400 mt-1 mb-4">
+            Enter administrator PIN to access document and station management.
           </p>
 
-          <form onSubmit={handleVerifyPin} className="space-y-4">
+          <form onSubmit={handleVerifyPin} className="space-y-3">
             <input
               type="password"
               autoFocus
               value={pinInput}
               onChange={(e) => setPinInput(e.target.value)}
-              placeholder="Enter PIN"
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-center text-lg tracking-widest text-slate-100 focus:outline-none focus:border-purple-500 font-mono"
+              placeholder="PIN"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-4 py-2 text-center text-lg tracking-widest text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
             />
 
             {pinError && <p className="text-xs text-rose-400">{pinError}</p>}
@@ -203,13 +203,13 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
               <button
                 type="button"
                 onClick={onClose}
-                className="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 text-sm font-medium transition-colors"
+                className="w-1/2 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="w-1/2 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium transition-colors shadow-md"
+                className="w-1/2 py-2 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-900 text-xs font-medium transition-colors shadow-sm cursor-pointer"
               >
                 Unlock
               </button>
@@ -223,30 +223,30 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
       {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
-            <span>Admin Management Portal</span>
-            <span className="text-xs bg-purple-950 text-purple-300 border border-purple-800 px-2 py-0.5 rounded">
+          <h2 className="text-xl md:text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-2">
+            <span>Management Portal</span>
+            <span className="text-xs font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-0.5 rounded-md">
               Slots 1–10
             </span>
           </h2>
-          <p className="text-xs md:text-sm text-slate-400 mt-0.5">
-            Manage live manual versions, audit historical revisions, and review station feedback.
+          <p className="text-xs text-zinc-400 mt-1">
+            Manage manual versions, audit revisions, and review station feedback.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={loadSlots}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-colors border border-slate-700 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-md transition-colors border border-zinc-700 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSlots ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-lg transition-colors border border-slate-700"
+            className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-md transition-colors border border-zinc-700 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -254,7 +254,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       </div>
 
       {uploadSuccess && (
-        <div className="p-3 bg-emerald-950/70 border border-emerald-800 text-emerald-300 rounded-xl text-xs md:text-sm font-medium flex items-center gap-2">
+        <div className="p-3 bg-zinc-900 border border-zinc-800 text-emerald-400 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
           <CheckCircle className="w-4 h-4 shrink-0" />
           <span>{uploadSuccess}</span>
         </div>
@@ -269,29 +269,29 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
           return (
             <div
               key={slot.slot_id}
-              className="bg-slate-900 border border-slate-800 rounded-xl p-4.5 shadow-md flex flex-col justify-between"
+              className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 shadow-sm flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold px-2 py-0.5 bg-blue-900/40 text-blue-400 border border-blue-800 rounded">
+                    <span className="text-xs font-mono font-medium px-2 py-0.5 bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-md">
                       SLOT {slot.slot_id}
                     </span>
                     {doc ? (
-                      <span className="text-xs font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded">
-                        Active Rev v{doc.version}
+                      <span className="text-xs font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-700 px-2 py-0.5 rounded-md">
+                        Rev v{doc.version}
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">
-                        Empty Slot
+                      <span className="text-xs text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded-md border border-zinc-850">
+                        Empty
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => openHistory(slot.slot_id)}
-                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 bg-slate-800 px-2 py-1 rounded transition-colors border border-slate-750 cursor-pointer"
+                      className="flex items-center gap-1 text-xs text-zinc-300 hover:text-zinc-100 bg-zinc-800 hover:bg-zinc-750 px-2.5 py-1 rounded-md transition-colors border border-zinc-700 cursor-pointer"
                     >
                       <History className="w-3.5 h-3.5" />
                       <span>Revisions ({slot.total_revisions})</span>
@@ -299,45 +299,45 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
 
                     <button
                       onClick={() => openAudit(slot.slot_id)}
-                      className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 bg-amber-950/40 border border-amber-900 px-2 py-1 rounded transition-colors cursor-pointer"
+                      className="flex items-center gap-1 text-xs text-zinc-300 hover:text-zinc-100 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Feedback ({slot.total_feedback})</span>
+                      <span>Notes ({slot.total_feedback})</span>
                     </button>
                   </div>
                 </div>
 
                 {doc ? (
-                  <div className="bg-slate-850 p-3 rounded-lg border border-slate-800 mb-3 text-xs space-y-1">
-                    <div className="font-semibold text-slate-100 text-sm truncate">{doc.title}</div>
-                    <div className="text-slate-400 flex items-center justify-between">
+                  <div className="bg-zinc-950 p-3 rounded-md border border-zinc-800/90 mb-3 text-xs space-y-1">
+                    <div className="font-medium text-zinc-100 text-sm truncate">{doc.title}</div>
+                    <div className="text-zinc-400 flex items-center justify-between">
                       <span className="truncate max-w-[200px]">{doc.original_filename}</span>
-                      <span className="font-mono text-[10px] text-slate-500">MD5: {doc.file_hash}</span>
+                      <span className="font-mono text-[10px] text-zinc-500">MD5: {doc.file_hash}</span>
                     </div>
-                    <div className="text-slate-500 text-[11px] flex items-center justify-between pt-1">
-                      <span>Uploaded {new Date(doc.upload_date).toLocaleString()}</span>
+                    <div className="text-zinc-500 text-[11px] flex items-center justify-between pt-1">
+                      <span>Uploaded {new Date(doc.upload_date).toLocaleDateString()}</span>
                       <a
                         href={doc.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-400 hover:underline flex items-center gap-0.5"
+                        className="text-zinc-300 hover:text-zinc-100 underline flex items-center gap-1"
                       >
                         <Download className="w-3 h-3" />
-                        <span>Download PDF</span>
+                        <span>Download</span>
                       </a>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-slate-850/50 p-3 rounded-lg border border-slate-800/80 mb-3 text-xs text-slate-500 text-center">
+                  <div className="bg-zinc-950/60 p-3 rounded-md border border-zinc-800/60 mb-3 text-xs text-zinc-500 text-center">
                     No manual currently active in this slot.
                   </div>
                 )}
               </div>
 
               {/* Upload New Version Widget */}
-              <div className="bg-slate-850 p-3 rounded-lg border border-slate-800">
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  {doc ? 'Upload New Revision' : 'Upload Initial Manual'}
+              <div className="bg-zinc-950 p-3 rounded-md border border-zinc-800">
+                <div className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
+                  {doc ? 'Upload Revision' : 'Upload Initial Manual'}
                 </div>
                 <div className="space-y-2">
                   <input
@@ -345,7 +345,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                     value={uploadTitles[slot.slot_id] || ''}
                     onChange={(e) => handleTitleChange(slot.slot_id, e.target.value)}
                     placeholder={doc ? `New revision title (default: ${doc.title})` : 'Manual Title'}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
                   />
 
                   <div className="flex items-center gap-2">
@@ -358,7 +358,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                     />
                     <label
                       htmlFor={`file-${slot.slot_id}`}
-                      className="flex-1 bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-750 px-2.5 py-1.5 rounded-lg text-xs truncate cursor-pointer text-center"
+                      className="flex-1 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 border border-zinc-800 px-2.5 py-1.5 rounded-md text-xs truncate cursor-pointer text-center"
                     >
                       {uploadFiles[slot.slot_id]?.name || 'Select PDF File'}
                     </label>
@@ -366,7 +366,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                     <button
                       onClick={() => handleUpload(slot.slot_id)}
                       disabled={isSlotUploading}
-                      className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors shadow-sm cursor-pointer"
+                      className="flex items-center gap-1.5 bg-zinc-100 hover:bg-zinc-200 active:bg-zinc-300 disabled:opacity-50 text-zinc-900 text-xs font-medium px-3 py-1.5 rounded-md transition-colors shadow-sm cursor-pointer"
                     >
                       <Upload className={`w-3.5 h-3.5 ${isSlotUploading ? 'animate-bounce' : ''}`} />
                       <span>{isSlotUploading ? 'Saving...' : 'Deploy'}</span>
@@ -382,19 +382,19 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       {/* Revision History Modal */}
       {historySlotId !== null && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg max-w-3xl w-full max-h-[85vh] flex flex-col shadow-xl">
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                <h3 className="font-semibold text-zinc-100 text-base flex items-center gap-2">
                   <span>Slot {historySlotId} Revision History</span>
-                  <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">
+                  <span className="text-xs font-mono bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md">
                     {revisions.length} total
                   </span>
                 </h3>
               </div>
               <button
                 onClick={() => setHistorySlotId(null)}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400"
+                className="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -402,38 +402,38 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
 
             <div className="p-4 overflow-y-auto space-y-3">
               {isLoadingHistory ? (
-                <div className="text-center py-8 text-slate-500 text-xs">Loading revisions...</div>
+                <div className="text-center py-8 text-zinc-500 text-xs">Loading revisions...</div>
               ) : revisions.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-xs">No revisions found.</div>
+                <div className="text-center py-8 text-zinc-500 text-xs">No revisions found.</div>
               ) : (
                 revisions.map((rev) => (
                   <div
                     key={rev.id}
-                    className={`p-3.5 rounded-xl border text-xs flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                    className={`p-3.5 rounded-md border text-xs flex flex-col md:flex-row md:items-center justify-between gap-3 ${
                       rev.is_live
-                        ? 'bg-slate-850 border-emerald-800/80'
-                        : 'bg-slate-900 border-slate-800 opacity-80'
+                        ? 'bg-zinc-950 border-zinc-700'
+                        : 'bg-zinc-950/50 border-zinc-850 opacity-70'
                     }`}
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-100">Version {rev.version}</span>
+                        <span className="font-medium text-sm text-zinc-100">Version {rev.version}</span>
                         {rev.is_live ? (
-                          <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                          <span className="bg-zinc-800 text-zinc-100 border border-zinc-700 text-[10px] font-mono px-1.5 py-0.5 rounded-md">
                             CURRENT LIVE
                           </span>
                         ) : (
-                          <span className="bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-medium px-1.5 py-0.5 rounded">
+                          <span className="bg-zinc-900 text-zinc-400 border border-zinc-800 text-[10px] font-mono px-1.5 py-0.5 rounded-md">
                             OBSOLETE
                           </span>
                         )}
-                        <span className="font-semibold text-slate-300">{rev.title}</span>
+                        <span className="font-medium text-zinc-300">{rev.title}</span>
                       </div>
 
-                      <div className="text-slate-400 mt-1 space-y-0.5 text-[11px]">
+                      <div className="text-zinc-400 mt-1 space-y-0.5 text-[11px]">
                         <div>Original File: {rev.original_filename}</div>
-                        <div>MD5 Hash: <span className="font-mono text-slate-500">{rev.file_hash}</span></div>
-                        <div className="text-slate-500">
+                        <div>MD5 Hash: <span className="font-mono text-zinc-500">{rev.file_hash}</span></div>
+                        <div className="text-zinc-500">
                           Uploaded: {new Date(rev.upload_date).toLocaleString()}
                           {rev.obsolescence_date && (
                             <> • Obsoleted: {new Date(rev.obsolescence_date).toLocaleString()}</>
@@ -446,10 +446,10 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                       href={rev.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 border border-slate-700 text-xs font-medium transition-colors"
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-medium transition-colors"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>Download PDF</span>
+                      <span>Download</span>
                     </a>
                   </div>
                 ))
@@ -462,19 +462,19 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       {/* Feedback Audit Modal */}
       {auditSlotId !== null && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg max-w-3xl w-full max-h-[85vh] flex flex-col shadow-xl">
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
-                  <span>Slot {auditSlotId} Feedback Audit</span>
-                  <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">
+                <h3 className="font-semibold text-zinc-100 text-base flex items-center gap-2">
+                  <span>Slot {auditSlotId} Notes Audit</span>
+                  <span className="text-xs font-mono bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md">
                     {auditFeedback.length} comments
                   </span>
                 </h3>
               </div>
               <button
                 onClick={() => setAuditSlotId(null)}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400"
+                className="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -482,26 +482,26 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
 
             <div className="p-4 overflow-y-auto space-y-3">
               {isLoadingAudit ? (
-                <div className="text-center py-8 text-slate-500 text-xs">Loading feedback...</div>
+                <div className="text-center py-8 text-zinc-500 text-xs">Loading feedback...</div>
               ) : auditFeedback.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-xs">No feedback submitted for this slot yet.</div>
+                <div className="text-center py-8 text-zinc-500 text-xs">No feedback submitted for this slot yet.</div>
               ) : (
                 auditFeedback.map((fb) => (
                   <div
                     key={fb.id}
-                    className="p-3.5 rounded-xl border border-slate-800 bg-slate-850 text-xs space-y-2"
+                    className="p-3.5 rounded-md border border-zinc-800 bg-zinc-950 text-xs space-y-2"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-200">{fb.author}</span>
-                        <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[11px]">
+                        <span className="font-medium text-zinc-200">{fb.author}</span>
+                        <span className="bg-zinc-800 text-zinc-300 font-mono px-1.5 py-0.5 rounded text-[11px] border border-zinc-700">
                           {fb.station_id}
                         </span>
-                        <span className="bg-blue-950/70 text-blue-300 border border-blue-900 px-1.5 py-0.5 rounded text-[11px]">
+                        <span className="bg-zinc-800 text-zinc-300 font-mono px-1.5 py-0.5 rounded text-[11px] border border-zinc-700">
                           Page {fb.page_ref}
                         </span>
-                        <span className="text-slate-500 text-[11px]">
-                          {new Date(fb.timestamp).toLocaleString()}
+                        <span className="text-zinc-500 text-[11px] font-mono">
+                          {new Date(fb.timestamp).toLocaleDateString()}
                         </span>
                       </div>
 
@@ -509,30 +509,30 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleUpdateStatus(fb.id, 'open')}
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium uppercase transition-colors cursor-pointer border ${
                             fb.status === 'open'
-                              ? 'bg-amber-600 text-white'
-                              : 'bg-slate-800 text-slate-400 hover:bg-slate-750'
+                              ? 'bg-zinc-800 text-amber-400 border-zinc-700'
+                              : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300'
                           }`}
                         >
                           Open
                         </button>
                         <button
                           onClick={() => handleUpdateStatus(fb.id, 'reviewed')}
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium uppercase transition-colors cursor-pointer border ${
                             fb.status === 'reviewed'
-                              ? 'bg-sky-600 text-white'
-                              : 'bg-slate-800 text-slate-400 hover:bg-slate-750'
+                              ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                              : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300'
                           }`}
                         >
                           Reviewed
                         </button>
                         <button
                           onClick={() => handleUpdateStatus(fb.id, 'resolved')}
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium uppercase transition-colors cursor-pointer border ${
                             fb.status === 'resolved'
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-slate-800 text-slate-400 hover:bg-slate-750'
+                              ? 'bg-zinc-800 text-emerald-400 border-zinc-700'
+                              : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300'
                           }`}
                         >
                           Resolved
@@ -541,7 +541,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                     </div>
 
                     {fb.text_comment && (
-                      <p className="text-slate-300 whitespace-pre-line">{fb.text_comment}</p>
+                      <p className="text-zinc-300 whitespace-pre-line">{fb.text_comment}</p>
                     )}
 
                     {fb.photo_urls && fb.photo_urls.length > 0 && (
@@ -552,7 +552,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                             href={p}
                             target="_blank"
                             rel="noreferrer"
-                            className="w-12 h-12 rounded border border-slate-700 overflow-hidden"
+                            className="w-12 h-12 rounded-md border border-zinc-800 overflow-hidden"
                           >
                             <img src={p} alt="photo" className="w-full h-full object-cover" />
                           </a>
@@ -566,10 +566,10 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                           href={fb.video_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-emerald-400 hover:underline text-[11px]"
+                          className="inline-flex items-center gap-1 text-zinc-300 hover:text-zinc-100 underline text-[11px]"
                         >
                           <Download className="w-3 h-3" />
-                          <span>View Video Clip ({fb.video_filename})</span>
+                          <span>View Video ({fb.video_filename})</span>
                         </a>
                       </div>
                     )}

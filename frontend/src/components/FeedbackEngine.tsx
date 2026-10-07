@@ -210,28 +210,28 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 md:p-5 shadow-lg flex flex-col justify-between">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 md:p-5 shadow-sm flex flex-col justify-between">
       <div>
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-          <h3 className="font-bold text-slate-100 text-sm md:text-base flex items-center gap-2">
-            <span>Submit Feedback</span>
-            <span className="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+        <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-4">
+          <h3 className="font-semibold text-zinc-100 text-sm md:text-base flex items-center gap-2">
+            <span>Submit Station Note</span>
+            <span className="text-xs font-mono font-medium text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded-md border border-zinc-700">
               Slot {slotId}
             </span>
           </h3>
-          <div className="text-xs text-slate-400">
-            Air-gapped sync enabled
+          <div className="text-xs text-zinc-400">
+            Offline sync active
           </div>
         </div>
 
         {submitMessage && (
           <div
-            className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-xs md:text-sm font-medium border ${
+            className={`mb-4 p-3 rounded-md flex items-center gap-2 text-xs md:text-sm font-medium border ${
               submitMessage.type === 'success'
-                ? 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
+                ? 'bg-zinc-850 border-emerald-900/60 text-emerald-400'
                 : submitMessage.type === 'queued'
-                ? 'bg-amber-950/70 border-amber-800 text-amber-300'
-                : 'bg-rose-950/70 border-rose-800 text-rose-300'
+                ? 'bg-zinc-850 border-amber-900/60 text-amber-400'
+                : 'bg-zinc-850 border-rose-900/60 text-rose-400'
             }`}
           >
             <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -243,7 +243,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           {/* Metadata Row: Station, Author, Page Reference */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-medium text-zinc-400 mb-1">
                 Station
               </label>
               <input
@@ -251,12 +251,12 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 value={stationId}
                 onChange={(e) => setStationId(e.target.value)}
                 placeholder="Station 1"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-1.5 text-xs md:text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-medium text-zinc-400 mb-1">
                 Operator Name / ID *
               </label>
               <input
@@ -265,12 +265,12 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
                 placeholder="e.g. Alex"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-1.5 text-xs md:text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-medium text-zinc-400 mb-1">
                 Page Reference *
               </label>
               <input
@@ -279,22 +279,22 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 required
                 value={pageRef}
                 onChange={(e) => setPageRef(parseInt(e.target.value) || 1)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-1.5 text-xs md:text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
               />
             </div>
           </div>
 
           {/* Comment Textarea */}
           <div>
-            <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-              Feedback Notes / Issue Description
+            <label className="block text-[11px] font-medium text-zinc-400 mb-1">
+              Feedback Notes / Description
             </label>
             <textarea
               rows={3}
               value={textComment}
               onChange={(e) => setTextComment(e.target.value)}
-              placeholder="Describe assembly issue, missing step, torque spec, or part discrepancy..."
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-100 focus:outline-none focus:border-blue-500 resize-none"
+              placeholder="Describe assembly issue, missing step, torque spec, or discrepancy..."
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-md p-3 text-xs md:text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 resize-none"
             />
           </div>
 
@@ -314,10 +314,10 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
               />
               <label
                 htmlFor="photo-upload"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-medium cursor-pointer transition-colors active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-medium cursor-pointer transition-colors"
               >
-                <Camera className="w-4 h-4 text-sky-400" />
-                <span>Take / Add Photo</span>
+                <Camera className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Add Photo</span>
               </label>
 
               {/* Video Input (Camera capture) */}
@@ -332,16 +332,16 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
               />
               <label
                 htmlFor="video-upload"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-medium cursor-pointer transition-colors active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-medium cursor-pointer transition-colors"
               >
-                <Video className="w-4 h-4 text-emerald-400" />
+                <Video className="w-3.5 h-3.5 text-zinc-400" />
                 <span>Record Video</span>
               </label>
             </div>
 
             {/* Video Warning Banner (if > 100MB or > 120s) */}
             {videoWarning && (
-              <div className="mt-2.5 p-2.5 bg-amber-950/70 border border-amber-800/80 rounded-lg flex items-start gap-2 text-xs text-amber-300">
+              <div className="mt-2.5 p-2.5 bg-zinc-850 border border-amber-800/80 rounded-md flex items-start gap-2 text-xs text-amber-400">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
                 <span>{videoWarning}</span>
               </div>
@@ -353,7 +353,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 {selectedPhotos.map((photo, idx) => (
                   <div
                     key={idx}
-                    className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700 bg-slate-800 group"
+                    className="relative w-16 h-16 rounded-md overflow-hidden border border-zinc-700 bg-zinc-800 group"
                   >
                     <img
                       src={photo.preview}
@@ -363,7 +363,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                     <button
                       type="button"
                       onClick={() => removePhoto(idx)}
-                      className="absolute top-0.5 right-0.5 bg-black/70 hover:bg-rose-600 p-0.5 rounded-full text-white transition-colors"
+                      className="absolute top-1 right-1 bg-black/80 hover:bg-rose-600 p-0.5 rounded text-white transition-colors cursor-pointer"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -371,13 +371,13 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 ))}
 
                 {selectedVideo && (
-                  <div className="relative rounded-lg overflow-hidden border border-slate-700 bg-slate-800 p-2 flex items-center gap-2">
-                    <Video className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div className="relative rounded-md overflow-hidden border border-zinc-700 bg-zinc-800 p-2 flex items-center gap-2">
+                    <Video className="w-4 h-4 text-zinc-400 shrink-0" />
                     <div className="text-xs">
-                      <div className="font-semibold text-slate-200 truncate max-w-[140px]">
+                      <div className="font-medium text-zinc-200 truncate max-w-[140px]">
                         {selectedVideo.file.name}
                       </div>
-                      <div className="text-slate-400 text-[10px]">
+                      <div className="text-zinc-400 text-[10px]">
                         {(selectedVideo.file.size / (1024 * 1024)).toFixed(1)} MB
                         {selectedVideo.duration && ` • ${Math.round(selectedVideo.duration)}s`}
                       </div>
@@ -385,7 +385,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                     <button
                       type="button"
                       onClick={removeVideo}
-                      className="p-1 hover:bg-rose-600 rounded text-slate-400 hover:text-white transition-colors"
+                      className="p-1 hover:bg-rose-600 rounded text-zinc-400 hover:text-white transition-colors cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -398,10 +398,10 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full mt-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-all shadow-md cursor-pointer"
+            className="w-full mt-2 flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 active:bg-zinc-300 disabled:opacity-50 text-zinc-900 font-medium py-2 px-4 rounded-md text-xs md:text-sm transition-colors shadow-sm cursor-pointer"
           >
-            <Send className="w-4 h-4" />
-            <span>{isSubmitting ? 'Recording Feedback...' : 'Submit Feedback'}</span>
+            <Send className="w-3.5 h-3.5" />
+            <span>{isSubmitting ? 'Recording Note...' : 'Submit Note'}</span>
           </button>
         </form>
       </div>

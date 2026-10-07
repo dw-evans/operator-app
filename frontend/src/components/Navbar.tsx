@@ -29,52 +29,52 @@ export const Navbar: FC<NavbarProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-md">
+    <header className="sticky top-0 z-40 bg-zinc-900/90 backdrop-blur border-b border-zinc-800 px-4 py-3 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-3">
         {currentSlotId !== null ? (
           <button
             onClick={onBackToSlots}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 px-3.5 py-2 rounded-lg font-medium text-sm transition-colors cursor-pointer border border-slate-700"
+            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 px-3 py-1.5 rounded-md font-medium text-xs transition-colors cursor-pointer border border-zinc-700"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>All Manuals</span>
           </button>
         ) : (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-inner">
-              <Wrench className="w-4 h-4" />
+            <div className="w-7 h-7 rounded-md bg-zinc-100 text-zinc-900 flex items-center justify-center font-bold">
+              <Wrench className="w-3.5 h-3.5" />
             </div>
             <div>
-              <h1 className="font-bold text-base text-slate-100 tracking-tight leading-none">
+              <h1 className="font-semibold text-sm text-zinc-100 tracking-tight leading-none">
                 Assembly PWA
               </h1>
-              <p className="text-[11px] text-slate-400 leading-none mt-0.5">
-                Shop Floor Station System
+              <p className="text-[11px] text-zinc-400 leading-none mt-1">
+                Shop Floor System
               </p>
             </div>
           </div>
         )}
 
         {currentSlotId !== null && (
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-            <span className="bg-blue-900/50 text-blue-400 border border-blue-800 text-xs font-semibold px-2 py-0.5 rounded">
+          <div className="flex items-center gap-2 pl-3 border-l border-zinc-800">
+            <span className="bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs font-mono font-medium px-2 py-0.5 rounded-md">
               Slot {currentSlotId}
             </span>
-            <span className="font-semibold text-sm text-slate-200 truncate max-w-xs md:max-w-md">
+            <span className="font-medium text-xs text-zinc-200 truncate max-w-xs md:max-w-md">
               {currentSlotTitle || `Manual ${currentSlotId}`}
             </span>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         {/* Sync Status Badge */}
         {syncState.pendingCount > 0 ? (
           <button
             onClick={() => syncManager.triggerSync()}
             disabled={syncState.isSyncing || !syncState.isOnline}
             title={syncState.isOnline ? 'Click to sync now' : 'Offline: will sync automatically when connected'}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-950/80 text-amber-300 border border-amber-800 animate-pulse hover:bg-amber-900 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-800 text-amber-400 border border-zinc-700 hover:bg-zinc-750 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncState.isSyncing ? 'animate-spin' : ''}`} />
             <span>
@@ -84,28 +84,28 @@ export const Navbar: FC<NavbarProps> = ({
             </span>
           </button>
         ) : (
-          <div className="hidden sm:flex items-center gap-1 text-[11px] text-slate-400 font-medium px-2 py-0.5 rounded bg-slate-800/60 border border-slate-800">
+          <div className="hidden sm:flex items-center gap-1 text-[11px] text-zinc-400 font-medium px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800">
             <span>All Synced</span>
           </div>
         )}
 
         {/* Network Indicator */}
         <div
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${
             syncState.isOnline
-              ? 'bg-emerald-950/70 text-emerald-300 border-emerald-800/80'
-              : 'bg-rose-950/70 text-rose-300 border-rose-800/80'
+              ? 'bg-zinc-900 text-emerald-400 border-zinc-800'
+              : 'bg-zinc-900 text-rose-400 border-zinc-800'
           }`}
         >
           {syncState.isOnline ? (
             <>
-              <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+              <Wifi className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Online</span>
             </>
           ) : (
             <>
-              <WifiOff className="w-3.5 h-3.5 text-rose-400" />
-              <span>Offline Mode</span>
+              <WifiOff className="w-3.5 h-3.5" />
+              <span>Offline</span>
             </>
           )}
         </div>
@@ -113,10 +113,10 @@ export const Navbar: FC<NavbarProps> = ({
         {/* Admin Portal Toggle */}
         <button
           onClick={onToggleAdmin}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
             isAdmin
-              ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              ? 'bg-zinc-100 text-zinc-900 border-zinc-200 shadow-sm'
+              : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
           }`}
         >
           <Shield className="w-3.5 h-3.5" />
