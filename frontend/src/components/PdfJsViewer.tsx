@@ -24,8 +24,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export interface PdfJsViewerProps {
   url: string;
-  title: string;
-  slotId: number;
+  title?: string;
+  slotId?: number;
   initialPage?: number;
   onPageChange?: (pageNumber: number) => void;
   onOpenNotes: () => void;
@@ -34,8 +34,6 @@ export interface PdfJsViewerProps {
 
 export const PdfJsViewer: FC<PdfJsViewerProps> = ({
   url,
-  title,
-  slotId,
   initialPage = 1,
   onPageChange,
   onOpenNotes,
@@ -319,24 +317,14 @@ export const PdfJsViewer: FC<PdfJsViewerProps> = ({
     <div
       ref={containerRef}
       className={cn(
-        'flex flex-col w-full bg-background text-foreground relative select-none',
-        isFullscreen ? 'fixed inset-0 z-50 h-screen w-screen' : 'h-[calc(100vh-3.5rem)]'
+        'flex flex-col w-full h-full min-h-0 bg-background text-foreground relative select-none',
+        isFullscreen && 'fixed inset-0 z-50 h-screen w-screen'
       )}
     >
       {/* Top Floating Control Toolbar (Solid background, no blur) */}
-      <div className="z-30 px-2 sm:px-3 py-2 bg-card border-b border-border flex items-center justify-between gap-1.5 sm:gap-2 shadow-sm shrink-0">
-        {/* Left: Document Info */}
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-          <Badge variant="outline" className="font-mono text-xs shrink-0">
-            Slot {slotId}
-          </Badge>
-          <span className="text-xs font-semibold text-card-foreground truncate max-w-[120px] sm:max-w-xs md:max-w-md">
-            {title}
-          </span>
-        </div>
-
-        {/* Center: Page Navigation */}
-        <div className="flex items-center gap-1">
+      <div className="z-30 px-2 sm:px-3 py-1.5 bg-card border-b border-border flex items-center justify-between gap-1.5 sm:gap-2 shadow-sm shrink-0">
+        {/* Left: Page Navigation */}
+        <div className="flex items-center gap-1 shrink-0">
           <Button
             variant="outline"
             size="icon-xs"
@@ -517,22 +505,6 @@ export const PdfJsViewer: FC<PdfJsViewerProps> = ({
             />
           </div>
         </div>
-      </div>
-
-      {/* Floating Action Button (FAB) for Notes */}
-      <div className="absolute bottom-4 right-4 z-30">
-        <Button
-          onClick={onOpenNotes}
-          className="h-11 px-4 rounded-full shadow-xl flex items-center gap-2 font-medium text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-transform active:scale-95 cursor-pointer"
-        >
-          <MessageSquare className="h-4 w-4" />
-          <span>Notes & Feedback</span>
-          {notesCount > 0 && (
-            <Badge variant="secondary" className="rounded-full px-1.5 text-[11px] font-bold">
-              {notesCount}
-            </Badge>
-          )}
-        </Button>
       </div>
     </div>
   );

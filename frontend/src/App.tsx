@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar';
 import { SlotSelector } from './components/SlotSelector';
 import { SlotViewerVariant } from './components/SlotViewerVariant';
 import { AdminPortal } from './components/AdminPortal';
+import { Badge } from '@/components/ui/badge';
 import { fetchSlots } from './services/api';
 import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
 import type { SlotSummary } from './types';
@@ -99,10 +100,9 @@ export function App() {
   const currentDoc = currentSlot?.live_document;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
+    <div className="fixed inset-0 h-screen h-[100dvh] w-screen overflow-hidden bg-background text-foreground flex flex-col font-sans select-none">
       <Navbar
         currentSlotId={selectedSlotId}
-        currentSlotTitle={currentDoc?.title || null}
         onBackToSlots={() => navigateTo('/')}
         isAdmin={isAdmin}
         onToggleAdmin={() => {
@@ -114,20 +114,43 @@ export function App() {
         }}
       />
 
-      <main className="flex-1 flex flex-col">
+      {/* Single-line Document Info Strip directly underneath Navbar */}
+      {selectedSlotId !== null && (
+        <div className="shrink-0 bg-muted/40 border-b border-border px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs min-h-[2.125rem]">
+          <div className="flex items-center gap-2 min-w-0">
+            <Badge variant="outline" className="font-mono text-[11px] shrink-0 font-bold">
+              Slot {selectedSlotId}
+            </Badge>
+            <span className="font-medium text-foreground truncate">
+              {currentDoc?.title || currentDoc?.filename || `Manual Slot ${selectedSlotId}`}
+            </span>
+            {currentDoc && (
+              <span className="text-muted-foreground text-[11px] shrink-0 font-mono">
+                v{currentDoc.version}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {isAdmin ? (
-          <AdminPortal
-            onClose={() => navigateTo('/')}
-            onSlotsUpdated={loadSlots}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <AdminPortal
+              onClose={() => navigateTo('/')}
+              onSlotsUpdated={loadSlots}
+            />
+          </div>
         ) : selectedSlotId === null ? (
-          <SlotSelector
-            slots={slots}
-            onSelectSlot={(slotId) => {
-              navigateTo(`/slot/${slotId}`);
-            }}
-            isLoading={isLoadingSlots}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <SlotSelector
+              slots={slots}
+              onSelectSlot={(slotId) => {
+                navigateTo(`/slot/${slotId}`);
+              }}
+              isLoading={isLoadingSlots}
+            />
+          </div>
         ) : (
           /* Active Variant: Mozilla PDF.js Fullscreen Viewer with Popover Notes Drawer */
           <SlotViewerVariant

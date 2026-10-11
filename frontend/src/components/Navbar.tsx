@@ -4,11 +4,9 @@ import { Wifi, WifiOff, RefreshCw, ArrowLeft, Shield, Wrench, Download } from 'l
 import { syncManager } from '../services/sync';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 
 interface NavbarProps {
   currentSlotId: number | null;
-  currentSlotTitle: string | null;
   onBackToSlots: () => void;
   isAdmin: boolean;
   onToggleAdmin: () => void;
@@ -16,7 +14,6 @@ interface NavbarProps {
 
 export const Navbar: FC<NavbarProps> = ({
   currentSlotId,
-  currentSlotTitle,
   onBackToSlots,
   isAdmin,
   onToggleAdmin,
@@ -32,7 +29,7 @@ export const Navbar: FC<NavbarProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 border-b px-4 py-2.5 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-background/95 border-b px-3 sm:px-4 py-2 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-3">
         {currentSlotId !== null ? (
           <Button
@@ -57,16 +54,6 @@ export const Navbar: FC<NavbarProps> = ({
                 Shop Floor System
               </p>
             </div>
-          </div>
-        )}
-
-        {currentSlotId !== null && (
-          <div className="flex items-center gap-2 pl-2">
-            <Separator orientation="vertical" className="h-4" />
-            <Badge variant="outline">Slot {currentSlotId}</Badge>
-            <span className="font-medium text-xs truncate max-w-xs md:max-w-md">
-              {currentSlotTitle || `Manual ${currentSlotId}`}
-            </span>
           </div>
         )}
       </div>

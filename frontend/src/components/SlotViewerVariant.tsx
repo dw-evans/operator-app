@@ -44,7 +44,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col relative w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
+    <div className="flex-1 min-h-0 flex flex-col relative w-full h-full overflow-hidden bg-background">
       {/* Fullscreen PDF.js Viewer */}
       <PdfJsViewer
         url={document.url}

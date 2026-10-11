@@ -110,10 +110,21 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+  }
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
   }
 }

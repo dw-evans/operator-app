@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en" class="dark h-full w-full overflow-hidden">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/pwa-192x192.png" />
@@ -12,8 +12,8 @@
     <link rel="manifest" href="/manifest.json" />
     <title>Assembly Station Instructions & Feedback</title>
   </head>
-  <body class="bg-background text-foreground antialiased min-h-screen">
-    <div id="root"></div>
+  <body class="bg-background text-foreground antialiased h-full w-full overflow-hidden m-0 p-0">
+    <div id="root" class="h-full w-full overflow-hidden"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
