@@ -6,11 +6,10 @@ import { FeedbackStream } from './FeedbackStream';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DocumentRevision, FeedbackItem, PdfPin } from '../types';
 import { fetchSlotFeedback } from '../services/api';
-import { pdfCacheManager } from '../services/pdfCache';
 
 interface SlotViewerVariantProps {
   slotId: number;
@@ -33,17 +32,6 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const [draftPin, setDraftPin] = useState<{ pageNumber: number; x: number; y: number } | null>(null);
   const [showPins, setShowPins] = useState(true);
   const [highlightedFeedbackId, setHighlightedFeedbackId] = useState<string | null>(null);
-  const [isDocCached, setIsDocCached] = useState(false);
-
-  useEffect(() => {
-    return pdfCacheManager.subscribe(() => {
-      if (document?.url) {
-        setIsDocCached(pdfCacheManager.isDocumentCached(document.url));
-      } else {
-        setIsDocCached(false);
-      }
-    });
-  }, [document?.url]);
 
   const loadFeedback = useCallback(async () => {
     try {
@@ -123,16 +111,6 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           <Badge variant="outline" className="font-mono text-[11px] px-2 py-0.5 h-5 bg-background">
             Page {activePage}
           </Badge>
-          {isDocCached && (
-            <Badge
-              variant="outline"
-              className="font-mono text-[10px] px-1.5 py-0 h-5 gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-medium"
-              title="This manual PDF is stored locally for offline viewing"
-            >
-              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-              <span>PDF Stored</span>
-            </Badge>
-          )}
           {pins.length > 0 && (
             <div className="flex items-center gap-1 shrink-0">
               <Badge

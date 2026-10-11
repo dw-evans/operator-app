@@ -2,20 +2,40 @@ import { getQueuedCount, getQueuedFeedback, removeQueuedFeedback } from './db';
 import { submitFeedbackDirect } from './api';
 import type { QueuedFeedback } from '../types';
 
-export type SyncListener = (state: {
+export interface SyncState {
   isOnline: boolean;
   isSyncing: boolean;
   pendingCount: number;
-}) => void;
+  lastSyncedAt: Date | null;
+}
+
+export type SyncListener = (state: SyncState) => void;
 
 class SyncManager {
   private isOnline: boolean = typeof navigator !== 'undefined' ? navigator.onLine : true;
   private isSyncing: boolean = false;
   private pendingCount: number = 0;
+  private lastSyncedAt: Date | null = null;
   private listeners: Set<SyncListener> = new Set();
 
   constructor() {
     if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('assembly_last_synced_at');
+        if (stored) {
+          const parsed = new Date(stored);
+          if (!isNaN(parsed.getTime())) {
+            this.lastSyncedAt = parsed;
+          }
+        }
+      } catch {
+        // ignore local storage parse error
+      }
+
+      if (!this.lastSyncedAt && this.isOnline) {
+        this.lastSyncedAt = new Date();
+      }
+
       window.addEventListener('online', () => this.handleNetworkChange(true));
       window.addEventListener('offline', () => this.handleNetworkChange(false));
       // Heartbeat check every 15 seconds
@@ -24,24 +44,42 @@ class SyncManager {
     }
   }
 
-  public subscribe(listener: SyncListener): () => void {
-    this.listeners.add(listener);
-    listener({
+  public getState(): SyncState {
+    return {
       isOnline: this.isOnline,
       isSyncing: this.isSyncing,
       pendingCount: this.pendingCount,
-    });
+      lastSyncedAt: this.lastSyncedAt,
+    };
+  }
+
+  public subscribe(listener: SyncListener): () => void {
+    this.listeners.add(listener);
+    listener(this.getState());
     return () => this.listeners.delete(listener);
   }
 
   private notify(): void {
+    const state = this.getState();
     for (const listener of this.listeners) {
-      listener({
-        isOnline: this.isOnline,
-        isSyncing: this.isSyncing,
-        pendingCount: this.pendingCount,
-      });
+      try {
+        listener(state);
+      } catch (err) {
+        console.error('Error in sync listener:', err);
+      }
     }
+  }
+
+  public recordSuccessfulSync(): void {
+    this.lastSyncedAt = new Date();
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('assembly_last_synced_at', this.lastSyncedAt.toISOString());
+      }
+    } catch {
+      // ignore storage error
+    }
+    this.notify();
   }
 
   public async refreshCount(): Promise<number> {
@@ -73,6 +111,9 @@ class SyncManager {
           this.triggerSync();
         }
       }
+      if (online && !this.lastSyncedAt) {
+        this.recordSuccessfulSync();
+      }
       return online;
     } catch {
       if (this.isOnline) {
@@ -88,6 +129,8 @@ class SyncManager {
 
     this.isSyncing = true;
     this.notify();
+
+    let allSucceeded = true;
 
     try {
       const items: QueuedFeedback[] = await getQueuedFeedback();
@@ -129,10 +172,14 @@ class SyncManager {
           this.notify();
         } catch (itemErr) {
           console.warn('Sync failed for item', item.id, itemErr);
-          // If network failed mid-sync, halt remaining queue
           this.isOnline = false;
+          allSucceeded = false;
           break;
         }
+      }
+
+      if (allSucceeded && this.isOnline) {
+        this.recordSuccessfulSync();
       }
     } finally {
       this.isSyncing = false;

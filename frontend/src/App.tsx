@@ -5,11 +5,11 @@ import { SlotViewerVariant } from './components/SlotViewerVariant';
 import { AdminPortal } from './components/AdminPortal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Bug, Trash2 } from 'lucide-react';
+import { RefreshCw, Bug, Trash2, CheckCircle2 } from 'lucide-react';
 import { fetchSlots } from './services/api';
 import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
 import { pdfCacheManager } from './services/pdfCache';
-import { cn } from '@/lib/utils';
+import { syncManager } from './services/sync';
 import type { SlotSummary } from './types';
 
 export function App() {
@@ -53,6 +53,7 @@ export function App() {
       setSlots(data);
       await saveCachedManifest(data);
       pdfCacheManager.cacheAllDocuments(data);
+      syncManager.recordSuccessfulSync();
     } catch (err) {
       console.warn('Network fetch failed, attempting to read cached manifest from IndexedDB:', err);
       try {
@@ -250,29 +251,25 @@ export function App() {
           </div>
 
           {currentDoc && (
-            <div
-              className={cn(
-                "flex items-center gap-1.5 text-xs font-mono font-medium shrink-0 ml-2 transition-colors",
-                isCurrentDocCached ? "text-emerald-400" : "text-muted-foreground"
-              )}
-              title={
-                isCurrentDocCached
-                  ? "This PDF manual is stored locally for offline viewing"
-                  : "Storing PDF manual offline..."
-              }
-            >
-              <span
-                className={cn(
-                  "w-2 h-2 rounded-full",
-                  isCurrentDocCached
-                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]"
-                    : "bg-muted-foreground/40 animate-pulse"
-                )}
-              />
-              <span className="hidden xs:inline text-[11px]">
-                {isCurrentDocCached ? "Stored Offline" : "Storing..."}
-              </span>
-            </div>
+            isCurrentDocCached ? (
+              <Badge
+                variant="outline"
+                className="font-mono text-[10px] px-1.5 py-0 h-5 gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-medium shrink-0 ml-2"
+                title="This manual PDF is stored locally for offline viewing"
+              >
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span>PDF Stored</span>
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="font-mono text-[10px] px-1.5 py-0 h-5 gap-1 border-muted-foreground/30 text-muted-foreground/80 shrink-0 ml-2 animate-pulse"
+                title="Storing PDF manual offline..."
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+                <span>Storing PDF...</span>
+              </Badge>
+            )
           )}
         </div>
       )}

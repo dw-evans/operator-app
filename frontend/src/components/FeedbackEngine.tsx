@@ -184,6 +184,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         }
 
         await submitFeedbackDirect(formData);
+        syncManager.recordSuccessfulSync();
         setSubmitMessage({
           text: 'Feedback submitted successfully!',
           type: 'success',
