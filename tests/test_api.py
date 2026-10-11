@@ -444,6 +444,20 @@ def test_version_specific_feedback():
     all_notes = client.get("/api/v1/feedback/4").json()
     assert len(all_notes) == 2
 
+    # Slot summary note count must reflect current live document (v2 has 1 note)
+    slots = client.get("/api/v1/slots").json()
+    slot4 = next(s for s in slots if s["slot_id"] == 4)
+    assert slot4["total_feedback"] == 1
+    assert slot4["live_document"]["version"] == 2
+
+    # Reinstate v1 -> Slot summary note count must reflect reinstated live document (v1 has 1 note)
+    reinstate_resp = client.post(f"/api/v1/admin/reinstate/{doc1_id}")
+    assert reinstate_resp.status_code == 200
+    slots_after = client.get("/api/v1/slots").json()
+    slot4_after = next(s for s in slots_after if s["slot_id"] == 4)
+    assert slot4_after["total_feedback"] == 1
+    assert slot4_after["live_document"]["version"] == 1
+
 
 
 

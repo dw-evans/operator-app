@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { FC, FormEvent } from "react";
 import {
   Upload,
@@ -84,8 +84,17 @@ export const AdminPortal: FC<AdminPortalProps> = ({
 
   // Feedback audit state
   const [auditSlotId, setAuditSlotId] = useState<number | null>(null);
+  const [auditDocId, setAuditDocId] = useState<number | null>(null);
   const [auditFeedback, setAuditFeedback] = useState<FeedbackItem[]>([]);
+  const [auditFilter, setAuditFilter] = useState<'live' | 'all'>('live');
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
+
+  const displayedAuditFeedback = useMemo(() => {
+    if (auditFilter === 'live' && auditDocId) {
+      return auditFeedback.filter((fb) => fb.document_id === auditDocId);
+    }
+    return auditFeedback;
+  }, [auditFeedback, auditFilter, auditDocId]);
 
   useEffect(() => {
     checkPin();
@@ -185,8 +194,10 @@ export const AdminPortal: FC<AdminPortalProps> = ({
     }
   };
 
-  const openAudit = async (slotId: number) => {
+  const openAudit = async (slotId: number, documentId?: number) => {
     setAuditSlotId(slotId);
+    setAuditDocId(documentId ?? null);
+    setAuditFilter(documentId ? 'live' : 'all');
     setIsLoadingAudit(true);
     try {
       const items = await fetchSlotFeedback(slotId);
@@ -424,7 +435,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({
                     variant="ghost"
                     size="sm"
                     className="flex-1 text-xs px-2"
-                    onClick={() => openAudit(slot.slot_id)}
+                    onClick={() => openAudit(slot.slot_id, slot.live_document?.id)}
                   >
                     <MessageSquare className="h-3.5 w-3.5 mr-1" />
                     Notes ({slot.total_feedback})
@@ -656,10 +667,42 @@ export const AdminPortal: FC<AdminPortalProps> = ({
       >
         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Slot {auditSlotId} Feedback Notes</DialogTitle>
-            <DialogDescription>
-              Operator notes and issues reported for Slot {auditSlotId}.
-            </DialogDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pr-6">
+              <div>
+                <DialogTitle>Slot {auditSlotId} Feedback Notes</DialogTitle>
+                <DialogDescription>
+                  {auditFilter === 'live' && auditDocId
+                    ? `Operator notes and issues reported for live document revision.`
+                    : `All operator notes recorded across all revisions of Slot ${auditSlotId}.`}
+                </DialogDescription>
+              </div>
+              {auditDocId && (
+                <div className="flex bg-muted p-0.5 rounded-lg text-xs border border-border self-start sm:self-auto shrink-0">
+                  <button
+                    onClick={() => setAuditFilter('live')}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md transition-colors cursor-pointer",
+                      auditFilter === 'live'
+                        ? "bg-background text-foreground shadow-sm font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Live Doc ({auditFeedback.filter((fb) => fb.document_id === auditDocId).length})
+                  </button>
+                  <button
+                    onClick={() => setAuditFilter('all')}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md transition-colors cursor-pointer",
+                      auditFilter === 'all'
+                        ? "bg-background text-foreground shadow-sm font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    All Revisions ({auditFeedback.length})
+                  </button>
+                </div>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="overflow-y-auto flex-1 mt-2">
@@ -667,9 +710,11 @@ export const AdminPortal: FC<AdminPortalProps> = ({
               <p className="text-sm text-muted-foreground text-center py-6">
                 Loading notes...
               </p>
-            ) : auditFeedback.length === 0 ? (
+            ) : displayedAuditFeedback.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
-                No notes submitted for this slot yet.
+                {auditFilter === 'live' && auditDocId && auditFeedback.length > 0
+                  ? "No notes reported for this live revision yet."
+                  : "No notes submitted for this slot yet."}
               </p>
             ) : (
               <Table>
@@ -682,7 +727,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {auditFeedback.map((fb) => (
+                  {displayedAuditFeedback.map((fb) => (
                     <TableRow key={fb.id}>
                       <TableCell>
                         <div className="font-medium text-xs">

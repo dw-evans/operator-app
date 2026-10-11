@@ -273,7 +273,7 @@ export async function getQueuedFeedbackForSlot(
     const all = await getQueuedFeedback();
     return all.filter((item) => {
       if (item.slot_id !== slotId) return false;
-      if (documentId !== undefined && item.document_id !== undefined) {
+      if (documentId !== undefined) {
         return item.document_id === documentId;
       }
       return true;

@@ -117,16 +117,27 @@ def get_slots_summary(db: Session = Depends(get_db)):
         total_revs = (
             db.query(models.Document).filter(models.Document.slot_id == slot_id).count()
         )
-        total_fb = (
-            db.query(models.Feedback).filter(models.Feedback.slot_id == slot_id).count()
-        )
-        open_fb = (
-            db.query(models.Feedback)
-            .filter(
-                models.Feedback.slot_id == slot_id, models.Feedback.status == "open"
+        if live_doc:
+            total_fb = (
+                db.query(models.Feedback)
+                .filter(
+                    models.Feedback.slot_id == slot_id,
+                    models.Feedback.document_id == live_doc.id,
+                )
+                .count()
             )
-            .count()
-        )
+            open_fb = (
+                db.query(models.Feedback)
+                .filter(
+                    models.Feedback.slot_id == slot_id,
+                    models.Feedback.document_id == live_doc.id,
+                    models.Feedback.status == "open",
+                )
+                .count()
+            )
+        else:
+            total_fb = 0
+            open_fb = 0
 
         doc_summary = None
         if live_doc:

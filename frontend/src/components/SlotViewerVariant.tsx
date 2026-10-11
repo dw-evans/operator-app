@@ -28,6 +28,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const [activeTab, setActiveTab] = useState<'submit' | 'stream'>('submit');
   const [activePage, setActivePage] = useState<number>(1);
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
+  const [hasLoadedFeedback, setHasLoadedFeedback] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   const [draftPin, setDraftPin] = useState<{ pageNumber: number; x: number; y: number } | null>(null);
   const [showPins, setShowPins] = useState(true);
@@ -37,21 +38,33 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     try {
       const items = await fetchSlotFeedback(slotId, document?.id);
       setFeedbackList(items);
+      setHasLoadedFeedback(true);
     } catch (err) {
       console.warn('Could not fetch feedback for slot pins:', err);
     }
   }, [slotId, document?.id]);
 
   useEffect(() => {
+    setHasLoadedFeedback(false);
     loadFeedback();
   }, [loadFeedback]);
 
+  // Notes specifically relevant to this document revision
+  const relevantFeedback = useMemo(() => {
+    if (!document?.id) return feedbackList;
+    return feedbackList.filter((fb) => !fb.document_id || fb.document_id === document.id);
+  }, [feedbackList, document?.id]);
+
+  // Display note count reflects current document once loaded, or slot summary initial count
+  const noteCount = useMemo(() => {
+    if (hasLoadedFeedback) {
+      return relevantFeedback.length;
+    }
+    return totalFeedbackCount;
+  }, [hasLoadedFeedback, relevantFeedback.length, totalFeedbackCount]);
+
   // Map feedback items and draft pin to pins for PdfiumViewer
   const pins: PdfPin[] = useMemo(() => {
-    const relevantFeedback = document?.id
-      ? feedbackList.filter((fb) => !fb.document_id || fb.document_id === document.id)
-      : feedbackList;
-
     const list: PdfPin[] = relevantFeedback.map((fb) => ({
       id: fb.id,
       pageNumber: fb.page_ref,
@@ -80,7 +93,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     }
 
     return list;
-  }, [feedbackList, draftPin]);
+  }, [relevantFeedback, draftPin]);
 
   // Filter pins based on showPins toggle, keeping draft pins visible
   const visiblePins = useMemo(() => {
@@ -172,9 +185,9 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span>Notes</span>
-            {totalFeedbackCount > 0 && (
+            {noteCount > 0 && (
               <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">
-                {totalFeedbackCount}
+                {noteCount}
               </Badge>
             )}
           </Button>
@@ -282,9 +295,9 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Notes</span>
-                  {totalFeedbackCount > 0 && (
+                  {noteCount > 0 && (
                     <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">
-                      {totalFeedbackCount}
+                      {noteCount}
                     </Badge>
                   )}
                 </button>
