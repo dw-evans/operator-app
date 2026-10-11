@@ -42,6 +42,8 @@ class FeedbackItem(BaseModel):
     document_id: Optional[int] = None
     page_ref: int
     section_ref: Optional[str] = None
+    pin_x: Optional[float] = 0.0
+    pin_y: Optional[float] = 0.0
     author: str
     text_comment: Optional[str] = None
     video_filename: Optional[str] = None

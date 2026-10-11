@@ -47,7 +47,11 @@ with engine.connect() as _conn:
     _cols = [r[1] for r in _conn.execute(text("PRAGMA table_info(feedback)")).fetchall()]
     if _cols and "section_ref" not in _cols:
         _conn.execute(text("ALTER TABLE feedback ADD COLUMN section_ref VARCHAR"))
-        _conn.commit()
+    if _cols and "pin_x" not in _cols:
+        _conn.execute(text("ALTER TABLE feedback ADD COLUMN pin_x FLOAT DEFAULT 0.0"))
+    if _cols and "pin_y" not in _cols:
+        _conn.execute(text("ALTER TABLE feedback ADD COLUMN pin_y FLOAT DEFAULT 0.0"))
+    _conn.commit()
 
 app = FastAPI(
     title="Assembly Instruction & Feedback System",
@@ -160,6 +164,8 @@ async def create_feedback(
     slot_id: int = Form(...),
     page_ref: int = Form(...),
     section_ref: Optional[str] = Form(None),
+    pin_x: Optional[float] = Form(0.0),
+    pin_y: Optional[float] = Form(0.0),
     author: str = Form(...),
     text_comment: Optional[str] = Form(None),
     video: Optional[UploadFile] = File(None),
@@ -218,6 +224,8 @@ async def create_feedback(
         document_id=doc_id,
         page_ref=page_ref,
         section_ref=section_ref,
+        pin_x=pin_x if pin_x is not None else 0.0,
+        pin_y=pin_y if pin_y is not None else 0.0,
         author=author,
         text_comment=text_comment,
         video_filename=video_filename,
@@ -252,6 +260,8 @@ def get_slot_feedback(slot_id: int, db: Session = Depends(get_db)):
                 document_id=item.document_id,
                 page_ref=item.page_ref,
                 section_ref=item.section_ref,
+                pin_x=item.pin_x if item.pin_x is not None else 0.0,
+                pin_y=item.pin_y if item.pin_y is not None else 0.0,
                 author=item.author,
                 text_comment=item.text_comment,
                 video_filename=item.video_filename,

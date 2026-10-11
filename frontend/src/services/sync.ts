@@ -101,6 +101,12 @@ class SyncManager {
           if (item.section_ref) {
             formData.append('section_ref', item.section_ref);
           }
+          if (item.pin_x !== undefined && item.pin_x !== null) {
+            formData.append('pin_x', item.pin_x.toString());
+          }
+          if (item.pin_y !== undefined && item.pin_y !== null) {
+            formData.append('pin_y', item.pin_y.toString());
+          }
           formData.append('author', item.author);
           if (item.text_comment) {
             formData.append('text_comment', item.text_comment);

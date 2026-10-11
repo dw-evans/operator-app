@@ -244,6 +244,36 @@ def test_feedback_section_ref_and_default_station():
     assert fb_list[0]["page_ref"] == 5
     assert fb_list[0]["section_ref"] == "1.4"
     assert fb_list[0]["author"] == "Bob"
+    # When omitted, pins default to 0.0
+    assert fb_list[0]["pin_x"] == 0.0
+    assert fb_list[0]["pin_y"] == 0.0
+
+
+def test_feedback_pin_coordinates():
+    fb_id = "pin-uuid-202"
+    resp = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": fb_id,
+            "slot_id": 4,
+            "page_ref": 2,
+            "section_ref": "2.1",
+            "pin_x": 42.5,
+            "pin_y": 68.0,
+            "author": "Charlie",
+            "text_comment": "Inspect clamp bolt here",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "success"
+
+    fb_list = client.get("/api/v1/feedback/4").json()
+    assert len(fb_list) == 1
+    item = fb_list[0]
+    assert item["id"] == fb_id
+    assert item["page_ref"] == 2
+    assert item["pin_x"] == 42.5
+    assert item["pin_y"] == 68.0
 
 
 def test_invalid_slot_validation():

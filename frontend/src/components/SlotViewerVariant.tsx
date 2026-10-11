@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { FC } from 'react';
 import { PdfiumViewer } from './PdfiumViewer';
 import { FeedbackEngine } from './FeedbackEngine';
@@ -6,9 +6,10 @@ import { FeedbackStream } from './FeedbackStream';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { X, MessageSquare, PlusCircle, AlertCircle, FileText } from 'lucide-react';
+import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { DocumentRevision } from '../types';
+import type { DocumentRevision, FeedbackItem, PdfPin } from '../types';
+import { fetchSlotFeedback } from '../services/api';
 
 interface SlotViewerVariantProps {
   slotId: number;
@@ -26,6 +27,48 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'submit' | 'stream'>('submit');
   const [activePage, setActivePage] = useState<number>(1);
+  const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
+  const [isPlacingPin, setIsPlacingPin] = useState(false);
+  const [draftPin, setDraftPin] = useState<{ pageNumber: number; x: number; y: number } | null>(null);
+
+  const loadFeedback = useCallback(async () => {
+    try {
+      const items = await fetchSlotFeedback(slotId);
+      setFeedbackList(items);
+    } catch (err) {
+      console.warn('Could not fetch feedback for slot pins:', err);
+    }
+  }, [slotId]);
+
+  useEffect(() => {
+    loadFeedback();
+  }, [loadFeedback]);
+
+  // Map feedback items and draft pin to pins for PdfiumViewer
+  const pins: PdfPin[] = useMemo(() => {
+    const list: PdfPin[] = feedbackList.map((fb) => ({
+      id: fb.id,
+      pageNumber: fb.page_ref,
+      x: fb.pin_x ?? 0,
+      y: fb.pin_y ?? 0,
+      author: fb.author,
+      comment: fb.text_comment || undefined,
+      sectionRef: fb.section_ref || undefined,
+      isDraft: false,
+    }));
+
+    if (draftPin) {
+      list.push({
+        id: 'draft-pin',
+        pageNumber: draftPin.pageNumber,
+        x: draftPin.x,
+        y: draftPin.y,
+        isDraft: true,
+      });
+    }
+
+    return list;
+  }, [feedbackList, draftPin]);
 
   if (!document) {
     return (
@@ -55,6 +98,12 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           <Badge variant="outline" className="font-mono text-[11px] px-2 py-0.5 h-5 bg-background">
             Page {activePage}
           </Badge>
+          {pins.length > 0 && (
+            <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0 h-5 gap-1">
+              <MapPin className="w-3 h-3 text-primary" />
+              <span>{pins.filter((p) => !p.isDraft).length} pins</span>
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -95,7 +144,25 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 
       {/* PDF Component Container */}
       <div className="flex-1 min-h-0 w-full h-full relative overflow-hidden bg-background">
-        <PdfiumViewer url={document.url} onPageChange={setActivePage} />
+        <PdfiumViewer
+          url={document.url}
+          onPageChange={setActivePage}
+          pins={pins}
+          isPlacingPin={isPlacingPin}
+          onPinPlaced={(coords) => {
+            setDraftPin(coords);
+            setIsPlacingPin(false);
+            setIsNotesOpen(true);
+          }}
+          onCancelPlacement={() => {
+            setIsPlacingPin(false);
+            setIsNotesOpen(true);
+          }}
+          onPinClick={() => {
+            setActiveTab('stream');
+            setIsNotesOpen(true);
+          }}
+        />
       </div>
 
       {/* Notes & Comments Popover / Slide-over Drawer */}
@@ -189,7 +256,15 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                 <FeedbackEngine
                   slotId={slotId}
                   initialPageRef={activePage}
+                  draftPin={draftPin}
+                  onStartPinPlacement={() => {
+                    setIsPlacingPin(true);
+                    setIsNotesOpen(false);
+                  }}
+                  onClearDraftPin={() => setDraftPin(null)}
                   onFeedbackSubmitted={() => {
+                    setDraftPin(null);
+                    loadFeedback();
                     onFeedbackSubmitted?.();
                     setActiveTab('stream');
                   }}

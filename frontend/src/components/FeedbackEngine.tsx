@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FC, FormEvent, ChangeEvent } from 'react';
-import { Camera, Video, Send, AlertTriangle, X, CheckCircle2 } from 'lucide-react';
+import { Camera, Video, Send, AlertTriangle, X, CheckCircle2, MapPin } from 'lucide-react';
 import { enqueueFeedback } from '../services/db';
 import { submitFeedbackDirect } from '../services/api';
 import { syncManager } from '../services/sync';
@@ -15,12 +15,18 @@ import { cn } from '@/lib/utils';
 interface FeedbackEngineProps {
   slotId: number;
   initialPageRef?: number;
+  draftPin?: { pageNumber: number; x: number; y: number } | null;
+  onStartPinPlacement?: () => void;
+  onClearDraftPin?: () => void;
   onFeedbackSubmitted: () => void;
 }
 
 export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   slotId,
   initialPageRef,
+  draftPin,
+  onStartPinPlacement,
+  onClearDraftPin,
   onFeedbackSubmitted,
 }) => {
   const stationId = localStorage.getItem('assembly_station_id') || 'Station 1';
@@ -29,12 +35,24 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   );
   const [pageRef, setPageRef] = useState<number>(initialPageRef || 1);
   const [sectionRef, setSectionRef] = useState('');
+  const [pinCoords, setPinCoords] = useState<{ x: number; y: number } | null>(
+    draftPin ? { x: draftPin.x, y: draftPin.y } : null
+  );
 
   useEffect(() => {
     if (initialPageRef !== undefined && initialPageRef > 0) {
       setPageRef(initialPageRef);
     }
   }, [initialPageRef]);
+
+  useEffect(() => {
+    if (draftPin) {
+      setPinCoords({ x: draftPin.x, y: draftPin.y });
+      if (draftPin.pageNumber > 0) {
+        setPageRef(draftPin.pageNumber);
+      }
+    }
+  }, [draftPin]);
   const [textComment, setTextComment] = useState('');
 
   // Media state
@@ -152,6 +170,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         if (sectionRef.trim()) {
           formData.append('section_ref', sectionRef.trim());
         }
+        formData.append('pin_x', (pinCoords?.x ?? 0.0).toString());
+        formData.append('pin_y', (pinCoords?.y ?? 0.0).toString());
         formData.append('author', author);
         if (textComment.trim()) {
           formData.append('text_comment', textComment.trim());
@@ -184,6 +204,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         slot_id: slotId,
         page_ref: pageRef,
         section_ref: sectionRef.trim() || undefined,
+        pin_x: pinCoords?.x ?? 0.0,
+        pin_y: pinCoords?.y ?? 0.0,
         author: author,
         text_comment: textComment.trim() || undefined,
         videoBlob: selectedVideo?.file,
@@ -219,6 +241,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   const resetForm = () => {
     setTextComment('');
     setSectionRef('');
+    setPinCoords(null);
+    onClearDraftPin?.();
     setSelectedPhotos([]);
     removeVideo();
     setIsSubmitting(false);
@@ -256,7 +280,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          {/* Metadata Row: Operator, Page Reference (Viewer Synced), Section / Subsection */}
+          {/* Metadata Row: Operator, Page Reference (Viewer Synced) + Drop Pin, Section / Subsection */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
               <label className="block text-[11px] font-medium text-muted-foreground mb-1">
@@ -276,14 +300,43 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 <span>Page Reference *</span>
                 <span className="text-[10px] text-primary font-mono font-semibold">Synced</span>
               </label>
-              <Input
-                type="number"
-                min="1"
-                required
-                value={pageRef}
-                onChange={(e) => setPageRef(parseInt(e.target.value, 10) || 1)}
-                className="font-mono bg-muted/20"
-              />
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  min="1"
+                  required
+                  value={pageRef}
+                  onChange={(e) => setPageRef(parseInt(e.target.value, 10) || 1)}
+                  className="font-mono bg-muted/20 flex-1 min-w-0"
+                />
+                <Button
+                  type="button"
+                  variant={pinCoords ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={onStartPinPlacement}
+                  title={pinCoords ? `Pin placed at ${pinCoords.x}%, ${pinCoords.y}%. Click to reposition.` : "Drop pin on page"}
+                  className="h-9 px-2 gap-1 text-xs shrink-0 cursor-pointer"
+                >
+                  <MapPin className={cn("w-3.5 h-3.5", pinCoords ? "text-primary" : "text-muted-foreground")} />
+                  <span className="hidden sm:inline">{pinCoords ? `${pinCoords.x}%, ${pinCoords.y}%` : 'Drop Pin'}</span>
+                </Button>
+              </div>
+              {pinCoords && (
+                <div className="mt-1 flex items-center justify-between text-[10px] font-mono text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+                  <span>Pin: {pinCoords.x}%, {pinCoords.y}%</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPinCoords(null);
+                      onClearDraftPin?.();
+                    }}
+                    className="text-muted-foreground hover:text-destructive cursor-pointer ml-1"
+                    title="Remove pin"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>

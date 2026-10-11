@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
-import { MessageSquare, Clock, User, Download, Play, RefreshCw, X } from 'lucide-react';
+import { MessageSquare, Clock, User, Download, Play, RefreshCw, X, MapPin } from 'lucide-react';
 import type { FeedbackItem } from '../types';
 import { fetchSlotFeedback } from '../services/api';
 import { isMediaCached, getMediaBlob, saveMediaBlob } from '../services/db';
@@ -211,6 +211,12 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId }) => {
                     {item.section_ref && (
                       <Badge variant="outline" className="font-mono text-[11px] border-primary/40 text-primary">
                         Sec {item.section_ref}
+                      </Badge>
+                    )}
+                    {((item.pin_x ?? 0) > 0 || (item.pin_y ?? 0) > 0) && (
+                      <Badge variant="outline" className="font-mono text-[10px] gap-1 text-primary border-primary/30">
+                        <MapPin className="w-2.5 h-2.5" />
+                        <span>{item.pin_x}%, {item.pin_y}%</span>
                       </Badge>
                     )}
                   </div>
