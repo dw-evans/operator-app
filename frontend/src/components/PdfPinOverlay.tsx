@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { FC, MouseEvent, TouchEvent } from 'react';
-import { MapPin, X, Check, CheckCircle2 } from 'lucide-react';
+import { MapPin, X, Check, CheckCircle2, User, Clock, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { PdfPin } from '../types';
 
@@ -18,6 +19,7 @@ interface PdfPinOverlayProps {
   onPinPlaced?: (coords: { pageNumber: number; x: number; y: number }) => void;
   onCancelPlacement?: () => void;
   onPinClick?: (pin: PdfPin) => void;
+  onOpenDrawer?: (pin: PdfPin) => void;
 }
 
 /**
@@ -57,6 +59,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
   onPinPlaced,
   onCancelPlacement,
   onPinClick,
+  onOpenDrawer,
 }) => {
   const [positionedPins, setPositionedPins] = useState<PositionedPin[]>([]);
   const [candidatePin, setCandidatePin] = useState<{
@@ -68,6 +71,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     screenX: number;
     screenY: number;
   } | null>(null);
+  const [activePinId, setActivePinId] = useState<string | null>(null);
 
   const scrollerElRef = useRef<HTMLElement | null>(null);
   const touchStartRef = useRef<{
@@ -83,11 +87,84 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
   useEffect(() => {
     if (isPlacingPin) {
       setCandidatePin(initialPin ?? null);
+      setActivePinId(null);
     } else {
       setCandidatePin(null);
       setCandidateScreenPos(null);
     }
   }, [isPlacingPin, initialPin]);
+
+  // Active pin with latest screen coordinates from positionedPins
+  const activePin = useMemo(() => {
+    if (!activePinId) return null;
+    return positionedPins.find((p) => p.id === activePinId) || null;
+  }, [activePinId, positionedPins]);
+
+  // Close popup on click outside or Escape key
+  useEffect(() => {
+    if (!activePinId) return;
+
+    const handleWindowClick = (e: MouseEvent | globalThis.MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest('.pin-comment-popup') && !target.closest('.assembly-pdf-pin')) {
+        setActivePinId(null);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActivePinId(null);
+      }
+    };
+
+    window.addEventListener('click', handleWindowClick, { capture: true });
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleWindowClick, { capture: true });
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activePinId]);
+
+  // Compute adaptive popup position offset from the pin
+  const popupPosition = useMemo(() => {
+    if (!activePin || !viewerContainer) return null;
+    const viewerRect = viewerContainer.getBoundingClientRect();
+    const viewerWidth = viewerRect.width;
+    const viewerHeight = viewerRect.height;
+
+    // Desired popup width (adaptive to screen width)
+    const popupWidth = Math.min(320, viewerWidth - 32);
+
+    // Center over pin, clamped within viewer boundaries
+    const idealLeft = activePin.screenX - popupWidth / 2;
+    const clampedLeft = Math.max(16, Math.min(idealLeft, viewerWidth - popupWidth - 16));
+
+    // Prefer placing above pin (pin tip is at screenY, top of pin is ~34px above).
+    // If screenY is too close to top (< 220px), place below pin tip
+    const placeBelow = activePin.screenY < 220;
+
+    let style: React.CSSProperties;
+    if (placeBelow) {
+      style = {
+        position: 'absolute',
+        top: `${activePin.screenY + 14}px`,
+        left: `${clampedLeft}px`,
+        width: `${popupWidth}px`,
+      };
+    } else {
+      style = {
+        position: 'absolute',
+        bottom: `${viewerHeight - activePin.screenY + 40}px`,
+        left: `${clampedLeft}px`,
+        width: `${popupWidth}px`,
+      };
+    }
+
+    // Caret arrow horizontal offset relative to the popup
+    const arrowLeft = Math.max(16, Math.min(activePin.screenX - clampedLeft, popupWidth - 16));
+
+    return { style, placeBelow, arrowLeft };
+  }, [activePin, viewerContainer]);
 
   // Calculate pixel positions for all pins relative to the viewer container
   const updatePinPositions = useCallback(() => {
@@ -381,6 +458,9 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
               }}
               onClick={(e) => {
                 e.stopPropagation();
+                if (!pin.isDraft) {
+                  setActivePinId((prev) => (prev === pin.id ? null : pin.id));
+                }
                 onPinClick?.(pin);
               }}
               title={
@@ -388,7 +468,10 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                   ? `${pin.author}${pin.sectionRef ? ` (Sec ${pin.sectionRef})` : ''}: ${pin.comment || 'Note'}`
                   : `Note on Page ${pin.pageNumber}`
               }
-              className="group transition-transform hover:scale-110 active:scale-95"
+              className={cn(
+                "group transition-transform hover:scale-110 active:scale-95 assembly-pdf-pin",
+                activePinId === pin.id && "scale-125 z-40 drop-shadow-[0_4px_10px_rgba(2,132,199,0.7)]"
+              )}
             >
               {pin.isDraft ? (
                 // Draft Pin with pulsating radar ring
@@ -433,6 +516,138 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
             </div>
           ))}
       </div>
+
+      {/* Popover Comment Card offset from Pin */}
+      {activePin && popupPosition && !isPlacingPin && (
+        <div
+          style={popupPosition.style}
+          onClick={(e) => e.stopPropagation()}
+          className="pin-comment-popup z-40 bg-card/95 backdrop-blur-md border border-border shadow-2xl rounded-xl p-3.5 text-xs text-foreground animate-in fade-in zoom-in-95 duration-150 select-text"
+        >
+          {/* Header: Author, Station, Status, Close */}
+          <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-border/60">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="font-semibold text-foreground flex items-center gap-1 truncate">
+                <User className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="truncate">{activePin.author || 'Anonymous'}</span>
+              </span>
+              {activePin.stationId && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-mono">
+                  {activePin.stationId}
+                </Badge>
+              )}
+              {activePin.status && (
+                <Badge
+                  variant={
+                    activePin.status === 'resolved'
+                      ? 'default'
+                      : activePin.status === 'reviewed'
+                      ? 'secondary'
+                      : 'outline'
+                  }
+                  className="text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider font-mono font-medium"
+                >
+                  {activePin.status}
+                </Badge>
+              )}
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setActivePinId(null)}
+              className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground cursor-pointer -mr-1 -mt-0.5 rounded-full shrink-0"
+              title="Close"
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+
+          {/* Location & Time Badges */}
+          <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-muted-foreground mb-2">
+            <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0 h-4.5">
+              Page {activePin.pageNumber}
+            </Badge>
+            {activePin.sectionRef && (
+              <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 h-4.5 text-primary border-primary/30">
+                Sec {activePin.sectionRef}
+              </Badge>
+            )}
+            <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 h-4.5 gap-1 text-muted-foreground">
+              <MapPin className="w-2.5 h-2.5 text-primary" />
+              <span>{activePin.x}%, {activePin.y}%</span>
+            </Badge>
+            {activePin.timestamp && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/80 ml-auto font-mono">
+                <Clock className="w-2.5 h-2.5" />
+                <span>{new Date(activePin.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Comment Text */}
+          <div className="mb-2.5 bg-muted/30 rounded-lg p-2.5 border border-border/40 text-foreground/90 whitespace-pre-line leading-relaxed max-h-36 overflow-y-auto text-[12px]">
+            {activePin.comment ? (
+              activePin.comment
+            ) : (
+              <span className="italic text-muted-foreground">No text comment provided</span>
+            )}
+          </div>
+
+          {/* Photo Previews if any */}
+          {activePin.photoUrls && activePin.photoUrls.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2.5">
+              {activePin.photoUrls.map((url, idx) => (
+                <a
+                  key={idx}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative w-12 h-12 rounded-md overflow-hidden border border-border/80 shrink-0 hover:border-primary transition-colors"
+                >
+                  <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+
+          {/* Footer Action: View in Notes Drawer */}
+          <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px]">
+            <span className="text-muted-foreground text-[10px]">
+              Tap outside to close
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const pin = activePin;
+                setActivePinId(null);
+                onOpenDrawer?.(pin);
+              }}
+              className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary cursor-pointer font-medium"
+            >
+              <MessageSquare className="w-3 h-3" />
+              <span>View in Notes</span>
+            </Button>
+          </div>
+
+          {/* Directional Caret / Arrow Indicator */}
+          <div
+            style={{
+              left: `${popupPosition.arrowLeft}px`,
+              transform: 'translateX(-50%)',
+            }}
+            className={cn(
+              "absolute w-2.5 h-2.5 bg-card border-border rotate-45 pointer-events-none",
+              popupPosition.placeBelow
+                ? "-top-1.5 border-t border-l"
+                : "-bottom-1.5 border-b border-r"
+            )}
+          />
+        </div>
+      )}
 
       {/* Placement Mode Interactive Background Area */}
       {isPlacingPin && (

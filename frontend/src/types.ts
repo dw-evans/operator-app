@@ -75,6 +75,11 @@ export interface PdfPin {
   author?: string;
   comment?: string;
   sectionRef?: string;
+  stationId?: string;
+  timestamp?: string;
+  status?: 'open' | 'reviewed' | 'resolved';
+  photoUrls?: string[];
+  videoUrl?: string;
   isDraft?: boolean;
 }
 

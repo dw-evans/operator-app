@@ -55,6 +55,11 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       author: fb.author,
       comment: fb.text_comment || undefined,
       sectionRef: fb.section_ref || undefined,
+      stationId: fb.station_id,
+      timestamp: fb.timestamp,
+      status: fb.status,
+      photoUrls: fb.photo_urls,
+      videoUrl: fb.video_url || (fb.video_filename ? `/media/${fb.video_filename}` : undefined),
       isDraft: false,
     }));
 
@@ -186,7 +191,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             setIsPlacingPin(false);
             setIsNotesOpen(true);
           }}
-          onPinClick={() => {
+          onOpenDrawer={() => {
             setActiveTab('stream');
             setIsNotesOpen(true);
           }}

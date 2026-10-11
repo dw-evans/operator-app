@@ -14,6 +14,7 @@ export interface PdfiumViewerProps {
   onPinPlaced?: (pin: { pageNumber: number; x: number; y: number }) => void;
   onCancelPlacement?: () => void;
   onPinClick?: (pin: PdfPin) => void;
+  onOpenDrawer?: (pin: PdfPin) => void;
 }
 
 // Categories to disable in EmbedPDF to provide a pure, distraction-free reading experience
@@ -38,6 +39,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   onPinPlaced,
   onCancelPlacement,
   onPinClick,
+  onOpenDrawer,
 }) => {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
 
@@ -142,6 +144,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         onPinPlaced={onPinPlaced}
         onCancelPlacement={onCancelPlacement}
         onPinClick={onPinClick}
+        onOpenDrawer={onOpenDrawer}
       />
     </div>
   );
