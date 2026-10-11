@@ -4,6 +4,8 @@ import { SlotSelector } from './components/SlotSelector';
 import { SlotViewerVariant } from './components/SlotViewerVariant';
 import { AdminPortal } from './components/AdminPortal';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { RefreshCw, Bug, Trash2 } from 'lucide-react';
 import { fetchSlots } from './services/api';
 import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
 import type { SlotSummary } from './types';
@@ -96,6 +98,60 @@ export function App() {
     sessionStorage.setItem('assembly_last_path', currentPath);
   }, [isAdmin, selectedSlotId]);
 
+  const [debugInfo, setDebugInfo] = useState({
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    isOnline: navigator.onLine,
+    isPwa: window.matchMedia('(display-mode: standalone)').matches,
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setDebugInfo((prev) => ({
+        ...prev,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+      }));
+    };
+    const handleOnline = () => setDebugInfo((prev) => ({ ...prev, isOnline: true }));
+    const handleOffline = () => setDebugInfo((prev) => ({ ...prev, isOnline: false }));
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
+  const handleClearCacheAndReload = async () => {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      } catch (err) {
+        console.error('Failed to unregister SW:', err);
+      }
+    }
+    if ('caches' in window) {
+      try {
+        const keys = await caches.keys();
+        for (const key of keys) {
+          await caches.delete(key);
+        }
+      } catch (err) {
+        console.error('Failed to delete caches:', err);
+      }
+    }
+    window.location.reload();
+  };
+
   const currentSlot = slots.find((s) => s.slot_id === selectedSlotId);
   const currentDoc = currentSlot?.live_document;
 
@@ -113,6 +169,52 @@ export function App() {
           }
         }}
       />
+
+      {/* Debug Bar directly underneath Navbar */}
+      <div className="shrink-0 bg-amber-950/25 border-b border-amber-500/25 px-3 py-1 flex items-center justify-between text-xs min-h-[1.875rem] gap-2 overflow-x-auto z-20">
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] uppercase font-bold bg-amber-500/15 text-amber-400 border-amber-500/40 px-1.5 py-0 flex items-center gap-1"
+          >
+            <Bug className="w-2.5 h-2.5" />
+            <span>debug</span>
+          </Badge>
+          <span className="font-mono text-[11px] text-muted-foreground hidden sm:inline">
+            {debugInfo.viewport}
+          </span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {debugInfo.isPwa ? 'Standalone PWA' : 'Browser'}
+          </span>
+          <span className="font-mono text-[11px] text-muted-foreground hidden md:inline">
+            {debugInfo.isOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            title="Reload web page inside PWA"
+            className="h-5.5 px-2 text-[11px] font-medium gap-1 cursor-pointer bg-background/80 hover:bg-muted"
+          >
+            <RefreshCw className="w-3 h-3 text-primary" />
+            <span>Refresh</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearCacheAndReload}
+            title="Unregister Service Worker, clear cache, and reload"
+            className="h-5.5 px-1.5 text-[10px] text-muted-foreground hover:text-destructive gap-1 cursor-pointer"
+          >
+            <Trash2 className="w-2.5 h-2.5" />
+            <span className="hidden sm:inline">Clear SW</span>
+          </Button>
+        </div>
+      </div>
 
       {/* Single-line Document Info Strip directly underneath Navbar */}
       {selectedSlotId !== null && (
