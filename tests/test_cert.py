@@ -45,8 +45,8 @@ def test_api_get_cert_info():
     assert "server_exists" in data
     assert "ips" in data
     assert "hostnames" in data
-    assert "https_port" in data
-    assert "http_port" in data
+    assert "port" in data
+    assert "use_https" in data
     assert data["ca_exists"] is True
     assert data["server_exists"] is True
 
@@ -79,16 +79,6 @@ def test_api_download_server_crt():
     resp = client.get("/api/v1/cert/server.crt")
     assert resp.status_code == 200
     assert b"-----BEGIN CERTIFICATE-----" in resp.content
-
-
-def test_api_cert_setup_page():
-    for path in ["/cert", "/setup"]:
-        resp = client.get(path)
-        assert resp.status_code == 200
-        assert resp.headers["content-type"].startswith("text/html")
-        assert "Android PWA Certificate Setup" in resp.text
-        assert "assembly-pwa-ca.crt" in resp.text
-        assert "Download CA Certificate" in resp.text
 
 
 def test_api_regenerate_certs():

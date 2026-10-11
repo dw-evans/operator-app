@@ -70,8 +70,8 @@ export interface CertInfo {
   ca_download_url: string;
   ca_size?: number;
   ca_modified?: string;
-  https_port: number;
-  http_port: number;
+  port: number;
+  use_https: boolean;
 }
 
 export interface CertGenerateResult {

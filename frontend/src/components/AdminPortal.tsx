@@ -10,10 +10,8 @@ import {
   MessageSquare,
   RefreshCw,
   ShieldCheck,
-  ExternalLink,
-  Tablet,
 } from 'lucide-react';
-import type { CertInfo, DocumentRevision, FeedbackItem, SlotSummary } from '../types';
+import type { DocumentRevision, FeedbackItem, SlotSummary } from '../types';
 import {
   fetchSlots,
   fetchSlotHistory,
@@ -22,8 +20,6 @@ import {
   verifyPin,
   fetchSlotFeedback,
   updateFeedbackStatus,
-  fetchCertInfo,
-  generateCerts,
 } from '../services/api';
 
 import {
@@ -81,16 +77,9 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
   const [auditFeedback, setAuditFeedback] = useState<FeedbackItem[]>([]);
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
 
-  // Certificate management state
-  const [certInfo, setCertInfo] = useState<CertInfo | null>(null);
-  const [isLoadingCert, setIsLoadingCert] = useState(false);
-  const [isRegeneratingCert, setIsRegeneratingCert] = useState(false);
-  const [certMessage, setCertMessage] = useState<string | null>(null);
-
   useEffect(() => {
     checkPin();
     loadSlots();
-    loadCertInfo();
   }, []);
 
   const checkPin = async () => {
@@ -132,39 +121,6 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       console.error('Failed to load slots in admin:', err);
     } finally {
       setIsLoadingSlots(false);
-    }
-  };
-
-  const loadCertInfo = async () => {
-    setIsLoadingCert(true);
-    try {
-      const data = await fetchCertInfo();
-      setCertInfo(data);
-    } catch (err) {
-      console.error('Failed to load cert info:', err);
-    } finally {
-      setIsLoadingCert(false);
-    }
-  };
-
-  const handleRegenerateCert = async () => {
-    if (
-      !window.confirm(
-        'Regenerate HTTPS certificates for current network IP addresses? Connected clients might need to re-download the CA.'
-      )
-    ) {
-      return;
-    }
-    setIsRegeneratingCert(true);
-    setCertMessage(null);
-    try {
-      const res = await generateCerts();
-      setCertMessage(`New certificates generated via ${res.method}! Covering: ${res.ips.join(', ')}`);
-      await loadCertInfo();
-    } catch (err: any) {
-      alert(`Certificate generation failed: ${err.message}`);
-    } finally {
-      setIsRegeneratingCert(false);
     }
   };
 
@@ -273,16 +229,8 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              loadSlots();
-              loadCertInfo();
-            }}
-            disabled={isLoadingSlots || isLoadingCert}
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoadingSlots || isLoadingCert ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="sm" onClick={loadSlots} disabled={isLoadingSlots}>
+            <RefreshCw className={`h-4 w-4 ${isLoadingSlots ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -298,102 +246,26 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
         </Alert>
       )}
 
-      {certMessage && (
-        <Alert>
-          <CheckCircle2 className="h-4 w-4" />
-          <AlertDescription>{certMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* HTTPS & Android PWA Certificate Setup Card */}
+      {/* Root CA Certificate Download */}
       <Card className="border-border bg-card">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-emerald-500" />
-              <CardTitle className="text-base font-semibold">HTTPS & Android PWA Certificate Setup</CardTitle>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {certInfo?.ca_exists ? (
-                <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
-                  Root CA Active
-                </Badge>
-              ) : (
-                <Badge variant="destructive">CA Missing</Badge>
-              )}
-              {certInfo?.server_exists ? (
-                <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
-                  Server TLS Active
-                </Badge>
-              ) : (
-                <Badge variant="destructive">Server Cert Missing</Badge>
-              )}
-            </div>
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4">
+          <div>
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+              HTTPS Root CA Certificate
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Download and install this certificate on Android tablets to enable offline PWA installation over HTTPS.
+            </p>
           </div>
-          <CardDescription className="text-xs">
-            To install the app as an offline PWA on shop-floor Android tablets, download and install the Root CA certificate on the tablet, then open the secure HTTPS URL.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-0">
-          <div className="flex flex-wrap gap-2 items-center">
-            <a
-              href="/api/v1/cert/ca.crt"
-              download="assembly-pwa-ca.crt"
-              className={buttonVariants({ variant: 'default', size: 'sm', className: 'gap-1.5' })}
-            >
-              <Download className="h-4 w-4" />
-              Download CA Cert (.crt)
-            </a>
-            <a
-              href="/api/v1/cert/ca.der"
-              download="assembly-pwa-ca.der"
-              className={buttonVariants({ variant: 'outline', size: 'sm', className: 'gap-1.5 text-xs' })}
-              title="Binary DER format for legacy Android versions"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Download DER Format (.der)
-            </a>
-            <a
-              href="/cert"
-              target="_blank"
-              rel="noreferrer"
-              className={buttonVariants({ variant: 'secondary', size: 'sm', className: 'gap-1.5 text-xs' })}
-            >
-              <Tablet className="h-3.5 w-3.5" />
-              <span>Tablet Setup Guide (/cert)</span>
-              <ExternalLink className="h-3 w-3" />
-            </a>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRegenerateCert}
-              disabled={isRegeneratingCert}
-              className="gap-1.5 text-xs sm:ml-auto"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isRegeneratingCert ? 'animate-spin' : ''}`} />
-              {isRegeneratingCert ? 'Generating...' : 'Regenerate Certs'}
-            </Button>
-          </div>
-
-          {certInfo && (
-            <div className="rounded-md bg-muted/40 p-2.5 text-xs space-y-1.5 font-mono border border-border/50">
-              <div className="flex flex-wrap items-center justify-between gap-1">
-                <span className="text-muted-foreground font-sans">HTTPS Access Port:</span>
-                <span className="font-semibold">{certInfo.https_port} (HTTP: {certInfo.http_port})</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="text-muted-foreground font-sans">Detected IPs:</span>
-                {certInfo.ips.map((ip) => (
-                  <span key={ip} className="bg-background px-1.5 py-0.5 rounded border border-border">
-                    {ip}
-                  </span>
-                ))}
-              </div>
-              <div className="text-[11px] text-muted-foreground font-sans pt-1">
-                Tablet URL: <code className="text-primary font-mono select-all">https://{certInfo.ips.find((ip) => !ip.startsWith('127.')) || '127.0.0.1'}:{certInfo.https_port}/</code>
-              </div>
-            </div>
-          )}
+          <a
+            href="/api/v1/cert/ca.crt"
+            download="assembly-pwa-ca.crt"
+            className={buttonVariants({ variant: 'default', size: 'sm', className: 'gap-1.5 shrink-0' })}
+          >
+            <Download className="h-4 w-4" />
+            Download Certificate (.crt)
+          </a>
         </CardContent>
       </Card>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Wifi, WifiOff, RefreshCw, ArrowLeft, Shield, Wrench, ShieldAlert } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, ArrowLeft, Shield, Wrench, Download } from 'lucide-react';
 import { syncManager } from '../services/sync';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,12 +26,6 @@ export const Navbar: FC<NavbarProps> = ({
     isSyncing: false,
     pendingCount: 0,
   });
-
-  const isHttpInsecure =
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'http:' &&
-    window.location.hostname !== 'localhost' &&
-    window.location.hostname !== '127.0.0.1';
 
   useEffect(() => {
     return syncManager.subscribe(setSyncState);
@@ -119,22 +113,20 @@ export const Navbar: FC<NavbarProps> = ({
           )}
         </Badge>
 
-        {/* Certificate / HTTPS Warning and Setup Link */}
-        {isHttpInsecure && (
-          <a
-            href="/cert"
-            className={buttonVariants({
-              variant: 'outline',
-              size: 'sm',
-              className: 'gap-1.5 text-xs text-amber-500 border-amber-500/30 hover:bg-amber-500/10',
-            })}
-            title="Application is running on unencrypted HTTP. Tap to install the Root CA and switch to HTTPS for PWA installation."
-          >
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Install Cert (PWA)</span>
-            <span className="md:hidden">Cert</span>
-          </a>
-        )}
+        {/* Certificate Download Button */}
+        <a
+          href="/api/v1/cert/ca.crt"
+          download="assembly-pwa-ca.crt"
+          className={buttonVariants({
+            variant: 'outline',
+            size: 'sm',
+            className: 'gap-1.5 text-xs',
+          })}
+          title="Download Root CA Certificate for Android"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Download Cert</span>
+        </a>
 
         {/* Admin Portal Toggle */}
         <Button
