@@ -1,14 +1,65 @@
+import { useCallback } from 'react';
 import type { FC } from 'react';
 import { PDFViewer } from '@embedpdf/react-pdf-viewer';
+import type { PluginRegistry } from '@embedpdf/snippet';
 
 export interface PdfiumViewerProps {
   url: string;
+  onPageChange?: (pageNumber: number) => void;
 }
 
-export const PdfiumViewer: FC<PdfiumViewerProps> = ({ url }) => {
+export const PdfiumViewer: FC<PdfiumViewerProps> = ({ url, onPageChange }) => {
   // Guarantee absolute URLs based on current host/protocol (prevents worker/blob resolution delays)
   const absoluteWasmUrl = new URL('/pdfium.wasm', window.location.origin).href;
   const absoluteDocUrl = new URL(url, window.location.origin).href;
+
+  const handleReady = useCallback(
+    (registry: PluginRegistry) => {
+      if (!onPageChange) return;
+
+      const scrollPlugin = (registry.getPlugin?.('scroll') ||
+        registry.getCapabilityProvider?.('scroll')) as any;
+
+      if (!scrollPlugin) return;
+
+      const capability = scrollPlugin.buildCapability ? scrollPlugin.buildCapability() : scrollPlugin;
+
+      // Read current initial page
+      const syncCurrentPage = () => {
+        const page = capability.getCurrentPage?.() ?? scrollPlugin.getCurrentPage?.();
+        if (typeof page === 'number' && page > 0) {
+          onPageChange(page);
+        }
+      };
+
+      syncCurrentPage();
+
+      // Subscribe to page change events
+      if (capability.onPageChange) {
+        capability.onPageChange((event: { pageNumber?: number }) => {
+          if (typeof event?.pageNumber === 'number' && event.pageNumber > 0) {
+            onPageChange(event.pageNumber);
+          }
+        });
+      }
+
+      // Also listen to onScroll for real-time page detection while scrolling
+      if (capability.onScroll) {
+        capability.onScroll(() => {
+          syncCurrentPage();
+        });
+      }
+
+      // Also subscribe to core store updates
+      const store = registry.getStore?.();
+      if (store && typeof store.subscribe === 'function') {
+        store.subscribe(() => {
+          syncCurrentPage();
+        });
+      }
+    },
+    [onPageChange]
+  );
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-background">
@@ -24,6 +75,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({ url }) => {
           worker: false,
           theme: { preference: 'dark' },
         }}
+        onReady={handleReady}
         style={{ width: '100%', height: '100%' }}
       />
     </div>

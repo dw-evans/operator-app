@@ -37,6 +37,7 @@ export interface FeedbackItem {
   slot_id: number;
   document_id?: number | null;
   page_ref: number;
+  section_ref?: string | null;
   author: string;
   text_comment?: string | null;
   video_filename?: string | null;
@@ -52,6 +53,7 @@ export interface QueuedFeedback {
   station_id: string;
   slot_id: number;
   page_ref: number;
+  section_ref?: string;
   author: string;
   text_comment?: string;
   videoBlob?: Blob;

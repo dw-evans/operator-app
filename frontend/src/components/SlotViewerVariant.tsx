@@ -25,6 +25,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 }) => {
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'submit' | 'stream'>('submit');
+  const [activePage, setActivePage] = useState<number>(1);
 
   if (!document) {
     return (
@@ -51,6 +52,9 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             <FileText className="w-3.5 h-3.5 text-primary" />
             <span className="hidden sm:inline">Station Controls</span>
           </span>
+          <Badge variant="outline" className="font-mono text-[11px] px-2 py-0.5 h-5 bg-background">
+            Page {activePage}
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2">
@@ -91,7 +95,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 
       {/* PDF Component Container */}
       <div className="flex-1 min-h-0 w-full h-full relative overflow-hidden bg-background">
-        <PdfiumViewer url={document.url} />
+        <PdfiumViewer url={document.url} onPageChange={setActivePage} />
       </div>
 
       {/* Notes & Comments Popover / Slide-over Drawer */}
@@ -184,6 +188,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               {activeTab === 'submit' ? (
                 <FeedbackEngine
                   slotId={slotId}
+                  initialPageRef={activePage}
                   onFeedbackSubmitted={() => {
                     onFeedbackSubmitted?.();
                     setActiveTab('stream');

@@ -23,16 +23,15 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   initialPageRef,
   onFeedbackSubmitted,
 }) => {
-  const [stationId, setStationId] = useState(
-    () => localStorage.getItem('assembly_station_id') || 'Station 1'
-  );
+  const stationId = localStorage.getItem('assembly_station_id') || 'Station 1';
   const [author, setAuthor] = useState(
     () => localStorage.getItem('assembly_author') || ''
   );
   const [pageRef, setPageRef] = useState<number>(initialPageRef || 1);
+  const [sectionRef, setSectionRef] = useState('');
 
   useEffect(() => {
-    if (initialPageRef) {
+    if (initialPageRef !== undefined && initialPageRef > 0) {
       setPageRef(initialPageRef);
     }
   }, [initialPageRef]);
@@ -54,10 +53,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  // Persist station and author in localStorage
-  useEffect(() => {
-    localStorage.setItem('assembly_station_id', stationId);
-  }, [stationId]);
+  // Persist author in localStorage
 
   useEffect(() => {
     localStorage.setItem('assembly_author', author);
@@ -150,9 +146,12 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       try {
         const formData = new FormData();
         formData.append('id', feedbackId);
-        formData.append('station_id', stationId);
+        formData.append('station_id', stationId || 'Station 1');
         formData.append('slot_id', slotId.toString());
         formData.append('page_ref', pageRef.toString());
+        if (sectionRef.trim()) {
+          formData.append('section_ref', sectionRef.trim());
+        }
         formData.append('author', author);
         if (textComment.trim()) {
           formData.append('text_comment', textComment.trim());
@@ -181,9 +180,10 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     try {
       const queuedItem: QueuedFeedback = {
         id: feedbackId,
-        station_id: stationId,
+        station_id: stationId || 'Station 1',
         slot_id: slotId,
         page_ref: pageRef,
+        section_ref: sectionRef.trim() || undefined,
         author: author,
         text_comment: textComment.trim() || undefined,
         videoBlob: selectedVideo?.file,
@@ -218,6 +218,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
 
   const resetForm = () => {
     setTextComment('');
+    setSectionRef('');
     setSelectedPhotos([]);
     removeVideo();
     setIsSubmitting(false);
@@ -255,20 +256,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          {/* Metadata Row: Station, Author, Page Reference */}
+          {/* Metadata Row: Operator, Page Reference (Viewer Synced), Section / Subsection */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <div>
-              <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                Station
-              </label>
-              <Input
-                type="text"
-                value={stationId}
-                onChange={(e) => setStationId(e.target.value)}
-                placeholder="Station 1"
-              />
-            </div>
-
             <div>
               <label className="block text-[11px] font-medium text-muted-foreground mb-1">
                 Operator Name / ID *
@@ -283,8 +272,9 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                Page Reference *
+              <label className="block text-[11px] font-medium text-muted-foreground mb-1 flex items-center justify-between">
+                <span>Page Reference *</span>
+                <span className="text-[10px] text-primary font-mono font-semibold">Synced</span>
               </label>
               <Input
                 type="number"
@@ -292,6 +282,20 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 required
                 value={pageRef}
                 onChange={(e) => setPageRef(parseInt(e.target.value, 10) || 1)}
+                className="font-mono bg-muted/20"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                Section / Subsection
+              </label>
+              <Input
+                type="text"
+                value={sectionRef}
+                onChange={(e) => setSectionRef(e.target.value)}
+                placeholder="e.g. 1.4"
+                className="font-mono"
               />
             </div>
           </div>

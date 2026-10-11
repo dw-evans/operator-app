@@ -208,6 +208,11 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId }) => {
                     <Badge variant="secondary" className="font-mono text-[11px]">
                       Page {item.page_ref}
                     </Badge>
+                    {item.section_ref && (
+                      <Badge variant="outline" className="font-mono text-[11px] border-primary/40 text-primary">
+                        Sec {item.section_ref}
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5">

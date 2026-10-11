@@ -95,9 +95,12 @@ class SyncManager {
         try {
           const formData = new FormData();
           formData.append('id', item.id);
-          formData.append('station_id', item.station_id);
+          formData.append('station_id', item.station_id || 'Station 1');
           formData.append('slot_id', item.slot_id.toString());
           formData.append('page_ref', item.page_ref.toString());
+          if (item.section_ref) {
+            formData.append('section_ref', item.section_ref);
+          }
           formData.append('author', item.author);
           if (item.text_comment) {
             formData.append('text_comment', item.text_comment);

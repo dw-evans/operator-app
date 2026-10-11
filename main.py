@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, sta
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
@@ -40,6 +41,13 @@ CERTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Ensure database schema has newly added columns
+with engine.connect() as _conn:
+    _cols = [r[1] for r in _conn.execute(text("PRAGMA table_info(feedback)")).fetchall()]
+    if _cols and "section_ref" not in _cols:
+        _conn.execute(text("ALTER TABLE feedback ADD COLUMN section_ref VARCHAR"))
+        _conn.commit()
 
 app = FastAPI(
     title="Assembly Instruction & Feedback System",
@@ -148,9 +156,10 @@ def get_slots_summary(db: Session = Depends(get_db)):
 @app.post("/api/v1/feedback")
 async def create_feedback(
     id: str = Form(...),
-    station_id: str = Form(...),
+    station_id: str = Form("Station 1"),
     slot_id: int = Form(...),
     page_ref: int = Form(...),
+    section_ref: Optional[str] = Form(None),
     author: str = Form(...),
     text_comment: Optional[str] = Form(None),
     video: Optional[UploadFile] = File(None),
@@ -208,6 +217,7 @@ async def create_feedback(
         slot_id=slot_id,
         document_id=doc_id,
         page_ref=page_ref,
+        section_ref=section_ref,
         author=author,
         text_comment=text_comment,
         video_filename=video_filename,
@@ -241,6 +251,7 @@ def get_slot_feedback(slot_id: int, db: Session = Depends(get_db)):
                 slot_id=item.slot_id,
                 document_id=item.document_id,
                 page_ref=item.page_ref,
+                section_ref=item.section_ref,
                 author=item.author,
                 text_comment=item.text_comment,
                 video_filename=item.video_filename,

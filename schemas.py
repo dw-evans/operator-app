@@ -41,6 +41,7 @@ class FeedbackItem(BaseModel):
     slot_id: int
     document_id: Optional[int] = None
     page_ref: int
+    section_ref: Optional[str] = None
     author: str
     text_comment: Optional[str] = None
     video_filename: Optional[str] = None

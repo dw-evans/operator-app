@@ -221,6 +221,31 @@ def test_feedback_idempotency():
     assert "already recorded" in resp2.json().get("message", "")
 
 
+def test_feedback_section_ref_and_default_station():
+    fb_id = "sec-ref-uuid-101"
+    resp = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": fb_id,
+            "slot_id": 3,
+            "page_ref": 5,
+            "section_ref": "1.4",
+            "author": "Bob",
+            "text_comment": "Torque spec on section 1.4 unclear",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "success"
+
+    fb_list = client.get("/api/v1/feedback/3").json()
+    assert len(fb_list) == 1
+    assert fb_list[0]["id"] == fb_id
+    assert fb_list[0]["station_id"] == "Station 1"
+    assert fb_list[0]["page_ref"] == 5
+    assert fb_list[0]["section_ref"] == "1.4"
+    assert fb_list[0]["author"] == "Bob"
+
+
 def test_invalid_slot_validation():
     resp_low = client.post(
         "/api/v1/admin/upload/0",
