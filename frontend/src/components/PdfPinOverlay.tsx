@@ -91,38 +91,86 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     setPositionedPins(updated);
   }, [viewerContainer, pins]);
 
-  // Hook into scroller scroll events and window resize
+  // Hook into scroller scroll events, resize, and initial page mounting
   useEffect(() => {
     if (!viewerContainer) return;
-    const embedEl = viewerContainer.querySelector('embedpdf-container');
-    const shadow = embedEl?.shadowRoot;
 
+    let active = true;
     let animId: number;
+    let scrollerEl: HTMLElement | null = null;
+    let observer: MutationObserver | null = null;
+
     const onScrollOrResize = () => {
       cancelAnimationFrame(animId);
       animId = requestAnimationFrame(updatePinPositions);
     };
 
-    // Find scrollable container inside shadow root
-    const scroller =
-      shadow?.querySelector('div[style*="overflow: auto"]') ||
-      shadow?.querySelector('.overflow-auto') ||
-      shadow?.querySelector('div[style*="overflow-y: auto"]');
+    const attachScroller = () => {
+      if (!active || scrollerEl) return;
+      const embedEl = viewerContainer.querySelector('embedpdf-container');
+      const shadow = embedEl?.shadowRoot;
+      if (!shadow) return;
 
-    scroller?.addEventListener('scroll', onScrollOrResize, { passive: true });
+      const found =
+        shadow.querySelector('div[style*="overflow: auto"]') ||
+        shadow.querySelector('.overflow-auto') ||
+        shadow.querySelector('div[style*="overflow-y: auto"]');
+
+      if (found) {
+        scrollerEl = found as HTMLElement;
+        scrollerEl.addEventListener('scroll', onScrollOrResize, { passive: true });
+        updatePinPositions();
+      }
+    };
+
+    const watchShadow = () => {
+      if (!active) return;
+      const embedEl = viewerContainer.querySelector('embedpdf-container');
+      const shadow = embedEl?.shadowRoot;
+      if (!shadow) return;
+
+      attachScroller();
+
+      if (!observer) {
+        observer = new MutationObserver(() => {
+          attachScroller();
+          onScrollOrResize();
+        });
+        observer.observe(shadow, { childList: true, subtree: true });
+      }
+    };
+
+    watchShadow();
+
+    // Poll during initial WASM load / document parsing (first 4 seconds)
+    const interval = setInterval(() => {
+      watchShadow();
+      updatePinPositions();
+    }, 200);
+
+    const stopPolling = setTimeout(() => {
+      clearInterval(interval);
+    }, 4000);
+
     window.addEventListener('resize', onScrollOrResize, { passive: true });
 
-    // Initial update and subsequent ticks to capture initial layout
+    const ro = new ResizeObserver(() => {
+      onScrollOrResize();
+    });
+    ro.observe(viewerContainer);
+
+    // Initial positioning
     updatePinPositions();
-    const t1 = setTimeout(updatePinPositions, 100);
-    const t2 = setTimeout(updatePinPositions, 400);
 
     return () => {
+      active = false;
       cancelAnimationFrame(animId);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      scroller?.removeEventListener('scroll', onScrollOrResize);
+      clearInterval(interval);
+      clearTimeout(stopPolling);
+      scrollerEl?.removeEventListener('scroll', onScrollOrResize);
       window.removeEventListener('resize', onScrollOrResize);
+      observer?.disconnect();
+      ro.disconnect();
     };
   }, [viewerContainer, pins, updatePinPositions]);
 
