@@ -59,9 +59,9 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       {/* Notes & Comments Popover / Slide-over Drawer */}
       {isNotesOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
+          {/* Backdrop (no blur so PDF remains sharp and visible) */}
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in-0 duration-200"
+            className="fixed inset-0 bg-black/25 transition-opacity animate-in fade-in-0 duration-200"
             onClick={() => setIsNotesOpen(false)}
           />
 
@@ -79,7 +79,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             )}
           >
             {/* Drawer Header */}
-            <header className="px-4 py-3.5 border-b border-border bg-card/90 backdrop-blur-md flex items-center justify-between shrink-0">
+            <header className="px-4 py-3.5 border-b border-border bg-card flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                   <FileText className="w-4 h-4" />
