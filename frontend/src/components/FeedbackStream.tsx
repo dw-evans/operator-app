@@ -12,15 +12,28 @@ import { cn } from '@/lib/utils';
 interface FeedbackStreamProps {
   slotId: number;
   highlightedFeedbackId?: string | null;
+  onSelectFeedback?: (feedbackId: string | null) => void;
 }
 
-export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId, highlightedFeedbackId }) => {
+export const FeedbackStream: FC<FeedbackStreamProps> = ({
+  slotId,
+  highlightedFeedbackId,
+  onSelectFeedback,
+}) => {
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
+  const [selectedId, setSelectedId] = useState<string | null>(highlightedFeedbackId ?? null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Auto-scroll to highlighted feedback item
+  // Synchronize internal selection when highlightedFeedbackId prop changes
+  useEffect(() => {
+    if (highlightedFeedbackId !== undefined) {
+      setSelectedId(highlightedFeedbackId);
+    }
+  }, [highlightedFeedbackId]);
+
+  // Auto-scroll to highlighted feedback item when requested externally
   useEffect(() => {
     if (highlightedFeedbackId && itemRefs.current[highlightedFeedbackId]) {
       const timer = setTimeout(() => {
@@ -32,6 +45,12 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId, highlightedFee
       return () => clearTimeout(timer);
     }
   }, [highlightedFeedbackId, feedbackList]);
+
+  const handleCardClick = (itemId: string) => {
+    const nextId = selectedId === itemId ? null : itemId;
+    setSelectedId(nextId);
+    onSelectFeedback?.(nextId);
+  };
 
   // Video state per item: item.id -> { isLoaded: boolean; videoSrc?: string; isCached: boolean; isDownloading: boolean }
   const [videoStates, setVideoStates] = useState<
@@ -205,7 +224,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId, highlightedFee
               isDownloading: false,
             };
 
-            const isHighlighted = item.id === highlightedFeedbackId;
+            const isSelected = item.id === selectedId;
 
             return (
               <div
@@ -213,11 +232,12 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId, highlightedFee
                 ref={(el) => {
                   itemRefs.current[item.id] = el;
                 }}
+                onClick={() => handleCardClick(item.id)}
                 className={cn(
-                  "border rounded-xl p-3.5 transition-all text-xs md:text-sm",
-                  isHighlighted
-                    ? "bg-primary/10 border-primary ring-2 ring-primary/40 shadow-lg"
-                    : "bg-muted/20 border-border hover:border-border/80"
+                  "border rounded-xl p-3.5 transition-all text-xs md:text-sm cursor-pointer",
+                  isSelected
+                    ? "bg-primary/5 border-primary ring-2 ring-primary/40 shadow-sm"
+                    : "bg-muted/20 border-border hover:border-border/80 hover:bg-muted/30"
                 )}
               >
                 {/* Meta Header */}
@@ -227,11 +247,6 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId, highlightedFee
                       <User className="w-3.5 h-3.5 text-muted-foreground" />
                       {item.author}
                     </span>
-                    {isHighlighted && (
-                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-primary text-primary-foreground font-mono font-medium animate-pulse">
-                        Selected Pin
-                      </Badge>
-                    )}
                     <Badge variant="outline" className="font-mono text-[11px]">
                       {item.station_id}
                     </Badge>
@@ -281,7 +296,10 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId, highlightedFee
                       <button
                         key={pIdx}
                         type="button"
-                        onClick={() => setActivePhoto(url)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActivePhoto(url);
+                        }}
                         className="relative w-14 h-14 rounded-lg overflow-hidden border border-border hover:border-ring transition-colors cursor-pointer group"
                       >
                         <img
@@ -296,7 +314,10 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId, highlightedFee
 
                 {/* On-Demand Video Player / Placeholder */}
                 {item.video_filename && (
-                  <div className="mt-2 p-2.5 bg-background border border-border rounded-lg">
+                  <div
+                    className="mt-2 p-2.5 bg-background border border-border rounded-lg"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {vState.isLoaded && vState.videoSrc ? (
                       <div>
                         <video

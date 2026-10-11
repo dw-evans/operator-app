@@ -307,7 +307,11 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                   }}
                 />
               ) : (
-                <FeedbackStream slotId={slotId} highlightedFeedbackId={highlightedFeedbackId} />
+                <FeedbackStream
+                  slotId={slotId}
+                  highlightedFeedbackId={highlightedFeedbackId}
+                  onSelectFeedback={(id) => setHighlightedFeedbackId(id)}
+                />
               )}
             </div>
           </aside>
