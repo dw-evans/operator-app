@@ -11,12 +11,14 @@ import { cn } from '@/lib/utils';
 
 interface FeedbackStreamProps {
   slotId: number;
+  documentId?: number;
   highlightedFeedbackId?: string | null;
   onSelectFeedback?: (feedbackId: string | null) => void;
 }
 
 export const FeedbackStream: FC<FeedbackStreamProps> = ({
   slotId,
+  documentId,
   highlightedFeedbackId,
   onSelectFeedback,
 }) => {
@@ -63,7 +65,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
   const loadFeedback = async () => {
     setIsLoading(true);
     try {
-      const items = await fetchSlotFeedback(slotId);
+      const items = await fetchSlotFeedback(slotId, documentId);
       setFeedbackList(items);
 
       // Check cache status and resolve video source for all items with video
@@ -103,7 +105,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 
   useEffect(() => {
     loadFeedback();
-  }, [slotId]);
+  }, [slotId, documentId]);
 
 
   // Download video into IndexedDB cache for offline replay

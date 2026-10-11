@@ -14,13 +14,19 @@ export async function fetchSlots(): Promise<SlotSummary[]> {
   return res.json();
 }
 
-export async function fetchSlotFeedback(slotId: number): Promise<FeedbackItem[]> {
+export async function fetchSlotFeedback(
+  slotId: number,
+  documentId?: number
+): Promise<FeedbackItem[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/feedback/${slotId}`);
+    const url = documentId !== undefined
+      ? `${API_BASE}/api/v1/feedback/${slotId}?document_id=${documentId}`
+      : `${API_BASE}/api/v1/feedback/${slotId}`;
+    const res = await fetch(url);
     if (res.ok) {
       const items: FeedbackItem[] = await res.json();
-      await saveCachedSlotFeedback(slotId, items);
-      const pending = await getQueuedFeedbackForSlot(slotId);
+      await saveCachedSlotFeedback(slotId, items, documentId);
+      const pending = await getQueuedFeedbackForSlot(slotId, documentId);
       return mergeServerAndPendingFeedback(items, pending);
     }
   } catch (err) {
@@ -28,9 +34,17 @@ export async function fetchSlotFeedback(slotId: number): Promise<FeedbackItem[]>
   }
 
   // Offline fallback: load cached notes/pins from IndexedDB and merge with local queue
-  const cachedItems = await getCachedSlotFeedback(slotId);
-  const pending = await getQueuedFeedbackForSlot(slotId);
+  const cachedItems = await getCachedSlotFeedback(slotId, documentId);
+  const pending = await getQueuedFeedbackForSlot(slotId, documentId);
   return mergeServerAndPendingFeedback(cachedItems, pending);
+}
+
+export async function adminReinstateRevision(docId: number): Promise<any> {
+  const res = await fetch(`${API_BASE}/api/v1/admin/reinstate/${docId}`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(`Failed to reinstate revision: ${res.statusText}`);
+  return res.json();
 }
 
 export async function syncAllSlotsFeedback(slotIds?: number[]): Promise<void> {

@@ -35,12 +35,12 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 
   const loadFeedback = useCallback(async () => {
     try {
-      const items = await fetchSlotFeedback(slotId);
+      const items = await fetchSlotFeedback(slotId, document?.id);
       setFeedbackList(items);
     } catch (err) {
       console.warn('Could not fetch feedback for slot pins:', err);
     }
-  }, [slotId]);
+  }, [slotId, document?.id]);
 
   useEffect(() => {
     loadFeedback();
@@ -48,7 +48,11 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 
   // Map feedback items and draft pin to pins for PdfiumViewer
   const pins: PdfPin[] = useMemo(() => {
-    const list: PdfPin[] = feedbackList.map((fb) => ({
+    const relevantFeedback = document?.id
+      ? feedbackList.filter((fb) => !fb.document_id || fb.document_id === document.id)
+      : feedbackList;
+
+    const list: PdfPin[] = relevantFeedback.map((fb) => ({
       id: fb.id,
       pageNumber: fb.page_ref,
       x: fb.pin_x ?? 0,
@@ -292,6 +296,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               {activeTab === 'submit' ? (
                 <FeedbackEngine
                   slotId={slotId}
+                  documentId={document?.id}
                   initialPageRef={activePage}
                   draftPin={draftPin}
                   onStartPinPlacement={() => {
@@ -310,6 +315,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               ) : (
                 <FeedbackStream
                   slotId={slotId}
+                  documentId={document?.id}
                   highlightedFeedbackId={highlightedFeedbackId}
                   onSelectFeedback={(id) => setHighlightedFeedbackId(id)}
                 />

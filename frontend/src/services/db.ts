@@ -221,13 +221,25 @@ export async function requestPersistentStorage(): Promise<boolean> {
   return false;
 }
 
-// Cached server feedback (notes, pins, comments) per slot
-export async function saveCachedSlotFeedback(slotId: number, items: FeedbackItem[]): Promise<void> {
+// Cached server feedback (notes, pins, comments) per slot and document revision
+export async function saveCachedSlotFeedback(
+  slotId: number,
+  items: FeedbackItem[],
+  documentId?: number
+): Promise<void> {
   try {
     const db = await getDb();
+    const existing = (await db.get('cached_feedback', slotId))?.items || [];
+    let combined: FeedbackItem[];
+    if (documentId !== undefined) {
+      const otherDocs = existing.filter((i: FeedbackItem) => i.document_id !== documentId);
+      combined = [...items, ...otherDocs];
+    } else {
+      combined = items;
+    }
     await db.put('cached_feedback', {
       slot_id: slotId,
-      items,
+      items: combined,
       updatedAt: Date.now(),
     });
   } catch (err) {
@@ -235,21 +247,37 @@ export async function saveCachedSlotFeedback(slotId: number, items: FeedbackItem
   }
 }
 
-export async function getCachedSlotFeedback(slotId: number): Promise<FeedbackItem[]> {
+export async function getCachedSlotFeedback(
+  slotId: number,
+  documentId?: number
+): Promise<FeedbackItem[]> {
   try {
     const db = await getDb();
     const entry = await db.get('cached_feedback', slotId);
-    return entry?.items || [];
+    const all = entry?.items || [];
+    if (documentId !== undefined) {
+      return all.filter((item: FeedbackItem) => item.document_id === documentId);
+    }
+    return all;
   } catch (err) {
     console.warn(`Failed to read cached feedback for slot ${slotId}:`, err);
     return [];
   }
 }
 
-export async function getQueuedFeedbackForSlot(slotId: number): Promise<QueuedFeedback[]> {
+export async function getQueuedFeedbackForSlot(
+  slotId: number,
+  documentId?: number
+): Promise<QueuedFeedback[]> {
   try {
     const all = await getQueuedFeedback();
-    return all.filter((item) => item.slot_id === slotId);
+    return all.filter((item) => {
+      if (item.slot_id !== slotId) return false;
+      if (documentId !== undefined && item.document_id !== undefined) {
+        return item.document_id === documentId;
+      }
+      return true;
+    });
   } catch {
     return [];
   }
@@ -260,6 +288,7 @@ export function queuedToFeedbackItem(q: QueuedFeedback): FeedbackItem {
     id: q.id,
     station_id: q.station_id || 'Station 1',
     slot_id: q.slot_id,
+    document_id: q.document_id || null,
     page_ref: q.page_ref,
     section_ref: q.section_ref || null,
     pin_x: q.pin_x ?? 0.0,

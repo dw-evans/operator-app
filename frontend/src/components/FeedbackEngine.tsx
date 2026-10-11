@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 
 interface FeedbackEngineProps {
   slotId: number;
+  documentId?: number;
   initialPageRef?: number;
   draftPin?: { pageNumber: number; x: number; y: number } | null;
   onStartPinPlacement?: () => void;
@@ -23,6 +24,7 @@ interface FeedbackEngineProps {
 
 export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   slotId,
+  documentId,
   initialPageRef,
   draftPin,
   onStartPinPlacement,
@@ -166,6 +168,9 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         formData.append('id', feedbackId);
         formData.append('station_id', stationId || 'Station 1');
         formData.append('slot_id', slotId.toString());
+        if (documentId !== undefined) {
+          formData.append('document_id', documentId.toString());
+        }
         formData.append('page_ref', pageRef.toString());
         if (sectionRef.trim()) {
           formData.append('section_ref', sectionRef.trim());
@@ -203,6 +208,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         id: feedbackId,
         station_id: stationId || 'Station 1',
         slot_id: slotId,
+        document_id: documentId,
         page_ref: pageRef,
         section_ref: sectionRef.trim() || undefined,
         pin_x: pinCoords?.x ?? 0.0,

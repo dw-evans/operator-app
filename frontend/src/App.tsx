@@ -294,72 +294,13 @@ export function App() {
             />
           </div>
         ) : (
-          /* Active Variant: Mozilla PDF.js Fullscreen Viewer with Popover Notes Drawer */
+          /* Active Variant: PDFium WebAssembly Fullscreen Viewer with Popover Notes Drawer */
           <SlotViewerVariant
             slotId={selectedSlotId}
             document={currentDoc || null}
             totalFeedbackCount={currentSlot?.total_feedback || 0}
             onFeedbackSubmitted={loadSlots}
           />
-
-          /* [DISABLED FOR NOW] Legacy Dual-Panel Viewer Variant
-          <div className="flex-1 p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-            <div className="lg:col-span-7 flex flex-col">
-              {currentDoc ? (
-                <PdfViewer
-                  url={currentDoc.url}
-                  title={`Slot ${selectedSlotId}: ${currentDoc.title} (v${currentDoc.version})`}
-                />
-              ) : (
-                <div className="h-[70vh] flex items-center justify-center bg-card border border-border rounded-xl text-muted-foreground text-sm">
-                  No active manual found for Slot {selectedSlotId}.
-                </div>
-              )}
-            </div>
-
-            <div className="lg:col-span-5 flex flex-col space-y-3">
-              <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
-                <button
-                  onClick={() => setActiveTab('submit')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                    activeTab === 'submit'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Submit Note</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('stream')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                    activeTab === 'stream'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Station Notes</span>
-                </button>
-              </div>
-
-              <div className="flex-1">
-                {activeTab === 'submit' ? (
-                  <FeedbackEngine
-                    slotId={selectedSlotId}
-                    onFeedbackSubmitted={() => {
-                      loadSlots();
-                      setActiveTab('stream');
-                    }}
-                  />
-                ) : (
-                  <FeedbackStream slotId={selectedSlotId} />
-                )}
-              </div>
-            </div>
-          </div>
-          */
         )}
       </main>
     </div>

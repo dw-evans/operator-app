@@ -54,6 +54,7 @@ export interface QueuedFeedback {
   id: string;
   station_id: string;
   slot_id: number;
+  document_id?: number;
   page_ref: number;
   section_ref?: string;
   pin_x?: number;

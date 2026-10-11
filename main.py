@@ -162,6 +162,7 @@ async def create_feedback(
     id: str = Form(...),
     station_id: str = Form("Station 1"),
     slot_id: int = Form(...),
+    document_id: Optional[int] = Form(None),
     page_ref: int = Form(...),
     section_ref: Optional[str] = Form(None),
     pin_x: Optional[float] = Form(0.0),
@@ -181,13 +182,16 @@ async def create_feedback(
     if existing_fb:
         return {"status": "success", "id": id, "message": "Feedback already recorded"}
 
-    # Find the current live document for this slot to link document_id
-    live_doc = (
-        db.query(models.Document)
-        .filter(models.Document.slot_id == slot_id, models.Document.is_live == True)
-        .first()
-    )
-    doc_id = live_doc.id if live_doc else None
+    # Find the target document for this slot to link document_id
+    if document_id:
+        doc_id = document_id
+    else:
+        live_doc = (
+            db.query(models.Document)
+            .filter(models.Document.slot_id == slot_id, models.Document.is_live == True)
+            .first()
+        )
+        doc_id = live_doc.id if live_doc else None
 
     # Process video file
     video_filename = None
@@ -241,14 +245,16 @@ async def create_feedback(
 
 
 @app.get("/api/v1/feedback/{slot_id}", response_model=List[schemas.FeedbackItem])
-def get_slot_feedback(slot_id: int, db: Session = Depends(get_db)):
-    """Retrieve all feedback submitted for a slot, ordered newest first."""
-    items = (
-        db.query(models.Feedback)
-        .filter(models.Feedback.slot_id == slot_id)
-        .order_by(models.Feedback.timestamp.desc())
-        .all()
-    )
+def get_slot_feedback(
+    slot_id: int,
+    document_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """Retrieve feedback submitted for a slot, optionally filtered by specific document revision."""
+    query = db.query(models.Feedback).filter(models.Feedback.slot_id == slot_id)
+    if document_id is not None:
+        query = query.filter(models.Feedback.document_id == document_id)
+    items = query.order_by(models.Feedback.timestamp.desc()).all()
     result = []
     for item in items:
         p_names = json.loads(item.photo_filenames) if item.photo_filenames else []
@@ -384,6 +390,35 @@ def get_slot_history(slot_id: int, db: Session = Depends(get_db)):
         )
         for doc in revs
     ]
+
+
+@app.post("/api/v1/admin/reinstate/{doc_id}")
+def reinstate_document(doc_id: int, db: Session = Depends(get_db)):
+    """Reinstate an older revision as the live document for its slot."""
+    target_doc = db.query(models.Document).filter(models.Document.id == doc_id).first()
+    if not target_doc:
+        raise HTTPException(status_code=404, detail="Document revision not found")
+
+    now = datetime.now(timezone.utc)
+    # Mark any other revisions for this slot as obsolete
+    db.query(models.Document).filter(
+        models.Document.slot_id == target_doc.slot_id,
+        models.Document.id != target_doc.id,
+    ).update({"is_live": False, "obsolescence_date": now})
+
+    # Mark target document as live
+    target_doc.is_live = True
+    target_doc.obsolescence_date = None
+    db.commit()
+    db.refresh(target_doc)
+
+    return {
+        "status": "success",
+        "slot_id": target_doc.slot_id,
+        "doc_id": target_doc.id,
+        "version": target_doc.version,
+        "title": target_doc.title,
+    }
 
 
 @app.get("/api/v1/admin/pin-status", response_model=schemas.PinVerifyResponse)

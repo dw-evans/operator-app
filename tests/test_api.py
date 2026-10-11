@@ -336,4 +336,114 @@ def test_static_pwa_serving():
     assert "Assembly Station Instructions & Feedback" not in resp_bad_manual.text
 
 
+def test_admin_reinstate_old_version():
+    # Upload v1 for slot 3
+    resp_v1 = client.post(
+        "/api/v1/admin/upload/3",
+        files={"file": ("manual_v1.pdf", io.BytesIO(b"%PDF-1.4 v1"), "application/pdf")},
+    )
+    assert resp_v1.status_code == 200
+
+    hist = client.get("/api/v1/admin/history/3").json()
+    assert len(hist) == 1
+    v1_id = hist[0]["id"]
+    assert hist[0]["is_live"] is True
+
+    # Upload v2 for slot 3
+    resp_v2 = client.post(
+        "/api/v1/admin/upload/3",
+        files={"file": ("manual_v2.pdf", io.BytesIO(b"%PDF-1.4 v2"), "application/pdf")},
+    )
+    assert resp_v2.status_code == 200
+
+    hist2 = client.get("/api/v1/admin/history/3").json()
+    assert len(hist2) == 2
+    assert hist2[0]["version"] == 2
+    assert hist2[0]["is_live"] is True
+    assert hist2[1]["version"] == 1
+    assert hist2[1]["is_live"] is False
+
+    # Reinstate v1
+    reinstate_resp = client.post(f"/api/v1/admin/reinstate/{v1_id}")
+    assert reinstate_resp.status_code == 200
+    assert reinstate_resp.json()["version"] == 1
+
+    # Check history after reinstate
+    hist3 = client.get("/api/v1/admin/history/3").json()
+    assert hist3[0]["version"] == 2
+    assert hist3[0]["is_live"] is False
+    assert hist3[1]["version"] == 1
+    assert hist3[1]["is_live"] is True
+
+    # Manifest should report version 1 as live
+    manifest = client.get("/api/v1/manifest").json()
+    s3_doc = next(d for d in manifest["documents"] if d["slot_id"] == 3)
+    assert s3_doc["version"] == 1
+
+
+def test_version_specific_feedback():
+    # Upload v1 for slot 4
+    client.post(
+        "/api/v1/admin/upload/4",
+        files={"file": ("part_v1.pdf", io.BytesIO(b"%PDF-1.4 v1"), "application/pdf")},
+    )
+    h1 = client.get("/api/v1/admin/history/4").json()
+    doc1_id = h1[0]["id"]
+
+    # Submit feedback on v1
+    resp_fb1 = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": "fb-v1-note",
+            "station_id": "Station A",
+            "slot_id": 4,
+            "document_id": doc1_id,
+            "page_ref": 1,
+            "author": "Operator 1",
+            "text_comment": "Note for version 1",
+        },
+    )
+    assert resp_fb1.status_code == 200
+
+    # Upload v2 for slot 4
+    client.post(
+        "/api/v1/admin/upload/4",
+        files={"file": ("part_v2.pdf", io.BytesIO(b"%PDF-1.4 v2"), "application/pdf")},
+    )
+    h2 = client.get("/api/v1/admin/history/4").json()
+    doc2_id = h2[0]["id"]
+
+    # Submit feedback on v2
+    resp_fb2 = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": "fb-v2-note",
+            "station_id": "Station A",
+            "slot_id": 4,
+            "document_id": doc2_id,
+            "page_ref": 2,
+            "author": "Operator 2",
+            "text_comment": "Note for version 2",
+        },
+    )
+    assert resp_fb2.status_code == 200
+
+    # Filter feedback by v1 doc_id
+    v1_notes = client.get(f"/api/v1/feedback/4?document_id={doc1_id}").json()
+    assert len(v1_notes) == 1
+    assert v1_notes[0]["id"] == "fb-v1-note"
+    assert v1_notes[0]["text_comment"] == "Note for version 1"
+
+    # Filter feedback by v2 doc_id
+    v2_notes = client.get(f"/api/v1/feedback/4?document_id={doc2_id}").json()
+    assert len(v2_notes) == 1
+    assert v2_notes[0]["id"] == "fb-v2-note"
+    assert v2_notes[0]["text_comment"] == "Note for version 2"
+
+    # Unfiltered returns all notes for slot 4
+    all_notes = client.get("/api/v1/feedback/4").json()
+    assert len(all_notes) == 2
+
+
+
 
