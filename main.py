@@ -462,11 +462,23 @@ async def serve_spa(full_path: str):
 
     target = STATIC_PWA_DIR / clean_path
     if target.is_file():
-        return FileResponse(target)
+        headers = {}
+        if clean_path.startswith("assets/"):
+            headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return FileResponse(target, headers=headers)
+
+    # Do not return HTML fallback for missing static assets/scripts
+    if clean_path.startswith("assets/") or clean_path.endswith(
+        (".js", ".mjs", ".css", ".wasm", ".map", ".png", ".jpg", ".svg", ".woff2")
+    ):
+        raise HTTPException(status_code=404, detail="Asset not found")
 
     index_file = STATIC_PWA_DIR / "index.html"
     if index_file.is_file():
-        return FileResponse(index_file)
+        return FileResponse(
+            index_file,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 
     return {
         "name": "Assembly PWA Backend Server",
