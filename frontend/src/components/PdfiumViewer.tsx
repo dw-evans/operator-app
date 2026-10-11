@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { FC } from 'react';
 import { PDFViewer } from '@embedpdf/react-pdf-viewer';
 import type { PluginRegistry } from '@embedpdf/snippet';
 import type { PdfPin } from '../types';
 import { PdfPinOverlay } from './PdfPinOverlay';
+import { getPdfBlob } from '../services/db';
 
 export interface PdfiumViewerProps {
   url: string;
@@ -46,6 +47,38 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   // Guarantee absolute URLs based on current host/protocol (prevents worker/blob resolution delays)
   const absoluteWasmUrl = new URL('/pdfium.wasm', window.location.origin).href;
   const absoluteDocUrl = new URL(url, window.location.origin).href;
+
+  const [docSrc, setDocSrc] = useState<string>(absoluteDocUrl);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let isSubscribed = true;
+
+    async function resolveDocSrc() {
+      if (!navigator.onLine) {
+        try {
+          const blob = await getPdfBlob(url);
+          if (blob && isSubscribed) {
+            objectUrl = URL.createObjectURL(blob);
+            setDocSrc(objectUrl);
+            return;
+          }
+        } catch {
+          // fallback
+        }
+      }
+      if (isSubscribed) {
+        setDocSrc(absoluteDocUrl);
+      }
+    }
+
+    resolveDocSrc();
+
+    return () => {
+      isSubscribed = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url, absoluteDocUrl]);
 
   const handleReady = useCallback(
     (registry: PluginRegistry) => {
@@ -118,9 +151,9 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
       className="w-full h-full relative overflow-hidden bg-background"
     >
       <PDFViewer
-        key={url}
+        key={docSrc}
         config={{
-          src: absoluteDocUrl,
+          src: docSrc,
           wasmUrl: absoluteWasmUrl,
           // Disable external CDN fonts and font fallbacks to guarantee 0s offline LAN startup
           fonts: { ui: null },

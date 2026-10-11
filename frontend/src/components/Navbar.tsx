@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Wifi, WifiOff, RefreshCw, ArrowLeft, Shield, Wrench, Download } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, ArrowLeft, Shield, Wrench, Download, CheckCircle2 } from 'lucide-react';
 import { syncManager } from '../services/sync';
+import { pdfCacheManager } from '../services/pdfCache';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface NavbarProps {
   currentSlotId: number | null;
@@ -23,9 +25,15 @@ export const Navbar: FC<NavbarProps> = ({
     isSyncing: false,
     pendingCount: 0,
   });
+  const [pdfCacheStatus, setPdfCacheStatus] = useState(pdfCacheManager.getState());
 
   useEffect(() => {
-    return syncManager.subscribe(setSyncState);
+    const unsubSync = syncManager.subscribe(setSyncState);
+    const unsubPdf = pdfCacheManager.subscribe(setPdfCacheStatus);
+    return () => {
+      unsubSync();
+      unsubPdf();
+    };
   }, []);
 
   return (
@@ -79,6 +87,42 @@ export const Navbar: FC<NavbarProps> = ({
         ) : (
           <Badge variant="secondary" className="hidden sm:inline-flex text-xs">
             All Synced
+          </Badge>
+        )}
+
+        {/* PDF Offline Storage Indicator */}
+        {pdfCacheStatus.totalDocs > 0 && (
+          <Badge
+            variant="outline"
+            className={cn(
+              "gap-1 text-xs font-mono font-medium transition-colors",
+              pdfCacheStatus.allCached
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                : "border-blue-500/40 bg-blue-500/10 text-blue-400"
+            )}
+            title={
+              pdfCacheStatus.allCached
+                ? `All ${pdfCacheStatus.totalDocs} active PDF manuals are stored locally for offline use`
+                : `Storing PDF manuals offline (${pdfCacheStatus.cachedDocs}/${pdfCacheStatus.totalDocs})...`
+            }
+          >
+            {pdfCacheStatus.allCached ? (
+              <>
+                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                <span className="hidden sm:inline">PDFs Stored</span>
+                <span className="sm:hidden">PDFs</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-3 w-3 text-blue-400 animate-spin" />
+                <span className="hidden sm:inline">
+                  Storing PDFs ({pdfCacheStatus.cachedDocs}/{pdfCacheStatus.totalDocs})
+                </span>
+                <span className="sm:hidden">
+                  {pdfCacheStatus.cachedDocs}/{pdfCacheStatus.totalDocs}
+                </span>
+              </>
+            )}
           </Badge>
         )}
 

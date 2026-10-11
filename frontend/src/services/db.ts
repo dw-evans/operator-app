@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { QueuedFeedback, SlotSummary } from '../types';
 
 const DB_NAME = 'assembly_pwa_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -18,6 +18,9 @@ export function getDb(): Promise<IDBPDatabase> {
         }
         if (!db.objectStoreNames.contains('media_cache')) {
           db.createObjectStore('media_cache', { keyPath: 'key' });
+        }
+        if (!db.objectStoreNames.contains('pdf_cache')) {
+          db.createObjectStore('pdf_cache', { keyPath: 'url' });
         }
       },
     });
@@ -78,6 +81,122 @@ export async function isMediaCached(key: string): Promise<boolean> {
   const db = await getDb();
   const count = await db.count('media_cache', key);
   return count > 0;
+}
+
+// PDF document cache (IndexedDB + CacheStorage dual persistence)
+export async function savePdfBlob(
+  url: string,
+  blob: Blob,
+  meta?: { filename?: string; fileHash?: string; slotId?: number }
+): Promise<void> {
+  const db = await getDb();
+  await db.put('pdf_cache', {
+    url,
+    blob,
+    cachedAt: Date.now(),
+    ...meta,
+  });
+
+  // Also save to CacheStorage for Service Worker interception
+  if ('caches' in window) {
+    try {
+      const cache = await caches.open('assembly_pdf_cache');
+      const response = new Response(blob, {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Length': blob.size.toString(),
+        },
+      });
+      await cache.put(url, response.clone());
+
+      const path = new URL(url, window.location.origin).pathname;
+      if (path !== url) {
+        await cache.put(path, response);
+      }
+    } catch (err) {
+      console.warn('Failed to save PDF to CacheStorage:', err);
+    }
+  }
+}
+
+export async function getPdfBlob(url: string): Promise<Blob | undefined> {
+  // Check IndexedDB first
+  try {
+    const db = await getDb();
+    const entry = await db.get('pdf_cache', url);
+    if (entry?.blob) return entry.blob;
+
+    const path = new URL(url, window.location.origin).pathname;
+    if (path !== url) {
+      const pathEntry = await db.get('pdf_cache', path);
+      if (pathEntry?.blob) return pathEntry.blob;
+    }
+  } catch (err) {
+    console.warn('Error reading PDF from IndexedDB:', err);
+  }
+
+  // Fallback to CacheStorage
+  if ('caches' in window) {
+    try {
+      const cache = await caches.open('assembly_pdf_cache');
+      let match = await cache.match(url);
+      if (!match) {
+        const path = new URL(url, window.location.origin).pathname;
+        match = await cache.match(path);
+      }
+      if (match) {
+        return await match.blob();
+      }
+    } catch (err) {
+      console.warn('Error reading PDF from CacheStorage:', err);
+    }
+  }
+
+  return undefined;
+}
+
+export async function isPdfCached(url: string): Promise<boolean> {
+  try {
+    const db = await getDb();
+    const count = await db.count('pdf_cache', url);
+    if (count > 0) return true;
+
+    const path = new URL(url, window.location.origin).pathname;
+    if (path !== url) {
+      const pathCount = await db.count('pdf_cache', path);
+      if (pathCount > 0) return true;
+    }
+  } catch {
+    // fallback
+  }
+
+  if ('caches' in window) {
+    try {
+      const cache = await caches.open('assembly_pdf_cache');
+      const match = await cache.match(url);
+      if (match) return true;
+
+      const path = new URL(url, window.location.origin).pathname;
+      if (path !== url) {
+        const pathMatch = await cache.match(path);
+        if (pathMatch) return true;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  return false;
+}
+
+export async function getAllCachedPdfUrls(): Promise<string[]> {
+  try {
+    const db = await getDb();
+    const all = await db.getAll('pdf_cache');
+    return all.map((entry) => entry.url);
+  } catch {
+    return [];
+  }
 }
 
 // Request browser persistent storage to prevent eviction in Firefox / Chromium PWAs

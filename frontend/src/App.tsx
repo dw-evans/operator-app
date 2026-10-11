@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, Bug, Trash2 } from 'lucide-react';
 import { fetchSlots } from './services/api';
 import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
+import { pdfCacheManager } from './services/pdfCache';
+import { cn } from '@/lib/utils';
 import type { SlotSummary } from './types';
 
 export function App() {
@@ -50,12 +52,14 @@ export function App() {
       const data = await fetchSlots();
       setSlots(data);
       await saveCachedManifest(data);
+      pdfCacheManager.cacheAllDocuments(data);
     } catch (err) {
       console.warn('Network fetch failed, attempting to read cached manifest from IndexedDB:', err);
       try {
         const cached = await getCachedManifest();
         if (cached && cached.length > 0) {
           setSlots(cached);
+          pdfCacheManager.cacheAllDocuments(cached);
         }
       } catch (cacheErr) {
         console.error('Failed to read cached manifest:', cacheErr);
@@ -155,6 +159,18 @@ export function App() {
   const currentSlot = slots.find((s) => s.slot_id === selectedSlotId);
   const currentDoc = currentSlot?.live_document;
 
+  const [isCurrentDocCached, setIsCurrentDocCached] = useState(false);
+
+  useEffect(() => {
+    return pdfCacheManager.subscribe(() => {
+      if (currentDoc?.url) {
+        setIsCurrentDocCached(pdfCacheManager.isDocumentCached(currentDoc.url));
+      } else {
+        setIsCurrentDocCached(false);
+      }
+    });
+  }, [currentDoc?.url]);
+
   return (
     <div className="fixed inset-0 h-screen h-[100dvh] w-screen overflow-hidden bg-background text-foreground flex flex-col font-sans select-none">
       <Navbar
@@ -232,6 +248,32 @@ export function App() {
               </span>
             )}
           </div>
+
+          {currentDoc && (
+            <div
+              className={cn(
+                "flex items-center gap-1.5 text-xs font-mono font-medium shrink-0 ml-2 transition-colors",
+                isCurrentDocCached ? "text-emerald-400" : "text-muted-foreground"
+              )}
+              title={
+                isCurrentDocCached
+                  ? "This PDF manual is stored locally for offline viewing"
+                  : "Storing PDF manual offline..."
+              }
+            >
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full",
+                  isCurrentDocCached
+                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]"
+                    : "bg-muted-foreground/40 animate-pulse"
+                )}
+              />
+              <span className="hidden xs:inline text-[11px]">
+                {isCurrentDocCached ? "Stored Offline" : "Storing..."}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
-import { ChevronRight, MessageSquare, AlertCircle, Clock } from 'lucide-react';
+import { ChevronRight, MessageSquare, AlertCircle, Clock, RefreshCw } from 'lucide-react';
 import type { SlotSummary } from '../types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { pdfCacheManager } from '../services/pdfCache';
 
 interface SlotSelectorProps {
   slots: SlotSummary[];
@@ -16,6 +18,12 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
   onSelectSlot,
   isLoading,
 }) => {
+  const [cacheStatus, setCacheStatus] = useState(pdfCacheManager.getState());
+
+  useEffect(() => {
+    return pdfCacheManager.subscribe(setCacheStatus);
+  }, []);
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6">
       <div className="mb-6 text-center md:text-left">
@@ -41,6 +49,7 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
           {slots.map((slot) => {
             const hasDoc = Boolean(slot.live_document);
             const doc = slot.live_document;
+            const isCached = hasDoc && doc?.url ? Boolean(cacheStatus.cachedUrls[doc.url]) : false;
 
             return (
               <Card
@@ -64,11 +73,33 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
                       SLOT {slot.slot_id < 10 ? `0${slot.slot_id}` : slot.slot_id}
                     </Badge>
 
-                    {hasDoc && doc?.version && (
-                      <Badge variant="secondary" className="text-[11px] font-mono font-medium">
-                        v{doc.version}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {hasDoc && isCached && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono px-1.5 py-0 h-4.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-400 gap-1 font-medium"
+                          title="PDF is stored locally for offline use"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.8)]" />
+                          <span>Stored</span>
+                        </Badge>
+                      )}
+                      {hasDoc && cacheStatus.isCaching && !isCached && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono px-1.5 py-0 h-4.5 border-blue-500/40 bg-blue-500/10 text-blue-400 gap-1 font-medium animate-pulse"
+                          title="Downloading PDF for offline storage..."
+                        >
+                          <RefreshCw className="w-2.5 h-2.5 animate-spin text-blue-400" />
+                          <span>Storing...</span>
+                        </Badge>
+                      )}
+                      {hasDoc && doc?.version && (
+                        <Badge variant="secondary" className="text-[11px] font-mono font-medium">
+                          v{doc.version}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   <h3 className="font-medium text-sm text-card-foreground line-clamp-2 leading-snug">
