@@ -6,7 +6,7 @@ import { FeedbackStream } from './FeedbackStream';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin } from 'lucide-react';
+import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DocumentRevision, FeedbackItem, PdfPin } from '../types';
 import { fetchSlotFeedback } from '../services/api';
@@ -30,6 +30,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   const [draftPin, setDraftPin] = useState<{ pageNumber: number; x: number; y: number } | null>(null);
+  const [showPins, setShowPins] = useState(true);
 
   const loadFeedback = useCallback(async () => {
     try {
@@ -70,6 +71,11 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     return list;
   }, [feedbackList, draftPin]);
 
+  // Filter pins based on showPins toggle, keeping draft pins visible
+  const visiblePins = useMemo(() => {
+    return showPins ? pins : pins.filter((p) => p.isDraft);
+  }, [pins, showPins]);
+
   if (!document) {
     return (
       <div className="flex-1 flex items-center justify-center p-6 text-center bg-background">
@@ -99,10 +105,31 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             Page {activePage}
           </Badge>
           {pins.length > 0 && (
-            <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0 h-5 gap-1">
-              <MapPin className="w-3 h-3 text-primary" />
-              <span>{pins.filter((p) => !p.isDraft).length} pins</span>
-            </Badge>
+            <div className="flex items-center gap-1 shrink-0">
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "font-mono text-[10px] px-1.5 py-0 h-5 gap-1 transition-opacity",
+                  !showPins && "opacity-50"
+                )}
+              >
+                <MapPin className="w-3 h-3 text-primary" />
+                <span>{pins.filter((p) => !p.isDraft).length} pins</span>
+              </Badge>
+              <Button
+                variant="outline"
+                size="icon-xs"
+                onClick={() => setShowPins((prev) => !prev)}
+                className={cn(
+                  "h-5 w-5 p-0 cursor-pointer transition-colors border-border/80",
+                  showPins ? "text-primary hover:text-primary/80" : "text-muted-foreground hover:text-foreground"
+                )}
+                title={showPins ? "Hide pins on document" : "Show pins on document"}
+                aria-label={showPins ? "Hide pins on document" : "Show pins on document"}
+              >
+                {showPins ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -121,7 +148,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             <span>Add Note</span>
           </Button>
 
-          {/* All Notes / Comments Button */}
+          {/* Notes / Comments Button */}
           <Button
             variant="default"
             size="sm"
@@ -132,7 +159,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             className="h-7 px-2.5 gap-1.5 text-xs font-medium cursor-pointer shadow-sm"
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>All Notes</span>
+            <span>Notes</span>
             {totalFeedbackCount > 0 && (
               <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">
                 {totalFeedbackCount}
@@ -147,7 +174,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         <PdfiumViewer
           url={document.url}
           onPageChange={setActivePage}
-          pins={pins}
+          pins={visiblePins}
           isPlacingPin={isPlacingPin}
           onPinPlaced={(coords) => {
             setDraftPin(coords);
@@ -240,7 +267,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                   )}
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>All Notes</span>
+                  <span>Notes</span>
                   {totalFeedbackCount > 0 && (
                     <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">
                       {totalFeedbackCount}
@@ -258,6 +285,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                   initialPageRef={activePage}
                   draftPin={draftPin}
                   onStartPinPlacement={() => {
+                    setShowPins(true);
                     setIsPlacingPin(true);
                     setIsNotesOpen(false);
                   }}
