@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Wifi, WifiOff, RefreshCw, ArrowLeft, Shield, Wrench } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, ArrowLeft, Shield, Wrench, ShieldAlert } from 'lucide-react';
 import { syncManager } from '../services/sync';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
@@ -27,12 +27,18 @@ export const Navbar: FC<NavbarProps> = ({
     pendingCount: 0,
   });
 
+  const isHttpInsecure =
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'http:' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1';
+
   useEffect(() => {
     return syncManager.subscribe(setSyncState);
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b px-4 py-2.5 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-background/95 border-b px-4 py-2.5 flex items-center justify-between">
       <div className="flex items-center gap-3">
         {currentSlotId !== null ? (
           <Button
@@ -112,6 +118,23 @@ export const Navbar: FC<NavbarProps> = ({
             </>
           )}
         </Badge>
+
+        {/* Certificate / HTTPS Warning and Setup Link */}
+        {isHttpInsecure && (
+          <a
+            href="/cert"
+            className={buttonVariants({
+              variant: 'outline',
+              size: 'sm',
+              className: 'gap-1.5 text-xs text-amber-500 border-amber-500/30 hover:bg-amber-500/10',
+            })}
+            title="Application is running on unencrypted HTTP. Tap to install the Root CA and switch to HTTPS for PWA installation."
+          >
+            <ShieldAlert className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Install Cert (PWA)</span>
+            <span className="md:hidden">Cert</span>
+          </a>
+        )}
 
         {/* Admin Portal Toggle */}
         <Button

@@ -60,3 +60,27 @@ export interface QueuedFeedback {
   timestamp: string;
   status: 'pending';
 }
+
+export interface CertInfo {
+  ca_exists: boolean;
+  server_exists: boolean;
+  ips: string[];
+  hostnames: string[];
+  ca_filename: string;
+  ca_download_url: string;
+  ca_size?: number;
+  ca_modified?: string;
+  https_port: number;
+  http_port: number;
+}
+
+export interface CertGenerateResult {
+  status: string;
+  method: string;
+  ca_crt: string;
+  server_crt: string;
+  server_key: string;
+  ips: string[];
+  hostnames: string[];
+}
+

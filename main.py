@@ -1,16 +1,18 @@
 import hashlib
 import json
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
+import cert_manager
 from database import Base, engine, get_db
 import models
 import schemas
@@ -28,10 +30,22 @@ STATIC_PWA_DIR.mkdir(parents=True, exist_ok=True)
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Ensure TLS certificates exist on server startup."""
+    try:
+        cert_manager.ensure_certificates()
+    except Exception as e:
+        print(f"Warning: Could not auto-generate certificates on startup: {e}")
+    yield
+
+
 app = FastAPI(
     title="Assembly Instruction & Feedback System",
     description="Offline-first PWA server for air-gapped shop floor stations",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Enable CORS for development
@@ -369,6 +383,367 @@ def verify_admin_pin(req: schemas.PinVerifyRequest):
 
     valid = req.pin == admin_pin.strip()
     return {"valid": valid, "pin_required": True}
+
+
+# ==============================================================================
+# Certificate Generation & Hosting Endpoints for Android PWA HTTPS
+# ==============================================================================
+
+
+@app.get("/api/v1/cert/info")
+def get_cert_info():
+    """Get metadata about Root CA and server certificates."""
+    info = cert_manager.get_certificate_info()
+    https_port = int(os.environ.get("HTTPS_PORT", "8443"))
+    http_port = int(os.environ.get("PORT", "8000"))
+    info["https_port"] = https_port
+    info["http_port"] = http_port
+    return info
+
+
+@app.post("/api/v1/cert/generate")
+def generate_cert():
+    """Force (re)generation of CA and server certificates."""
+    res = cert_manager.ensure_certificates(force_regenerate=True)
+    return res
+
+
+@app.get("/api/v1/cert/ca.crt")
+@app.get("/ca.crt")
+@app.get("/download-ca")
+def download_ca_cert():
+    """Direct download of the Root CA certificate for Android / client installation."""
+    ca_path = cert_manager.CERTS_DIR / "ca.crt"
+    if not ca_path.is_file():
+        cert_manager.ensure_certificates()
+    if not ca_path.is_file():
+        raise HTTPException(status_code=404, detail="CA certificate not found")
+
+    return FileResponse(
+        ca_path,
+        media_type="application/x-x509-ca-cert",
+        headers={
+            "Content-Disposition": 'attachment; filename="assembly-pwa-ca.crt"',
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@app.get("/api/v1/cert/ca.der")
+@app.get("/ca.der")
+def download_ca_der_cert():
+    """Direct download of the Root CA in DER binary format (preferred by some Android versions)."""
+    ca_der_path = cert_manager.CERTS_DIR / "ca.der"
+    if not ca_der_path.is_file():
+        cert_manager.ensure_certificates()
+    if not ca_der_path.is_file():
+        raise HTTPException(status_code=404, detail="CA DER certificate not found")
+
+    return FileResponse(
+        ca_der_path,
+        media_type="application/x-x509-ca-cert",
+        headers={
+            "Content-Disposition": 'attachment; filename="assembly-pwa-ca.der"',
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@app.get("/api/v1/cert/server.crt")
+def download_server_cert():
+    """Download the active server certificate."""
+    srv_path = cert_manager.CERTS_DIR / "server.crt"
+    if not srv_path.is_file():
+        raise HTTPException(status_code=404, detail="Server certificate not found")
+    return FileResponse(
+        srv_path,
+        media_type="application/x-x509-ca-cert",
+        headers={"Content-Disposition": 'attachment; filename="assembly-pwa-server.crt"'},
+    )
+
+
+@app.get("/cert", response_class=HTMLResponse)
+@app.get("/setup", response_class=HTMLResponse)
+def cert_setup_page():
+    """Self-contained, air-gapped HTML onboarding page for Android certificate installation."""
+    https_port = int(os.environ.get("HTTPS_PORT", "8443"))
+
+    html_content = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTTPS & Android PWA Certificate Setup</title>
+  <style>
+    :root {{
+      --bg: #09090b;
+      --card: #18181b;
+      --border: rgba(255,255,255,0.12);
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --amber: #f59e0b;
+    }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 1.5rem 1rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }}
+    .container {{
+      width: 100%;
+      max-width: 680px;
+    }}
+    .badge {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }}
+    .badge-success {{
+      border-color: rgba(16, 185, 129, 0.3);
+      color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+    }}
+    h1 {{
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 0.5rem;
+    }}
+    p.subtitle {{
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }}
+    .card {{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+    }}
+    .card-title {{
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }}
+    .btn {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }}
+    .btn-primary {{
+      background: var(--primary);
+      color: #ffffff;
+    }}
+    .btn-primary:hover {{
+      background: var(--primary-hover);
+    }}
+    .btn-outline {{
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text);
+      margin-top: 0.5rem;
+    }}
+    .btn-outline:hover {{
+      background: rgba(255,255,255,0.05);
+    }}
+    .btn-success {{
+      background: var(--success);
+      color: #ffffff;
+    }}
+    .steps {{
+      list-style: none;
+      counter-reset: step-counter;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }}
+    .step-item {{
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }}
+    .step-num {{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 9999px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 0.75rem;
+      color: var(--text);
+    }}
+    .step-content strong {{
+      color: #ffffff;
+    }}
+    .code-box {{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8125rem;
+      background: rgba(0,0,0,0.4);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      border: 1px solid var(--border);
+      color: #93c5fd;
+    }}
+    .server-url {{
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background: rgba(0,0,0,0.3);
+      border: 1px dashed var(--border);
+      font-size: 0.8125rem;
+      word-break: break-all;
+    }}
+    .back-link {{
+      display: inline-block;
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      color: var(--muted);
+      text-decoration: none;
+    }}
+    .back-link:hover {{
+      color: var(--text);
+      text-decoration: underline;
+    }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge badge-success">✓ HTTPS CA Certificate Active</div>
+    <h1>Android PWA Certificate Setup</h1>
+    <p class="subtitle">
+      Install the local Root Certificate Authority (CA) on your Android tablet so Chrome and Firefox fully trust the offline HTTPS connection and enable the <strong>"Install app"</strong> PWA prompt.
+    </p>
+
+    <!-- Download Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>1. Download Certificate</span>
+        <span class="badge">Valid 10 Years</span>
+      </div>
+      <p style="font-size: 0.875rem; color: var(--muted); margin-bottom: 1rem;">
+        Download the Root CA certificate file to this tablet's storage:
+      </p>
+      <a href="/api/v1/cert/ca.crt" download="assembly-pwa-ca.crt" class="btn btn-primary">
+        📥 Download CA Certificate (.crt)
+      </a>
+      <a href="/api/v1/cert/ca.der" download="assembly-pwa-ca.der" class="btn btn-outline" style="font-size: 0.8125rem;">
+        Download DER Format (.der for older Android)
+      </a>
+    </div>
+
+    <!-- Android Install Steps Card -->
+    <div class="card">
+      <div class="card-title">2. Install on Android Tablet</div>
+      <ul class="steps">
+        <li class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            Tap the blue button above to download <span class="code-box">assembly-pwa-ca.crt</span>.
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            Open Android <strong>Settings</strong> ➔ <strong>Security</strong> (or <em>Security & Privacy</em> ➔ <em>More security settings</em> ➔ <em>Encryption & credentials</em>).
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            Select <strong>Install a certificate</strong> ➔ <strong>CA certificate</strong>.<br>
+            <em style="color: var(--amber); font-size: 0.8rem;">(If Android shows a warning about personal data, tap <strong>"Install anyway"</strong>)</em>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            Choose the downloaded <span class="code-box">assembly-pwa-ca.crt</span> file from your <em>Downloads</em> folder. Android will confirm "CA certificate installed".
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            Return to your browser and open the secure HTTPS URL below.
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">6</div>
+          <div class="step-content">
+            Tap the browser menu (⋮) and tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Launch App Card -->
+    <div class="card">
+      <div class="card-title">3. Open Secure App (HTTPS)</div>
+      <p style="font-size: 0.875rem; color: var(--muted); margin-bottom: 0.75rem;">
+        Once installed, launch the PWA over HTTPS:
+      </p>
+      <a id="https-btn" href="#" class="btn btn-success">
+        🚀 Launch Secure App (HTTPS)
+      </a>
+      <div class="server-url">
+        <strong>Direct URL:</strong> <span id="https-url-text">Loading...</span>
+      </div>
+    </div>
+
+    <a href="/" class="back-link">← Return to Assembly Manuals</a>
+  </div>
+
+  <script>
+    // Automatically match the hostname the user accessed the server with
+    const host = window.location.hostname || '127.0.0.1';
+    const httpsPort = '{https_port}';
+    const httpsUrl = `https://${{host}}:${{httpsPort}}/`;
+
+    const btn = document.getElementById('https-btn');
+    const txt = document.getElementById('https-url-text');
+    if (btn) btn.href = httpsUrl;
+    if (txt) txt.textContent = httpsUrl;
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html_content)
 
 
 # Mount storage directories

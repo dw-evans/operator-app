@@ -32,10 +32,6 @@ Thumbs.db
 .idea/
 
 # SSL / TLS certificates generated at runtime
-certs/*.key
-certs/*.pem
-certs/*.crt
-certs/*.csr
-certs/*.srl
-certs/*.ext
+certs/*
+!certs/.gitkeep
 
