@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { PdfPin } from '../types';
+import { getMediaBlob } from '../services/db';
 
 interface PositionedPin extends PdfPin {
   screenX: number;
@@ -99,6 +100,50 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     if (!activePinId) return null;
     return positionedPins.find((p) => p.id === activePinId) || null;
   }, [activePinId, positionedPins]);
+
+  const [activePinVideoSrc, setActivePinVideoSrc] = useState<string | null>(null);
+
+  // Resolve video source for activePin (supports offline IndexedDB cached blobs)
+  useEffect(() => {
+    let currentObjectUrl: string | null = null;
+    let isSubscribed = true;
+
+    async function resolveVideo() {
+      if (!activePin) {
+        setActivePinVideoSrc(null);
+        return;
+      }
+
+      if (activePin.videoFilename) {
+        try {
+          const cachedBlob = await getMediaBlob(activePin.videoFilename);
+          if (cachedBlob && isSubscribed) {
+            currentObjectUrl = URL.createObjectURL(cachedBlob);
+            setActivePinVideoSrc(currentObjectUrl);
+            return;
+          }
+        } catch {
+          // ignore cache read failure
+        }
+      }
+
+      if (isSubscribed) {
+        const fallback =
+          activePin.videoUrl ||
+          (activePin.videoFilename ? `/media/${activePin.videoFilename}` : null);
+        setActivePinVideoSrc(fallback);
+      }
+    }
+
+    resolveVideo();
+
+    return () => {
+      isSubscribed = false;
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+      }
+    };
+  }, [activePin]);
 
   // Close popup on click outside or Escape key
   useEffect(() => {
@@ -522,7 +567,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
         <div
           style={popupPosition.style}
           onClick={(e) => e.stopPropagation()}
-          className="pin-comment-popup z-40 bg-card/95 backdrop-blur-md border border-border shadow-2xl rounded-xl p-3.5 text-xs text-foreground animate-in fade-in zoom-in-95 duration-150 select-text"
+          className="pin-comment-popup z-40 bg-card/95 backdrop-blur-md border border-border shadow-2xl rounded-xl p-3.5 text-xs text-foreground animate-in fade-in zoom-in-95 duration-150 select-text max-h-[85vh] overflow-y-auto"
         >
           {/* Header: Author, Station, Status, Close */}
           <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-border/60">
@@ -609,6 +654,29 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                   <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
                 </a>
               ))}
+            </div>
+          )}
+
+          {/* Video Preview / Player if present in the note */}
+          {(activePinVideoSrc || activePin.videoUrl || activePin.videoFilename) && (
+            <div className="mb-2.5 rounded-lg overflow-hidden border border-border/80 bg-black/95">
+              <video
+                controls
+                playsInline
+                preload="metadata"
+                src={
+                  activePinVideoSrc ||
+                  activePin.videoUrl ||
+                  (activePin.videoFilename ? `/media/${activePin.videoFilename}` : undefined)
+                }
+                className="w-full max-h-48 rounded-lg object-contain bg-black"
+              />
+              {activePin.videoFilename && (
+                <div className="px-2 py-1 text-[10px] text-muted-foreground font-mono flex items-center justify-between bg-card/60 border-t border-border/40">
+                  <span className="truncate">{activePin.videoFilename}</span>
+                  <span className="text-[9px] uppercase tracking-wider text-primary font-medium">Video</span>
+                </div>
+              )}
             </div>
           )}
 

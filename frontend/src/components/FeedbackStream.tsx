@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FC } from 'react';
-import { MessageSquare, Clock, User, Download, Play, RefreshCw, X, MapPin } from 'lucide-react';
+import { MessageSquare, Clock, User, Download, RefreshCw, X, MapPin } from 'lucide-react';
 import type { FeedbackItem } from '../types';
 import { fetchSlotFeedback } from '../services/api';
 import { isMediaCached, getMediaBlob, saveMediaBlob } from '../services/db';
@@ -66,13 +66,28 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       const items = await fetchSlotFeedback(slotId);
       setFeedbackList(items);
 
-      // Check cache status for any videos
+      // Check cache status and resolve video source for all items with video
       const initialStates: Record<string, any> = {};
       for (const item of items) {
-        if (item.video_filename) {
-          const cached = await isMediaCached(item.video_filename);
+        if (item.video_filename || item.video_url) {
+          let cached = false;
+          let blobUrl: string | undefined;
+          if (item.video_filename) {
+            cached = await isMediaCached(item.video_filename);
+            if (cached) {
+              const blob = await getMediaBlob(item.video_filename);
+              if (blob) {
+                blobUrl = URL.createObjectURL(blob);
+              }
+            }
+          }
+          const defaultSrc =
+            blobUrl ||
+            item.video_url ||
+            (item.video_filename ? `/media/${item.video_filename}` : undefined);
           initialStates[item.id] = {
-            isLoaded: false,
+            isLoaded: true,
+            videoSrc: defaultSrc,
             isCached: cached,
             isDownloading: false,
           };
@@ -90,39 +105,6 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
     loadFeedback();
   }, [slotId]);
 
-  // Load video on-demand (from IndexedDB cache if available, or fetch from server)
-  const handlePlayVideo = async (item: FeedbackItem) => {
-    if (!item.video_filename) return;
-
-    // Check if already cached in IndexedDB
-    const cachedBlob = await getMediaBlob(item.video_filename);
-    if (cachedBlob) {
-      const blobUrl = URL.createObjectURL(cachedBlob);
-      setVideoStates((prev) => ({
-        ...prev,
-        [item.id]: {
-          ...prev[item.id],
-          isLoaded: true,
-          videoSrc: blobUrl,
-          isCached: true,
-          isDownloading: false,
-        },
-      }));
-      return;
-    }
-
-    // Otherwise stream from server
-    const videoUrl = item.video_url || `/media/${item.video_filename}`;
-    setVideoStates((prev) => ({
-      ...prev,
-      [item.id]: {
-        ...prev[item.id],
-        isLoaded: true,
-        videoSrc: videoUrl,
-        isDownloading: false,
-      },
-    }));
-  };
 
   // Download video into IndexedDB cache for offline replay
   const handleSaveVideoOffline = async (item: FeedbackItem) => {
@@ -312,62 +294,46 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                   </div>
                 )}
 
-                {/* On-Demand Video Player / Placeholder */}
-                {item.video_filename && (
+                {/* Video Player if present in note */}
+                {(item.video_filename || item.video_url) && (
                   <div
                     className="mt-2 p-2.5 bg-background border border-border rounded-lg"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {vState.isLoaded && vState.videoSrc ? (
-                      <div>
-                        <video
-                          controls
-                          src={vState.videoSrc}
-                          className="w-full rounded-md bg-black max-h-56"
-                        />
-                        <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-                          <span>{item.video_filename}</span>
-                          {vState.isCached && (
-                            <span className="text-emerald-400 font-medium">Cached Offline</span>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <Play className="w-4 h-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium text-foreground text-xs">
-                              Video Recording
-                            </div>
-                            <div className="text-[10px] text-muted-foreground">
-                              {vState.isCached ? 'Available in local storage' : 'On-demand download'}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
+                    <video
+                      controls
+                      playsInline
+                      preload="metadata"
+                      src={
+                        vState.videoSrc ||
+                        item.video_url ||
+                        (item.video_filename ? `/media/${item.video_filename}` : undefined)
+                      }
+                      className="w-full rounded-md bg-black max-h-56 object-contain"
+                    />
+                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                      <span className="truncate max-w-[200px]">{item.video_filename || 'Video note'}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {vState.isCached ? (
+                          <span className="text-emerald-400 font-medium text-[10px]">Cached Offline</span>
+                        ) : item.video_filename ? (
                           <Button
+                            variant="outline"
                             size="xs"
-                            onClick={() => handlePlayVideo(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSaveVideoOffline(item);
+                            }}
+                            disabled={vState.isDownloading}
+                            className="h-5 px-1.5 text-[10px] gap-1 cursor-pointer"
+                            title="Cache video locally for offline viewing"
                           >
-                            Play Video
+                            <Download className={`w-3 h-3 ${vState.isDownloading ? 'animate-bounce' : ''}`} />
+                            <span>Cache Offline</span>
                           </Button>
-
-                          {!vState.isCached && (
-                            <Button
-                              variant="outline"
-                              size="icon-xs"
-                              onClick={() => handleSaveVideoOffline(item)}
-                              disabled={vState.isDownloading}
-                              title="Cache video locally for offline viewing"
-                            >
-                              <Download className={`w-3.5 h-3.5 ${vState.isDownloading ? 'animate-bounce' : ''}`} />
-                            </Button>
-                          )}
-                        </div>
+                        ) : null}
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
 

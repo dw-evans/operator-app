@@ -61,6 +61,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       status: fb.status,
       photoUrls: fb.photo_urls,
       videoUrl: fb.video_url || (fb.video_filename ? `/media/${fb.video_filename}` : undefined),
+      videoFilename: fb.video_filename || undefined,
       isDraft: false,
     }));
 

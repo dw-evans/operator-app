@@ -80,6 +80,7 @@ export interface PdfPin {
   status?: 'open' | 'reviewed' | 'resolved';
   photoUrls?: string[];
   videoUrl?: string;
+  videoFilename?: string;
   isDraft?: boolean;
 }
 
