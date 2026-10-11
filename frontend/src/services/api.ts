@@ -1,4 +1,4 @@
-import type { CertGenerateResult, CertInfo, DocumentRevision, FeedbackItem, SlotSummary } from '../types';
+import type { DocumentRevision, FeedbackItem, SlotSummary } from '../types';
 
 export const API_BASE = '';
 
@@ -70,20 +70,6 @@ export async function verifyPin(pin: string): Promise<{ valid: boolean; pin_requ
     body: JSON.stringify({ pin }),
   });
   if (!res.ok) throw new Error(`Failed to verify PIN: ${res.statusText}`);
-  return res.json();
-}
-
-export async function fetchCertInfo(): Promise<CertInfo> {
-  const res = await fetch(`${API_BASE}/api/v1/cert/info`);
-  if (!res.ok) throw new Error(`Failed to fetch certificate info: ${res.statusText}`);
-  return res.json();
-}
-
-export async function generateCerts(): Promise<CertGenerateResult> {
-  const res = await fetch(`${API_BASE}/api/v1/cert/generate`, {
-    method: 'POST',
-  });
-  if (!res.ok) throw new Error(`Failed to generate certificates: ${res.statusText}`);
   return res.json();
 }
 

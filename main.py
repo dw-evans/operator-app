@@ -12,7 +12,6 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-import cert_manager
 from database import Base, engine, get_db
 import models
 import schemas
@@ -32,30 +31,20 @@ if env_file.is_file():
 MANUALS_DIR = BASE_DIR / "storage" / "manuals"
 MEDIA_DIR = BASE_DIR / "storage" / "media"
 STATIC_PWA_DIR = BASE_DIR / "static_pwa"
+CERTS_DIR = BASE_DIR / "certs"
 
 MANUALS_DIR.mkdir(parents=True, exist_ok=True)
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_PWA_DIR.mkdir(parents=True, exist_ok=True)
+CERTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Ensure TLS certificates exist on server startup."""
-    try:
-        cert_manager.ensure_certificates()
-    except Exception as e:
-        print(f"Warning: Could not auto-generate certificates on startup: {e}")
-    yield
-
 
 app = FastAPI(
     title="Assembly Instruction & Feedback System",
     description="Offline-first PWA server for air-gapped shop floor stations",
     version="0.1.0",
-    lifespan=lifespan,
 )
 
 # Enable CORS for development
@@ -396,26 +385,8 @@ def verify_admin_pin(req: schemas.PinVerifyRequest):
 
 
 # ==============================================================================
-# Certificate Generation & Hosting Endpoints for Android PWA HTTPS
+# Certificate Download Endpoints for Android PWA
 # ==============================================================================
-
-
-@app.get("/api/v1/cert/info")
-def get_cert_info():
-    """Get metadata about Root CA and server certificates."""
-    info = cert_manager.get_certificate_info()
-    port = int(os.environ.get("PORT", "8000"))
-    use_https = os.environ.get("USE_HTTPS", "true").lower() in ("true", "1", "yes")
-    info["port"] = port
-    info["use_https"] = use_https
-    return info
-
-
-@app.post("/api/v1/cert/generate")
-def generate_cert():
-    """Force (re)generation of CA and server certificates."""
-    res = cert_manager.ensure_certificates(force_regenerate=True)
-    return res
 
 
 @app.get("/api/v1/cert/ca.crt")
@@ -423,11 +394,12 @@ def generate_cert():
 @app.get("/download-ca")
 def download_ca_cert():
     """Direct download of the Root CA certificate for Android / client installation."""
-    ca_path = cert_manager.CERTS_DIR / "ca.crt"
+    ca_path = CERTS_DIR / "ca.crt"
     if not ca_path.is_file():
-        cert_manager.ensure_certificates()
-    if not ca_path.is_file():
-        raise HTTPException(status_code=404, detail="CA certificate not found")
+        raise HTTPException(
+            status_code=404,
+            detail="CA certificate not found. Run ./generate_certs.sh first.",
+        )
 
     return FileResponse(
         ca_path,
@@ -436,39 +408,6 @@ def download_ca_cert():
             "Content-Disposition": 'attachment; filename="assembly-pwa-ca.crt"',
             "Cache-Control": "no-cache",
         },
-    )
-
-
-@app.get("/api/v1/cert/ca.der")
-@app.get("/ca.der")
-def download_ca_der_cert():
-    """Direct download of the Root CA in DER binary format (preferred by some Android versions)."""
-    ca_der_path = cert_manager.CERTS_DIR / "ca.der"
-    if not ca_der_path.is_file():
-        cert_manager.ensure_certificates()
-    if not ca_der_path.is_file():
-        raise HTTPException(status_code=404, detail="CA DER certificate not found")
-
-    return FileResponse(
-        ca_der_path,
-        media_type="application/x-x509-ca-cert",
-        headers={
-            "Content-Disposition": 'attachment; filename="assembly-pwa-ca.der"',
-            "Cache-Control": "no-cache",
-        },
-    )
-
-
-@app.get("/api/v1/cert/server.crt")
-def download_server_cert():
-    """Download the active server certificate."""
-    srv_path = cert_manager.CERTS_DIR / "server.crt"
-    if not srv_path.is_file():
-        raise HTTPException(status_code=404, detail="Server certificate not found")
-    return FileResponse(
-        srv_path,
-        media_type="application/x-x509-ca-cert",
-        headers={"Content-Disposition": 'attachment; filename="assembly-pwa-server.crt"'},
     )
 
 
@@ -541,14 +480,18 @@ async def serve_spa(full_path: str):
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.environ.get("PORT", "8000"))
+    port = int(os.environ.get("PORT", "8001"))
     host = os.environ.get("HOST", "0.0.0.0")
     use_https = os.environ.get("USE_HTTPS", "true").lower() in ("true", "1", "yes")
 
     if use_https:
-        cert_manager.ensure_certificates()
-        server_crt = cert_manager.CERTS_DIR / "server.crt"
-        server_key = cert_manager.CERTS_DIR / "server.key"
+        server_crt = CERTS_DIR / "server.crt"
+        server_key = CERTS_DIR / "server.key"
+        if not server_crt.is_file() or not server_key.is_file():
+            print("[!] TLS certificates not found in certs/ directory.")
+            print("    Please run ./generate_certs.sh first.")
+            exit(1)
+
         print(f"Starting HTTPS server on https://{host}:{port}")
         uvicorn.run(
             "main:app",
