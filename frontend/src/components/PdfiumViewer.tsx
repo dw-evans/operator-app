@@ -10,6 +10,7 @@ export interface PdfiumViewerProps {
   onPageChange?: (pageNumber: number) => void;
   pins?: PdfPin[];
   isPlacingPin?: boolean;
+  initialPin?: { pageNumber: number; x: number; y: number } | null;
   onPinPlaced?: (pin: { pageNumber: number; x: number; y: number }) => void;
   onCancelPlacement?: () => void;
   onPinClick?: (pin: PdfPin) => void;
@@ -20,6 +21,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   onPageChange,
   pins = [],
   isPlacingPin = false,
+  initialPin,
   onPinPlaced,
   onCancelPlacement,
   onPinClick,
@@ -104,6 +106,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         viewerContainer={containerEl}
         pins={pins}
         isPlacingPin={isPlacingPin}
+        initialPin={initialPin}
         onPinPlaced={onPinPlaced}
         onCancelPlacement={onCancelPlacement}
         onPinClick={onPinClick}

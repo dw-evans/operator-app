@@ -176,6 +176,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           onPageChange={setActivePage}
           pins={visiblePins}
           isPlacingPin={isPlacingPin}
+          initialPin={draftPin}
           onPinPlaced={(coords) => {
             setDraftPin(coords);
             setIsPlacingPin(false);
