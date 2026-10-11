@@ -280,8 +280,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          {/* Metadata Row: Operator, Page Reference (Viewer Synced) + Drop Pin, Section / Subsection */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {/* Metadata Rows: Operator Name, Section Reference, Page Reference & Pin */}
+          <div className="space-y-3">
             <div>
               <label className="block text-[11px] font-medium text-muted-foreground mb-1">
                 Operator Name / ID *
@@ -296,50 +296,6 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-muted-foreground mb-1 flex items-center justify-between">
-                <span>Page Reference *</span>
-                <span className="text-[10px] text-primary font-mono font-semibold">Synced</span>
-              </label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="number"
-                  min="1"
-                  required
-                  value={pageRef}
-                  onChange={(e) => setPageRef(parseInt(e.target.value, 10) || 1)}
-                  className="font-mono bg-muted/20 flex-1 min-w-0"
-                />
-                <Button
-                  type="button"
-                  variant={pinCoords ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={onStartPinPlacement}
-                  title={pinCoords ? `Pin placed at ${pinCoords.x}%, ${pinCoords.y}%. Click to reposition.` : "Drop pin on page"}
-                  className="h-9 px-2 gap-1 text-xs shrink-0 cursor-pointer"
-                >
-                  <MapPin className={cn("w-3.5 h-3.5", pinCoords ? "text-primary" : "text-muted-foreground")} />
-                  <span className="hidden sm:inline">{pinCoords ? `${pinCoords.x}%, ${pinCoords.y}%` : 'Drop Pin'}</span>
-                </Button>
-              </div>
-              {pinCoords && (
-                <div className="mt-1 flex items-center justify-between text-[10px] font-mono text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
-                  <span>Pin: {pinCoords.x}%, {pinCoords.y}%</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPinCoords(null);
-                      onClearDraftPin?.();
-                    }}
-                    className="text-muted-foreground hover:text-destructive cursor-pointer ml-1"
-                    title="Remove pin"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div>
               <label className="block text-[11px] font-medium text-muted-foreground mb-1">
                 Section / Subsection
               </label>
@@ -350,6 +306,49 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 placeholder="e.g. 1.4"
                 className="font-mono"
               />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-muted-foreground mb-1 flex items-center justify-between">
+                <span>Page Reference & Pin *</span>
+                <span className="text-[10px] text-primary font-mono font-semibold">Synced</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="1"
+                  required
+                  value={pageRef}
+                  onChange={(e) => setPageRef(parseInt(e.target.value, 10) || 1)}
+                  className="font-mono bg-muted/20 w-28 shrink-0"
+                />
+                <Button
+                  type="button"
+                  variant={pinCoords ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={onStartPinPlacement}
+                  title={pinCoords ? `Pin placed at ${pinCoords.x}%, ${pinCoords.y}%. Click to reposition.` : "Drop pin on page"}
+                  className="h-9 px-3 gap-1.5 text-xs flex-1 cursor-pointer"
+                >
+                  <MapPin className={cn("w-3.5 h-3.5", pinCoords ? "text-primary" : "text-muted-foreground")} />
+                  <span>{pinCoords ? `Pin: ${pinCoords.x}%, ${pinCoords.y}%` : 'Drop Pin on Page'}</span>
+                </Button>
+                {pinCoords && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      setPinCoords(null);
+                      onClearDraftPin?.();
+                    }}
+                    className="h-9 w-9 text-muted-foreground hover:text-destructive cursor-pointer"
+                    title="Remove pin"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
