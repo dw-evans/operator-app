@@ -619,14 +619,14 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
             </span>
             <Button
               type="button"
-              variant="ghost"
+              variant="default"
               size="sm"
               onClick={() => {
                 const pin = activePin;
                 setActivePinId(null);
                 onOpenDrawer?.(pin);
               }}
-              className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary cursor-pointer font-medium"
+              className="h-6 px-2.5 text-[11px] gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm cursor-pointer font-medium rounded-lg transition-all active:scale-95"
             >
               <MessageSquare className="w-3 h-3" />
               <span>View in Notes</span>

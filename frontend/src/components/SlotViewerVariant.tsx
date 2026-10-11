@@ -31,6 +31,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const [isPlacingPin, setIsPlacingPin] = useState(false);
   const [draftPin, setDraftPin] = useState<{ pageNumber: number; x: number; y: number } | null>(null);
   const [showPins, setShowPins] = useState(true);
+  const [highlightedFeedbackId, setHighlightedFeedbackId] = useState<string | null>(null);
 
   const loadFeedback = useCallback(async () => {
     try {
@@ -158,6 +159,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             variant="default"
             size="sm"
             onClick={() => {
+              setHighlightedFeedbackId(null);
               setActiveTab('stream');
               setIsNotesOpen(true);
             }}
@@ -191,7 +193,8 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             setIsPlacingPin(false);
             setIsNotesOpen(true);
           }}
-          onOpenDrawer={() => {
+          onOpenDrawer={(pin) => {
+            setHighlightedFeedbackId(pin.id);
             setActiveTab('stream');
             setIsNotesOpen(true);
           }}
@@ -304,7 +307,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                   }}
                 />
               ) : (
-                <FeedbackStream slotId={slotId} />
+                <FeedbackStream slotId={slotId} highlightedFeedbackId={highlightedFeedbackId} />
               )}
             </div>
           </aside>

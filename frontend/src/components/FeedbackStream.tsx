@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import { MessageSquare, Clock, User, Download, Play, RefreshCw, X, MapPin } from 'lucide-react';
 import type { FeedbackItem } from '../types';
@@ -11,12 +11,27 @@ import { cn } from '@/lib/utils';
 
 interface FeedbackStreamProps {
   slotId: number;
+  highlightedFeedbackId?: string | null;
 }
 
-export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId }) => {
+export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId, highlightedFeedbackId }) => {
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Auto-scroll to highlighted feedback item
+  useEffect(() => {
+    if (highlightedFeedbackId && itemRefs.current[highlightedFeedbackId]) {
+      const timer = setTimeout(() => {
+        itemRefs.current[highlightedFeedbackId]?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedFeedbackId, feedbackList]);
 
   // Video state per item: item.id -> { isLoaded: boolean; videoSrc?: string; isCached: boolean; isDownloading: boolean }
   const [videoStates, setVideoStates] = useState<
@@ -190,10 +205,20 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId }) => {
               isDownloading: false,
             };
 
+            const isHighlighted = item.id === highlightedFeedbackId;
+
             return (
               <div
                 key={item.id}
-                className="bg-muted/20 border border-border hover:border-border/80 rounded-xl p-3.5 transition-all text-xs md:text-sm"
+                ref={(el) => {
+                  itemRefs.current[item.id] = el;
+                }}
+                className={cn(
+                  "border rounded-xl p-3.5 transition-all text-xs md:text-sm",
+                  isHighlighted
+                    ? "bg-primary/10 border-primary ring-2 ring-primary/40 shadow-lg"
+                    : "bg-muted/20 border-border hover:border-border/80"
+                )}
               >
                 {/* Meta Header */}
                 <div className="flex items-center justify-between mb-2">
@@ -202,6 +227,11 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({ slotId }) => {
                       <User className="w-3.5 h-3.5 text-muted-foreground" />
                       {item.author}
                     </span>
+                    {isHighlighted && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-primary text-primary-foreground font-mono font-medium animate-pulse">
+                        Selected Pin
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="font-mono text-[11px]">
                       {item.station_id}
                     </Badge>
