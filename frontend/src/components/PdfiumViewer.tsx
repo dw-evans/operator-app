@@ -16,6 +16,19 @@ export interface PdfiumViewerProps {
   onPinClick?: (pin: PdfPin) => void;
 }
 
+// Categories to disable in EmbedPDF to provide a pure, distraction-free reading experience
+const DISABLED_CATEGORIES = [
+  'annotation',
+  'shape',
+  'insert',
+  'form',
+  'redaction',
+  'mode',
+  'panel-comment',
+  'document-print',
+  'document-export',
+];
+
 export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   url,
   onPageChange,
@@ -34,6 +47,23 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
 
   const handleReady = useCallback(
     (registry: PluginRegistry) => {
+      // Synchronize disabled categories on commands and ui plugins
+      try {
+        const commandsPlugin = registry.getPlugin?.('commands') as any;
+        const commands = commandsPlugin?.provides ? commandsPlugin.provides() : commandsPlugin;
+        if (commands?.setDisabledCategories) {
+          commands.setDisabledCategories(DISABLED_CATEGORIES);
+        }
+
+        const uiPlugin = registry.getPlugin?.('ui') as any;
+        const ui = uiPlugin?.provides ? uiPlugin.provides() : uiPlugin;
+        if (ui?.setDisabledCategories) {
+          ui.setDisabledCategories(DISABLED_CATEGORIES);
+        }
+      } catch (e) {
+        console.warn('Could not sync disabled categories on plugins:', e);
+      }
+
       if (!onPageChange) return;
 
       const scrollPlugin = (registry.getPlugin?.('scroll') ||
@@ -96,6 +126,8 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
           // Run direct engine without worker blob pool overhead
           worker: false,
           theme: { preference: 'dark' },
+          tabBar: 'never',
+          disabledCategories: DISABLED_CATEGORIES,
         }}
         onReady={handleReady}
         style={{ width: '100%', height: '100%' }}
