@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { syncManager, type SyncState } from "../services/sync";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface NavbarProps {
@@ -118,34 +117,30 @@ export const Navbar: FC<NavbarProps> = ({
                 syncState.isSyncing && "animate-spin text-primary",
               )}
             />
-            <span className="flex items-center gap-1.5">
-              <span className="font-semibold text-foreground">Synced</span>
-              {syncState.lastSyncedAt && (
-                <span className="text-muted-foreground text-[11px] font-normal">
-                  {formatSyncDateTime(syncState.lastSyncedAt)}
-                </span>
-              )}
-            </span>
+            {syncState.lastSyncedAt && (
+              <span className="text-foreground text-[11px] font-normal">
+                {formatSyncDateTime(syncState.lastSyncedAt)}
+              </span>
+            )}
           </Button>
         )}
 
-        {/* Network Indicator */}
-        <Badge
-          variant={syncState.isOnline ? "outline" : "destructive"}
-          className="gap-1 text-xs"
+        {/* Network Connection Indicator */}
+        <div
+          className="flex items-center justify-center px-1"
+          title={
+            syncState.isOnline
+              ? "Online: connected to host server"
+              : "Offline: disconnected from host server"
+          }
+          aria-label={syncState.isOnline ? "Online" : "Offline"}
         >
           {syncState.isOnline ? (
-            <>
-              <Wifi className="h-3 w-3" />
-              <span className="hidden sm:inline">Online</span>
-            </>
+            <Wifi className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <>
-              <WifiOff className="h-3 w-3" />
-              <span>Offline</span>
-            </>
+            <WifiOff className="h-4 w-4 text-red-500" />
           )}
-        </Badge>
+        </div>
 
         {/* Certificate Download Button */}
         <a

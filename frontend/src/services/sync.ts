@@ -1,5 +1,5 @@
 import { getQueuedCount, getQueuedFeedback, removeQueuedFeedback } from './db';
-import { submitFeedbackDirect } from './api';
+import { submitFeedbackDirect, syncAllSlotsFeedback } from './api';
 import type { QueuedFeedback } from '../types';
 
 export interface SyncState {
@@ -180,6 +180,11 @@ class SyncManager {
 
       if (allSucceeded && this.isOnline) {
         this.recordSuccessfulSync();
+        try {
+          await syncAllSlotsFeedback();
+        } catch {
+          // Ignore background note caching errors
+        }
       }
     } finally {
       this.isSyncing = false;

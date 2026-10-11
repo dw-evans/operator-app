@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { QueuedFeedback, SlotSummary } from '../types';
+import type { FeedbackItem, QueuedFeedback, SlotSummary } from '../types';
 
 const DB_NAME = 'assembly_pwa_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -21,6 +21,9 @@ export function getDb(): Promise<IDBPDatabase> {
         }
         if (!db.objectStoreNames.contains('pdf_cache')) {
           db.createObjectStore('pdf_cache', { keyPath: 'url' });
+        }
+        if (!db.objectStoreNames.contains('cached_feedback')) {
+          db.createObjectStore('cached_feedback', { keyPath: 'slot_id' });
         }
       },
     });
@@ -217,3 +220,70 @@ export async function requestPersistentStorage(): Promise<boolean> {
   }
   return false;
 }
+
+// Cached server feedback (notes, pins, comments) per slot
+export async function saveCachedSlotFeedback(slotId: number, items: FeedbackItem[]): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.put('cached_feedback', {
+      slot_id: slotId,
+      items,
+      updatedAt: Date.now(),
+    });
+  } catch (err) {
+    console.warn(`Failed to save cached feedback for slot ${slotId}:`, err);
+  }
+}
+
+export async function getCachedSlotFeedback(slotId: number): Promise<FeedbackItem[]> {
+  try {
+    const db = await getDb();
+    const entry = await db.get('cached_feedback', slotId);
+    return entry?.items || [];
+  } catch (err) {
+    console.warn(`Failed to read cached feedback for slot ${slotId}:`, err);
+    return [];
+  }
+}
+
+export async function getQueuedFeedbackForSlot(slotId: number): Promise<QueuedFeedback[]> {
+  try {
+    const all = await getQueuedFeedback();
+    return all.filter((item) => item.slot_id === slotId);
+  } catch {
+    return [];
+  }
+}
+
+export function queuedToFeedbackItem(q: QueuedFeedback): FeedbackItem {
+  return {
+    id: q.id,
+    station_id: q.station_id || 'Station 1',
+    slot_id: q.slot_id,
+    page_ref: q.page_ref,
+    section_ref: q.section_ref || null,
+    pin_x: q.pin_x ?? 0.0,
+    pin_y: q.pin_y ?? 0.0,
+    author: q.author,
+    text_comment: q.text_comment || null,
+    video_filename: q.videoName || null,
+    video_url: q.videoBlob ? URL.createObjectURL(q.videoBlob) : null,
+    photo_filenames: q.photoBlobs ? q.photoBlobs.map((p) => p.name) : [],
+    photo_urls: q.photoBlobs ? q.photoBlobs.map((p) => URL.createObjectURL(p.blob)) : [],
+    timestamp: q.timestamp,
+    status: 'open',
+  };
+}
+
+export function mergeServerAndPendingFeedback(
+  serverItems: FeedbackItem[],
+  pendingItems: QueuedFeedback[]
+): FeedbackItem[] {
+  const serverIds = new Set(serverItems.map((i) => i.id));
+  const newPending = pendingItems
+    .filter((q) => !serverIds.has(q.id))
+    .map(queuedToFeedbackItem);
+
+  return [...newPending, ...serverItems];
+}
+

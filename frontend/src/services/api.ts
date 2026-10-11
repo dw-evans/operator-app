@@ -1,4 +1,10 @@
 import type { DocumentRevision, FeedbackItem, SlotSummary } from '../types';
+import {
+  saveCachedSlotFeedback,
+  getCachedSlotFeedback,
+  getQueuedFeedbackForSlot,
+  mergeServerAndPendingFeedback,
+} from './db';
 
 export const API_BASE = '';
 
@@ -9,9 +15,39 @@ export async function fetchSlots(): Promise<SlotSummary[]> {
 }
 
 export async function fetchSlotFeedback(slotId: number): Promise<FeedbackItem[]> {
-  const res = await fetch(`${API_BASE}/api/v1/feedback/${slotId}`);
-  if (!res.ok) throw new Error(`Failed to fetch feedback: ${res.statusText}`);
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/feedback/${slotId}`);
+    if (res.ok) {
+      const items: FeedbackItem[] = await res.json();
+      await saveCachedSlotFeedback(slotId, items);
+      const pending = await getQueuedFeedbackForSlot(slotId);
+      return mergeServerAndPendingFeedback(items, pending);
+    }
+  } catch (err) {
+    console.warn(`Network fetch failed for slot ${slotId} feedback, reading from IndexedDB:`, err);
+  }
+
+  // Offline fallback: load cached notes/pins from IndexedDB and merge with local queue
+  const cachedItems = await getCachedSlotFeedback(slotId);
+  const pending = await getQueuedFeedbackForSlot(slotId);
+  return mergeServerAndPendingFeedback(cachedItems, pending);
+}
+
+export async function syncAllSlotsFeedback(slotIds?: number[]): Promise<void> {
+  const ids = slotIds && slotIds.length > 0 ? slotIds : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  await Promise.allSettled(
+    ids.map(async (slotId) => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/feedback/${slotId}`);
+        if (res.ok) {
+          const items: FeedbackItem[] = await res.json();
+          await saveCachedSlotFeedback(slotId, items);
+        }
+      } catch {
+        // Ignore single slot failure during background pre-caching
+      }
+    })
+  );
 }
 
 export async function submitFeedbackDirect(formData: FormData): Promise<{ status: string; id: string }> {

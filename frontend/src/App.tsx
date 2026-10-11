@@ -6,7 +6,7 @@ import { AdminPortal } from './components/AdminPortal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Bug, Trash2, CheckCircle2 } from 'lucide-react';
-import { fetchSlots } from './services/api';
+import { fetchSlots, syncAllSlotsFeedback } from './services/api';
 import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
 import { pdfCacheManager } from './services/pdfCache';
 import { syncManager } from './services/sync';
@@ -53,6 +53,7 @@ export function App() {
       setSlots(data);
       await saveCachedManifest(data);
       pdfCacheManager.cacheAllDocuments(data);
+      syncAllSlotsFeedback(data.map((s) => s.slot_id)).catch(() => {});
       syncManager.recordSuccessfulSync();
     } catch (err) {
       console.warn('Network fetch failed, attempting to read cached manifest from IndexedDB:', err);
