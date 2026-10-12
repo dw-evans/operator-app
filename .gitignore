@@ -23,7 +23,6 @@ static_pwa/
 
 # Environment files
 .env
-.env.*
 
 # OS & Editor
 .DS_Store
