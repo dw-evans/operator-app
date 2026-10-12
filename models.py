@@ -36,5 +36,6 @@ class Feedback(Base):
     photo_filenames = Column(Text, nullable=True)  # JSON-encoded list of photo filenames
     timestamp = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="open")  # open, reviewed, resolved
+    is_deleted = Column(Boolean, default=False, nullable=False)
 
     document = relationship("Document", back_populates="feedback")

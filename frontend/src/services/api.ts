@@ -3,6 +3,7 @@ import {
   saveCachedSlotFeedback,
   updateCachedFeedbackComment,
   updateCachedFeedbackItemFull,
+  deleteCachedFeedbackItem,
   getCachedSlotFeedback,
   getQueuedFeedbackForSlot,
   mergeServerAndPendingFeedback,
@@ -137,6 +138,31 @@ export async function updateFeedbackDirect(
   const data: FeedbackItem = await res.json();
   await updateCachedFeedbackItemFull(data.slot_id, data);
   return data;
+}
+
+export async function deleteFeedbackDirect(
+  feedbackId: string,
+  slotId?: number
+): Promise<{ status: string; id: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/feedback/${feedbackId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      if (slotId !== undefined) {
+        await deleteCachedFeedbackItem(slotId, feedbackId);
+      }
+      return res.json();
+    }
+  } catch (err) {
+    console.warn(`Network delete failed, deleting locally in IndexedDB: ${err}`);
+  }
+
+  // Offline fallback: delete locally in IndexedDB cache and queue
+  if (slotId !== undefined) {
+    await deleteCachedFeedbackItem(slotId, feedbackId);
+  }
+  return { status: 'deleted', id: feedbackId };
 }
 
 export async function adminUploadManual(

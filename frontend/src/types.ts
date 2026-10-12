@@ -47,6 +47,7 @@ export interface FeedbackItem {
   photo_urls: string[];
   timestamp: string;
   status: 'open' | 'reviewed' | 'resolved';
+  is_deleted?: boolean;
 }
 
 export interface QueuedFeedback {

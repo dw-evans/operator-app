@@ -51,6 +51,8 @@ with engine.connect() as _conn:
         _conn.execute(text("ALTER TABLE feedback ADD COLUMN pin_x FLOAT DEFAULT 0.0"))
     if _cols and "pin_y" not in _cols:
         _conn.execute(text("ALTER TABLE feedback ADD COLUMN pin_y FLOAT DEFAULT 0.0"))
+    if _cols and "is_deleted" not in _cols:
+        _conn.execute(text("ALTER TABLE feedback ADD COLUMN is_deleted BOOLEAN DEFAULT 0"))
     _conn.commit()
 
 app = FastAPI(
@@ -123,6 +125,7 @@ def get_slots_summary(db: Session = Depends(get_db)):
                 .filter(
                     models.Feedback.slot_id == slot_id,
                     models.Feedback.document_id == live_doc.id,
+                    models.Feedback.is_deleted == False,
                 )
                 .count()
             )
@@ -132,6 +135,7 @@ def get_slots_summary(db: Session = Depends(get_db)):
                     models.Feedback.slot_id == slot_id,
                     models.Feedback.document_id == live_doc.id,
                     models.Feedback.status == "open",
+                    models.Feedback.is_deleted == False,
                 )
                 .count()
             )
@@ -260,7 +264,10 @@ def get_slot_feedback(
     db: Session = Depends(get_db),
 ):
     """Retrieve feedback submitted for a slot, optionally filtered by specific document revision."""
-    query = db.query(models.Feedback).filter(models.Feedback.slot_id == slot_id)
+    query = db.query(models.Feedback).filter(
+        models.Feedback.slot_id == slot_id,
+        models.Feedback.is_deleted == False,
+    )
     if document_id is not None:
         query = query.filter(models.Feedback.document_id == document_id)
     items = query.order_by(models.Feedback.timestamp.desc()).all()
@@ -286,6 +293,7 @@ def get_slot_feedback(
                 photo_urls=[f"/media/{p}" for p in p_names],
                 timestamp=item.timestamp,
                 status=item.status,
+                is_deleted=item.is_deleted,
             )
         )
     return result
@@ -379,6 +387,7 @@ async def update_feedback_full(
         photo_urls=[f"/media/{p}" for p in p_names],
         timestamp=item.timestamp,
         status=item.status,
+        is_deleted=item.is_deleted,
     )
 
 
@@ -418,6 +427,7 @@ def update_feedback(
         photo_urls=[f"/media/{p}" for p in p_names],
         timestamp=item.timestamp,
         status=item.status,
+        is_deleted=item.is_deleted,
     )
 
 
@@ -436,6 +446,21 @@ def update_feedback_status(
     db.commit()
     db.refresh(item)
     return {"status": "success", "id": item.id, "new_status": item.status}
+
+
+@app.delete("/api/v1/feedback/{feedback_id}")
+def delete_feedback(
+    feedback_id: str,
+    db: Session = Depends(get_db),
+):
+    """Soft delete feedback note (sets is_deleted=True)."""
+    item = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Feedback item not found")
+
+    item.is_deleted = True
+    db.commit()
+    return {"status": "deleted", "id": item.id, "is_deleted": True}
 
 
 @app.post("/api/v1/admin/upload/{slot_id}")

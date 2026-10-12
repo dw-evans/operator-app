@@ -295,6 +295,26 @@ export async function updateCachedFeedbackItemFull(
   }
 }
 
+export async function deleteCachedFeedbackItem(
+  slotId: number,
+  feedbackId: string
+): Promise<void> {
+  try {
+    const db = await getDb();
+    const entry = await db.get('cached_feedback', slotId);
+    if (entry && entry.items) {
+      entry.items = entry.items.filter((item: FeedbackItem) => item.id !== feedbackId);
+      await db.put('cached_feedback', {
+        ...entry,
+        updatedAt: Date.now(),
+      });
+    }
+    await removeQueuedFeedback(feedbackId);
+  } catch (err) {
+    console.warn(`Failed to delete cached feedback item for ${feedbackId}:`, err);
+  }
+}
+
 export async function updateQueuedFeedbackItem(
   queuedItem: QueuedFeedback
 ): Promise<void> {

@@ -490,5 +490,40 @@ def test_version_specific_feedback():
     assert slot4_after["live_document"]["version"] == 1
 
 
+def test_soft_delete_feedback():
+    # Submit feedback
+    resp = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": "fb-soft-del-test",
+            "slot_id": 5,
+            "page_ref": 1,
+            "author": "Operator",
+            "text_comment": "This will be soft deleted",
+        },
+    )
+    assert resp.status_code == 200
 
+    # Verify present
+    notes = client.get("/api/v1/feedback/5").json()
+    assert len(notes) == 1
+    assert notes[0]["id"] == "fb-soft-del-test"
 
+    # Soft delete via DELETE /api/v1/feedback/{id}
+    del_resp = client.delete("/api/v1/feedback/fb-soft-del-test")
+    assert del_resp.status_code == 200
+    assert del_resp.json()["status"] == "deleted"
+    assert del_resp.json()["is_deleted"] is True
+
+    # Verify no longer returned in get_slot_feedback
+    notes_after = client.get("/api/v1/feedback/5").json()
+    assert len(notes_after) == 0
+
+    # Verify in DB that row is still present with is_deleted == True (soft delete)
+    db = TestingSessionLocal()
+    try:
+        item = db.query(main.models.Feedback).filter(main.models.Feedback.id == "fb-soft-del-test").first()
+        assert item is not None
+        assert item.is_deleted is True
+    finally:
+        db.close()

@@ -21,6 +21,7 @@ export interface PdfiumViewerProps {
   onViewPhoto?: (url: string) => void;
   onCommentUpdated?: (pinId: string, newComment: string) => void;
   onEditPin?: (pin: PdfPin) => void;
+  onDeletePin?: (pin: PdfPin) => void;
 }
 
 // Categories to disable in EmbedPDF to provide a pure, distraction-free reading experience
@@ -51,6 +52,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   onViewPhoto,
   onCommentUpdated,
   onEditPin,
+  onDeletePin,
 }) => {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const scrollCapabilityRef = useRef<any>(null);
@@ -244,6 +246,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         onViewPhoto={onViewPhoto}
         onCommentUpdated={onCommentUpdated}
         onEditPin={onEditPin}
+        onDeletePin={onDeletePin}
       />
     </div>
   );

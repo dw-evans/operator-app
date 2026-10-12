@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { FC, MouseEvent, TouchEvent } from 'react';
-import { MapPin, X, Check, CheckCircle2, User, Clock, MessageSquare, Pencil, RefreshCw } from 'lucide-react';
+import { MapPin, X, Check, CheckCircle2, User, Clock, MessageSquare, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,7 @@ export interface PdfPinOverlayProps {
   onViewPhoto?: (url: string) => void;
   onCommentUpdated?: (pinId: string, newComment: string) => void;
   onEditPin?: (pin: PdfPin) => void;
+  onDeletePin?: (pin: PdfPin) => void;
 }
 
 /**
@@ -70,6 +71,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
   onViewPhoto,
   onCommentUpdated,
   onEditPin,
+  onDeletePin,
 }) => {
   const [positionedPins, setPositionedPins] = useState<PositionedPin[]>([]);
   const [candidatePin, setCandidatePin] = useState<{
@@ -82,6 +84,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     screenY: number;
   } | null>(null);
   const [activePinId, setActivePinId] = useState<string | null>(null);
+  const [isDraggingPin, setIsDraggingPin] = useState(false);
 
   // Pin comment inline editing state
   const [isEditingComment, setIsEditingComment] = useState(false);
@@ -111,6 +114,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     } else {
       setCandidatePin(null);
       setCandidateScreenPos(null);
+      setIsDraggingPin(false);
     }
   }, [isPlacingPin, initialPin]);
 
@@ -482,6 +486,29 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     touchStartRef.current = null;
   };
 
+  // Mouse drag support for candidate pin during placement
+  useEffect(() => {
+    if (!isDraggingPin) return;
+    const onGlobalMouseMove = (e: globalThis.MouseEvent) => {
+      placeCandidateAt(e.clientX, e.clientY);
+    };
+    const onGlobalMouseUp = () => {
+      setIsDraggingPin(false);
+    };
+    window.addEventListener('mousemove', onGlobalMouseMove);
+    window.addEventListener('mouseup', onGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onGlobalMouseMove);
+      window.removeEventListener('mouseup', onGlobalMouseUp);
+    };
+  }, [isDraggingPin, placeCandidateAt]);
+
+  const handleMouseDownOnPin = (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsDraggingPin(true);
+  };
+
   const handlePlacementClick = (e: MouseEvent<HTMLDivElement>) => {
     // Avoid double firing from touch synthetic clicks
     if (Date.now() - lastTouchTimeRef.current < 400) {
@@ -673,26 +700,45 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                     <span className="italic text-muted-foreground">No text comment provided</span>
                   )}
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onEditPin) {
-                      const pin = activePin;
-                      setActivePinId(null);
-                      onEditPin(pin);
-                    } else {
-                      setEditCommentText(activePin.comment || '');
-                      setIsEditingComment(true);
-                    }
-                  }}
-                  className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground cursor-pointer -mt-0.5 -mr-0.5 shrink-0"
-                  title="Edit note"
-                >
-                  <Pencil className="w-3 h-3" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0 -mt-0.5 -mr-0.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onEditPin) {
+                        const pin = activePin;
+                        setActivePinId(null);
+                        onEditPin(pin);
+                      } else {
+                        setEditCommentText(activePin.comment || '');
+                        setIsEditingComment(true);
+                      }
+                    }}
+                    className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                    title="Edit note"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onDeletePin) {
+                        const pin = activePin;
+                        setActivePinId(null);
+                        onDeletePin(pin);
+                      }
+                    }}
+                    className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
+                    title="Delete note"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -807,9 +853,19 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
             top: `${candidateScreenPos.screenY}px`,
             transform: 'translate(-50%, -50%) scale(1.2)',
             opacity: 0.7,
-            pointerEvents: 'none',
+            cursor: isDraggingPin ? 'grabbing' : 'grab',
           }}
-          className="z-50 select-none animate-in fade-in zoom-in-75 duration-150"
+          onMouseDown={handleMouseDownOnPin}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+          }}
+          onTouchMove={(e) => {
+            e.stopPropagation();
+            if (e.touches.length === 1) {
+              placeCandidateAt(e.touches[0].clientX, e.touches[0].clientY);
+            }
+          }}
+          className="z-50 select-none animate-in fade-in zoom-in-75 duration-150 pointer-events-auto"
         >
           {/* Coordinates Tooltip Pill */}
           <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/85 text-white font-mono text-[10px] px-2 py-0.5 rounded shadow-lg border border-white/10 pointer-events-none">
@@ -835,7 +891,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
           {candidatePin ? (
             <>
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Tap to adjust pin, or tap <strong>Continue</strong></span>
+              <span>Click or drag pin to adjust, then tap <strong>Continue</strong></span>
             </>
           ) : (
             <>

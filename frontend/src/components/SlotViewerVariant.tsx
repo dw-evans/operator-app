@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DocumentRevision, FeedbackItem, PdfPin } from "../types";
-import { fetchSlotFeedback } from "../services/api";
+import { fetchSlotFeedback, deleteFeedbackDirect } from "../services/api";
+import { DeleteNoteDialog } from "./DeleteNoteDialog";
 
 interface SlotViewerVariantProps {
   slotId: number;
@@ -80,6 +81,9 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       });
     } else {
       setDraftPin(null);
+    }
+    if (item.page_ref > 0) {
+      setTargetPage({ pageNumber: item.page_ref, seq: Date.now() });
     }
     setActiveTab("submit");
     setIsNotesOpen(true);
@@ -201,6 +205,36 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     setHasLoadedFeedback(false);
     loadFeedback();
   }, [loadFeedback]);
+
+  // Note Deletion State
+  const [noteToDelete, setNoteToDelete] = useState<FeedbackItem | null>(null);
+  const [isDeletingNote, setIsDeletingNote] = useState<boolean>(false);
+
+  const handleRequestDelete = useCallback((item: FeedbackItem) => {
+    setNoteToDelete(item);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!noteToDelete) return;
+    setIsDeletingNote(true);
+    try {
+      await deleteFeedbackDirect(noteToDelete.id, slotId);
+      setFeedbackList((prev) => prev.filter((i) => i.id !== noteToDelete.id));
+      if (editingFeedback?.id === noteToDelete.id) {
+        setEditingFeedback(null);
+        setDraftPin(null);
+        setActiveTab("stream");
+      }
+      setNoteToDelete(null);
+      loadFeedback();
+      onFeedbackSubmitted?.();
+    } catch (err) {
+      console.error("Failed to delete note:", err);
+      alert("Failed to delete note. Please try again.");
+    } finally {
+      setIsDeletingNote(false);
+    }
+  }, [noteToDelete, slotId, editingFeedback, loadFeedback, onFeedbackSubmitted]);
 
   // Notes specifically relevant to this document revision
   const relevantFeedback = useMemo(() => {
@@ -340,7 +374,16 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             documentId={document?.id}
             initialPageRef={activePage}
             draftPin={draftPin}
-            onStartPinPlacement={() => {
+            onStartPinPlacement={(currentPin) => {
+              const pinToPlace = currentPin || draftPin || (editingFeedback ? {
+                pageNumber: editingFeedback.page_ref,
+                x: editingFeedback.pin_x ?? 50,
+                y: editingFeedback.pin_y ?? 50,
+              } : null);
+              if (pinToPlace) {
+                setDraftPin(pinToPlace);
+                setTargetPage({ pageNumber: pinToPlace.pageNumber, seq: Date.now() });
+              }
               setShowPins(true);
               setIsPlacingPin(true);
               if (!isWideScreen) {
@@ -353,6 +396,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               setEditingFeedback(null);
               setDraftPin(null);
             }}
+            onDeleteNote={handleRequestDelete}
             onFeedbackSubmitted={() => {
               setEditingFeedback(null);
               setDraftPin(null);
@@ -370,6 +414,10 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             onViewPhoto={openPhoto}
             onCommentUpdated={loadFeedback}
             onEditNote={handleStartEdit}
+            onNoteDeleted={() => {
+              loadFeedback();
+              onFeedbackSubmitted?.();
+            }}
           />
         )}
       </div>
@@ -538,6 +586,12 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                 handleStartEdit(item);
               }
             }}
+            onDeletePin={(pin) => {
+              const item = feedbackList.find((f) => f.id === pin.id);
+              if (item) {
+                handleRequestDelete(item);
+              }
+            }}
           />
         </div>
 
@@ -571,12 +625,20 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         )}
       </div>
 
-      {/* Slide-over Drawer on Mobile / Narrow Screens (< 1024px) */}
-      {!isWideScreen && isNotesOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Slide-over Drawer on Mobile / Narrow Screens (< 1024px) - kept mounted so form state is preserved during pin placement */}
+      {!isWideScreen && (
+        <div
+          className={cn(
+            "fixed inset-0 z-50 flex justify-end transition-all duration-200",
+            !isNotesOpen && "pointer-events-none opacity-0 invisible"
+          )}
+        >
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/40 transition-opacity animate-in fade-in-0 duration-200"
+            className={cn(
+              "fixed inset-0 bg-black/40 transition-opacity duration-200",
+              !isNotesOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+            )}
             onClick={() => setIsNotesOpen(false)}
           />
 
@@ -585,7 +647,10 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             role="dialog"
             aria-modal="true"
             aria-label="Station Notes and Comments"
-            className="relative z-50 flex flex-col bg-card border-border shadow-2xl transition-all duration-200 overflow-hidden inset-0 w-full h-full md:inset-y-0 md:right-0 md:left-auto md:w-full md:max-w-lg md:border-l md:rounded-l-2xl"
+            className={cn(
+              "relative z-50 flex flex-col bg-card border-border shadow-2xl transition-transform duration-200 overflow-hidden inset-0 w-full h-full md:inset-y-0 md:right-0 md:left-auto md:w-full md:max-w-lg md:border-l md:rounded-l-2xl",
+              !isNotesOpen && "translate-x-full"
+            )}
           >
             {renderNotesContent(false)}
           </aside>
@@ -642,6 +707,17 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           />
         </div>
       )}
+
+      {/* Delete Confirmation Warning Dialog */}
+      <DeleteNoteDialog
+        open={noteToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setNoteToDelete(null);
+        }}
+        note={noteToDelete}
+        onConfirmDelete={handleConfirmDelete}
+        isDeleting={isDeletingNote}
+      />
     </div>
   );
 };

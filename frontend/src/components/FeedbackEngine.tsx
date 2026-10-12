@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FC, FormEvent, ChangeEvent } from 'react';
-import { Camera, Video, Send, AlertTriangle, X, CheckCircle2, MapPin } from 'lucide-react';
+import { Camera, Video, Send, AlertTriangle, X, CheckCircle2, MapPin, Trash2 } from 'lucide-react';
 import { enqueueFeedback, updateCachedFeedbackItemFull } from '../services/db';
-import { submitFeedbackDirect, updateFeedbackDirect } from '../services/api';
+import { submitFeedbackDirect, updateFeedbackDirect, deleteFeedbackDirect } from '../services/api';
 import { syncManager } from '../services/sync';
 import type { QueuedFeedback, FeedbackItem } from '../types';
 import { Card } from '@/components/ui/card';
@@ -11,17 +11,19 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { DeleteNoteDialog } from './DeleteNoteDialog';
 
 interface FeedbackEngineProps {
   slotId: number;
   documentId?: number;
   initialPageRef?: number;
   draftPin?: { pageNumber: number; x: number; y: number } | null;
-  onStartPinPlacement?: () => void;
+  onStartPinPlacement?: (pin?: { pageNumber: number; x: number; y: number } | null) => void;
   onClearDraftPin?: () => void;
   onFeedbackSubmitted: () => void;
   editingFeedback?: FeedbackItem | null;
   onCancelEdit?: () => void;
+  onDeleteNote?: (item: FeedbackItem) => void;
 }
 
 export const FeedbackEngine: FC<FeedbackEngineProps> = ({
@@ -34,6 +36,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   onFeedbackSubmitted,
   editingFeedback,
   onCancelEdit,
+  onDeleteNote,
 }) => {
   const [author, setAuthor] = useState(
     () => localStorage.getItem('assembly_author') || ''
@@ -45,10 +48,10 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   );
 
   useEffect(() => {
-    if (initialPageRef !== undefined && initialPageRef > 0) {
+    if (initialPageRef !== undefined && initialPageRef > 0 && !editingFeedback) {
       setPageRef(initialPageRef);
     }
-  }, [initialPageRef]);
+  }, [initialPageRef, editingFeedback]);
 
   useEffect(() => {
     if (draftPin) {
@@ -76,41 +79,51 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   } | null>(null);
   const [removeExistingVideo, setRemoveExistingVideo] = useState(false);
 
-  // Populate form fields when editingFeedback changes
+  // Deletion state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const prevEditingIdRef = useRef<string | null>(null);
+
+  // Populate form fields only when switching editingFeedback items
   useEffect(() => {
     if (editingFeedback) {
-      setAuthor(editingFeedback.author || '');
-      setPageRef(editingFeedback.page_ref || 1);
-      setSectionRef(editingFeedback.section_ref || '');
-      if ((editingFeedback.pin_x ?? 0) > 0 || (editingFeedback.pin_y ?? 0) > 0) {
-        setPinCoords({ x: editingFeedback.pin_x ?? 0, y: editingFeedback.pin_y ?? 0 });
-      } else {
-        setPinCoords(null);
-      }
-      setTextComment(editingFeedback.text_comment || '');
+      if (editingFeedback.id !== prevEditingIdRef.current) {
+        prevEditingIdRef.current = editingFeedback.id;
+        setAuthor(editingFeedback.author || '');
+        setPageRef(editingFeedback.page_ref || 1);
+        setSectionRef(editingFeedback.section_ref || '');
+        if ((editingFeedback.pin_x ?? 0) > 0 || (editingFeedback.pin_y ?? 0) > 0) {
+          setPinCoords({ x: editingFeedback.pin_x ?? 0, y: editingFeedback.pin_y ?? 0 });
+        } else {
+          setPinCoords(null);
+        }
+        setTextComment(editingFeedback.text_comment || '');
 
-      const photos: { filename: string; url: string }[] = [];
-      const urls = editingFeedback.photo_urls || [];
-      const filenames = editingFeedback.photo_filenames || [];
-      urls.forEach((url, i) => {
-        const filename = filenames[i] || url.split('/').pop() || `photo_${i}.jpg`;
-        photos.push({ filename, url });
-      });
-      setExistingPhotos(photos);
-
-      if (editingFeedback.video_url || editingFeedback.video_filename) {
-        setExistingVideo({
-          filename: editingFeedback.video_filename || undefined,
-          url: editingFeedback.video_url || (editingFeedback.video_filename ? `/media/${editingFeedback.video_filename}` : ''),
+        const photos: { filename: string; url: string }[] = [];
+        const urls = editingFeedback.photo_urls || [];
+        const filenames = editingFeedback.photo_filenames || [];
+        urls.forEach((url, i) => {
+          const filename = filenames[i] || url.split('/').pop() || `photo_${i}.jpg`;
+          photos.push({ filename, url });
         });
-      } else {
-        setExistingVideo(null);
+        setExistingPhotos(photos);
+
+        if (editingFeedback.video_url || editingFeedback.video_filename) {
+          setExistingVideo({
+            filename: editingFeedback.video_filename || undefined,
+            url: editingFeedback.video_url || (editingFeedback.video_filename ? `/media/${editingFeedback.video_filename}` : ''),
+          });
+        } else {
+          setExistingVideo(null);
+        }
+        setRemoveExistingVideo(false);
+        setSelectedPhotos([]);
+        setSelectedVideo(null);
+        setVideoWarning(null);
       }
-      setRemoveExistingVideo(false);
-      setSelectedPhotos([]);
-      setSelectedVideo(null);
-      setVideoWarning(null);
     } else {
+      prevEditingIdRef.current = null;
       setExistingPhotos([]);
       setExistingVideo(null);
       setRemoveExistingVideo(false);
@@ -388,6 +401,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   };
 
   const resetForm = () => {
+    prevEditingIdRef.current = null;
     setTextComment('');
     setSectionRef('');
     setPinCoords(null);
@@ -398,8 +412,26 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     setRemoveExistingVideo(false);
     removeVideo();
     setIsSubmitting(false);
+    setShowDeleteDialog(false);
     if (editingFeedback) {
       onCancelEdit?.();
+    }
+  };
+
+  const handleDeleteFromEngine = async () => {
+    if (!editingFeedback) return;
+    setIsDeleting(true);
+    try {
+      await deleteFeedbackDirect(editingFeedback.id, slotId);
+      setShowDeleteDialog(false);
+      onDeleteNote?.(editingFeedback);
+      resetForm();
+      onFeedbackSubmitted();
+    } catch (err) {
+      console.error('Failed to delete note from engine:', err);
+      alert('Failed to delete note. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -499,12 +531,22 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                   type="button"
                   variant={pinCoords ? "secondary" : "outline"}
                   size="sm"
-                  onClick={onStartPinPlacement}
-                  title={pinCoords ? `Pin placed at ${pinCoords.x}%, ${pinCoords.y}%. Click to reposition.` : "Drop pin on page"}
-                  className="h-9 px-3 gap-1.5 text-xs flex-1 cursor-pointer"
+                  onClick={() =>
+                    onStartPinPlacement?.({
+                      pageNumber: pageRef,
+                      x: pinCoords?.x ?? 50,
+                      y: pinCoords?.y ?? 50,
+                    })
+                  }
+                  title={
+                    pinCoords
+                      ? `Pin placed at ${pinCoords.x}%, ${pinCoords.y}% on Page ${pageRef}. Click to reposition pin on drawing.`
+                      : "Drop pin on page"
+                  }
+                  className="h-9 px-3 gap-1.5 text-xs flex-1 cursor-pointer font-medium"
                 >
                   <MapPin className={cn("w-3.5 h-3.5", pinCoords ? "text-primary" : "text-muted-foreground")} />
-                  <span>{pinCoords ? `Pin: ${pinCoords.x}%, ${pinCoords.y}%` : 'Drop Pin on Page'}</span>
+                  <span>{pinCoords ? `Move Pin (${pinCoords.x}%, ${pinCoords.y}%)` : 'Drop Pin on Page'}</span>
                 </Button>
                 {pinCoords && (
                   <Button
@@ -703,15 +745,28 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                   resetForm();
                   onCancelEdit?.();
                 }}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isDeleting}
                 className="flex-1 cursor-pointer"
               >
                 Cancel
               </Button>
             )}
+            {editingFeedback && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isSubmitting || isDeleting}
+                className="h-9 px-3 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 cursor-pointer gap-1.5"
+                title="Delete this note"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </Button>
+            )}
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDeleting}
               className={cn("gap-2", editingFeedback ? "flex-1" : "w-full")}
             >
               <Send className="w-3.5 h-3.5" />
@@ -724,6 +779,17 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Delete Confirmation Warning Dialog */}
+      {editingFeedback && (
+        <DeleteNoteDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+          note={editingFeedback}
+          onConfirmDelete={handleDeleteFromEngine}
+          isDeleting={isDeleting}
+        />
+      )}
     </Card>
   );
 };

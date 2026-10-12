@@ -56,6 +56,7 @@ class FeedbackItem(BaseModel):
     photo_urls: List[str] = Field(default_factory=list)
     timestamp: datetime
     status: str
+    is_deleted: Optional[bool] = False
 
 
 class FeedbackStatusUpdate(BaseModel):

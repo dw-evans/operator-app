@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FC } from 'react';
-import { MessageSquare, Clock, User, Download, RefreshCw, X, MapPin, Pencil, Check, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Clock, User, Download, RefreshCw, X, MapPin, Pencil, Trash2, Check, ArrowLeft } from 'lucide-react';
 import type { FeedbackItem } from '../types';
-import { fetchSlotFeedback, updateFeedbackComment } from '../services/api';
+import { fetchSlotFeedback, updateFeedbackComment, deleteFeedbackDirect } from '../services/api';
 import { isMediaCached, getMediaBlob, saveMediaBlob } from '../services/db';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { DeleteNoteDialog } from './DeleteNoteDialog';
 
 interface FeedbackStreamProps {
   slotId: number;
@@ -17,6 +18,7 @@ interface FeedbackStreamProps {
   onCommentUpdated?: (feedbackId: string, newComment: string) => void;
   onViewPhoto?: (url: string) => void;
   onEditNote?: (item: FeedbackItem) => void;
+  onNoteDeleted?: (feedbackId: string) => void;
 }
 
 export const FeedbackStream: FC<FeedbackStreamProps> = ({
@@ -27,6 +29,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
   onCommentUpdated,
   onViewPhoto,
   onEditNote,
+  onNoteDeleted,
 }) => {
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +41,26 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Note deletion state
+  const [noteToDelete, setNoteToDelete] = useState<FeedbackItem | null>(null);
+  const [isDeletingNote, setIsDeletingNote] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!noteToDelete) return;
+    setIsDeletingNote(true);
+    try {
+      await deleteFeedbackDirect(noteToDelete.id, slotId);
+      setFeedbackList((prev) => prev.filter((i) => i.id !== noteToDelete.id));
+      onNoteDeleted?.(noteToDelete.id);
+      setNoteToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete note:', err);
+      alert('Failed to delete note. Please try again.');
+    } finally {
+      setIsDeletingNote(false);
+    }
+  };
 
   // Synchronize internal selection when highlightedFeedbackId prop changes
   useEffect(() => {
@@ -352,6 +375,18 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNoteToDelete(item);
+                      }}
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
+                      title="Delete note"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 </div>
 
@@ -527,6 +562,17 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
           />
         </div>
       )}
+
+      {/* Delete Confirmation Warning Dialog */}
+      <DeleteNoteDialog
+        open={noteToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setNoteToDelete(null);
+        }}
+        note={noteToDelete}
+        onConfirmDelete={handleConfirmDelete}
+        isDeleting={isDeletingNote}
+      />
     </Card>
   );
 };
