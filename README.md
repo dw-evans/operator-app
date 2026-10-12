@@ -1,3 +1,33 @@
+```
+
+```
+
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash
+
+nvm install 24.21.0
+nvm use 24.21.0
+
+npm install
+
+
+```
+
+```
+./generate_certs.sh pixel-6a.tailcd5319.ts.net
+```
+
+```
+cp .env.example .env
+```
+
+```
+./build.sh && uv run main.py
+```
+
 # Offline-First Assembly Instruction & Feedback PWA
 
 An air-gapped, offline-first Progressive Web Application (PWA) and backend service tailored for shop-floor assembly stations (optimized for Android tablets running Mozilla Firefox connected via a local isolated Wi-Fi router).
@@ -47,6 +77,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 Or run the all-in-one build script:
+
 ```bash
 ./build.sh
 source .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8000
@@ -61,9 +92,11 @@ source .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8000
 ### 3. Optional Admin PIN Protection
 
 To protect the admin management interface with a PIN, set the `ADMIN_PIN` environment variable when running the server:
+
 ```bash
 ADMIN_PIN=1234 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
 If `ADMIN_PIN` is not set, admin access is unrestricted on the local subnet.
 
 ---
@@ -71,6 +104,7 @@ If `ADMIN_PIN` is not set, admin access is unrestricted on the local subnet.
 ## Running Automated Tests
 
 Run the backend test suite:
+
 ```bash
 source .venv/bin/activate
 pytest tests/ -v

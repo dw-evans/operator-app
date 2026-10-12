@@ -4,6 +4,7 @@ import { Camera, Video, Send, AlertTriangle, X, CheckCircle2, MapPin, Trash2 } f
 import { enqueueFeedback, updateCachedFeedbackItemFull } from '../services/db';
 import { submitFeedbackDirect, updateFeedbackDirect, deleteFeedbackDirect } from '../services/api';
 import { syncManager } from '../services/sync';
+import { useOperatorName } from '../services/settings';
 import type { QueuedFeedback, FeedbackItem } from '../types';
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -38,9 +39,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   onCancelEdit,
   onDeleteNote,
 }) => {
-  const [author, setAuthor] = useState(
-    () => localStorage.getItem('assembly_author') || ''
-  );
+  const [globalOperatorName] = useOperatorName();
+  const authorName = globalOperatorName.trim() || (editingFeedback?.author ?? '');
   const [pageRef, setPageRef] = useState<number>(initialPageRef || 1);
   const [sectionRef, setSectionRef] = useState('');
   const [pinCoords, setPinCoords] = useState<{ x: number; y: number } | null>(
@@ -90,7 +90,6 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     if (editingFeedback) {
       if (editingFeedback.id !== prevEditingIdRef.current) {
         prevEditingIdRef.current = editingFeedback.id;
-        setAuthor(editingFeedback.author || '');
         setPageRef(editingFeedback.page_ref || 1);
         setSectionRef(editingFeedback.section_ref || '');
         if ((editingFeedback.pin_x ?? 0) > 0 || (editingFeedback.pin_y ?? 0) > 0) {
@@ -137,12 +136,6 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-
-  // Persist author in localStorage
-
-  useEffect(() => {
-    localStorage.setItem('assembly_author', author);
-  }, [author]);
 
   // Handle Photo selection
   const handlePhotoSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -218,8 +211,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!author.trim()) {
-      alert('Please enter your name or operator ID.');
+    if (!authorName.trim()) {
+      alert('Please configure your Operator Name in Settings (top-right ⚙ menu) before submitting.');
       return;
     }
     const hasExistingMedia = existingPhotos.length > 0 || (existingVideo !== null && !removeExistingVideo);
@@ -246,7 +239,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           formData.append('section_ref', sectionRef.trim());
           formData.append('pin_x', (pinCoords?.x ?? 0.0).toString());
           formData.append('pin_y', (pinCoords?.y ?? 0.0).toString());
-          formData.append('author', author.trim());
+          formData.append('author', authorName.trim());
           formData.append('text_comment', textComment.trim());
 
           // Send retained existing photos as JSON array of filenames
@@ -287,7 +280,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           section_ref: sectionRef.trim() || undefined,
           pin_x: pinCoords?.x ?? 0.0,
           pin_y: pinCoords?.y ?? 0.0,
-          author: author.trim(),
+          author: authorName.trim(),
           text_comment: textComment.trim() || undefined,
           photo_filenames: existingPhotos.map((p) => p.filename),
           photo_urls: existingPhotos.map((p) => p.url),
@@ -333,7 +326,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         }
         formData.append('pin_x', (pinCoords?.x ?? 0.0).toString());
         formData.append('pin_y', (pinCoords?.y ?? 0.0).toString());
-        formData.append('author', author);
+        formData.append('author', authorName.trim());
         if (textComment.trim()) {
           formData.append('text_comment', textComment.trim());
         }
@@ -368,7 +361,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         section_ref: sectionRef.trim() || undefined,
         pin_x: pinCoords?.x ?? 0.0,
         pin_y: pinCoords?.y ?? 0.0,
-        author: author,
+        author: authorName.trim(),
         text_comment: textComment.trim() || undefined,
         videoBlob: selectedVideo?.file,
         videoName: selectedVideo?.file.name,
@@ -488,15 +481,22 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           {/* Metadata Rows: Operator Name, Section Reference, Page Reference & Pin */}
           <div className="space-y-3">
             <div>
-              <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                Operator Name / ID *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Operator Name / ID
+                </label>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  Set in Settings (top right)
+                </span>
+              </div>
               <Input
                 type="text"
-                required
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                placeholder="e.g. Alex"
+                readOnly
+                tabIndex={-1}
+                value={authorName}
+                placeholder="Not set (configure in Settings)"
+                className="bg-muted/40 cursor-not-allowed select-none text-foreground font-medium border-dashed"
+                title="To change your operator name, open Settings in the top-right of the navigation bar"
               />
             </div>
 

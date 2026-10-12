@@ -6,11 +6,15 @@ import {
   RefreshCw,
   ArrowLeft,
   Shield,
-  Wrench,
   Download,
+  Settings,
+  User,
 } from "lucide-react";
 import { syncManager, type SyncState } from "../services/sync";
+import { useOperatorName } from "../services/settings";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface NavbarProps {
@@ -44,6 +48,7 @@ export const Navbar: FC<NavbarProps> = ({
   onRefresh,
 }) => {
   const [syncState, setSyncState] = useState<SyncState>(syncManager.getState());
+  const [operatorName, setOperatorName] = useOperatorName();
 
   useEffect(() => {
     return syncManager.subscribe(setSyncState);
@@ -64,9 +69,11 @@ export const Navbar: FC<NavbarProps> = ({
           </Button>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">
-              <Wrench className="h-4 w-4" />
-            </div>
+            <img
+              src="/favicon.svg"
+              alt="Logo"
+              className="w-8 h-8 rounded-lg object-contain shrink-0 select-none"
+            />
           </div>
         )}
       </div>
@@ -155,21 +162,6 @@ export const Navbar: FC<NavbarProps> = ({
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
 
-        {/* Certificate Download Button */}
-        <a
-          href="/api/v1/cert/ca.crt"
-          download="assembly-pwa-ca.crt"
-          className={buttonVariants({
-            variant: "outline",
-            size: "sm",
-            className: "gap-1.5 text-xs",
-          })}
-          title="Download Root CA Certificate for Android"
-        >
-          <Download className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Download Cert</span>
-        </a>
-
         {/* Admin Portal Toggle */}
         <Button
           variant={isAdmin ? "default" : "outline"}
@@ -180,6 +172,62 @@ export const Navbar: FC<NavbarProps> = ({
           <Shield className="h-3.5 w-3.5" />
           <span>{isAdmin ? "Exit Admin" : "Admin"}</span>
         </Button>
+
+        {/* Settings Menu Button */}
+        <Popover>
+          <PopoverTrigger
+            className={cn(
+              buttonVariants({ variant: "outline", size: "icon-sm" }),
+              "cursor-pointer shrink-0"
+            )}
+            title="Settings"
+            aria-label="Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            side="bottom"
+            sideOffset={8}
+            className="w-72 p-3.5 space-y-3.5 bg-card border-border shadow-2xl rounded-xl select-none"
+          >
+            <div className="space-y-1.5">
+              <label
+                htmlFor="nav-operator-name"
+                className="text-xs font-semibold text-foreground flex items-center gap-1.5"
+              >
+                <User className="h-3.5 w-3.5 text-primary" />
+                <span>Operator Name</span>
+              </label>
+              <Input
+                id="nav-operator-name"
+                type="text"
+                value={operatorName}
+                onChange={(e) => setOperatorName(e.target.value)}
+                placeholder="Enter operator name..."
+                className="h-8 text-xs font-medium"
+              />
+            </div>
+
+            <div className="pt-2 border-t border-border/80">
+              <a
+                href="/api/v1/cert/ca.crt"
+                download="assembly-pwa-ca.crt"
+                className={cn(
+                  buttonVariants({
+                    variant: "outline",
+                    size: "sm",
+                  }),
+                  "w-full justify-start gap-2 text-xs font-medium"
+                )}
+                title="Download Root CA Certificate for Android"
+              >
+                <Download className="h-3.5 w-3.5 text-primary" />
+                <span>Download Certificate</span>
+              </a>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </header>
   );
