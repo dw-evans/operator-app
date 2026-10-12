@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FC } from 'react';
-import { MessageSquare, Clock, User, Download, RefreshCw, X, MapPin } from 'lucide-react';
+import { MessageSquare, Clock, User, Download, RefreshCw, X, MapPin, Pencil, Check, ArrowLeft } from 'lucide-react';
 import type { FeedbackItem } from '../types';
-import { fetchSlotFeedback } from '../services/api';
+import { fetchSlotFeedback, updateFeedbackComment } from '../services/api';
 import { isMediaCached, getMediaBlob, saveMediaBlob } from '../services/db';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,9 @@ interface FeedbackStreamProps {
   documentId?: number;
   highlightedFeedbackId?: string | null;
   onSelectFeedback?: (feedbackId: string | null) => void;
+  onCommentUpdated?: (feedbackId: string, newComment: string) => void;
+  onViewPhoto?: (url: string) => void;
+  onEditNote?: (item: FeedbackItem) => void;
 }
 
 export const FeedbackStream: FC<FeedbackStreamProps> = ({
@@ -21,12 +24,20 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
   documentId,
   highlightedFeedbackId,
   onSelectFeedback,
+  onCommentUpdated,
+  onViewPhoto,
+  onEditNote,
 }) => {
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(highlightedFeedbackId ?? null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Inline comment edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Synchronize internal selection when highlightedFeedbackId prop changes
   useEffect(() => {
@@ -61,6 +72,71 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 
   // Lightbox state for photos
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
+
+  const startEditing = (item: FeedbackItem) => {
+    setEditingId(item.id);
+    setEditText(item.text_comment || '');
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditText('');
+  };
+
+  const handleSaveEdit = async (feedbackId: string) => {
+    setIsSavingEdit(true);
+    try {
+      await updateFeedbackComment(feedbackId, editText, slotId);
+      setFeedbackList((prev) =>
+        prev.map((i) => (i.id === feedbackId ? { ...i, text_comment: editText } : i))
+      );
+      onCommentUpdated?.(feedbackId, editText);
+      setEditingId(null);
+    } catch (err) {
+      console.error('Failed to update comment:', err);
+      alert('Failed to save comment edit');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const openPhoto = (url: string) => {
+    if (onViewPhoto) {
+      onViewPhoto(url);
+      return;
+    }
+    window.history.pushState({ modal: 'photo', photoUrl: url }, '');
+    setActivePhoto(url);
+  };
+
+  const handleClosePhoto = useCallback(() => {
+    if (activePhoto) {
+      if (window.history.state?.modal === 'photo') {
+        window.history.back();
+      } else {
+        setActivePhoto(null);
+      }
+    }
+  }, [activePhoto]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (activePhoto) {
+        setActivePhoto(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activePhoto) {
+        handleClosePhoto();
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activePhoto, handleClosePhoto]);
 
   const loadFeedback = async () => {
     setIsLoading(true);
@@ -263,13 +339,71 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                     >
                       {item.status}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditNote) {
+                          onEditNote(item);
+                        } else {
+                          startEditing(item);
+                        }
+                      }}
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                      title="Edit note"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 </div>
 
-                {/* Text comment */}
-                {item.text_comment && (
-                  <p className="text-foreground/90 whitespace-pre-line leading-relaxed mb-2.5">
+                {/* Text comment or inline edit form */}
+                {editingId === item.id ? (
+                  <div className="mb-2.5 space-y-2" onClick={(e) => e.stopPropagation()}>
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      className="w-full text-xs font-normal border border-input rounded-md p-2 bg-background text-foreground focus:ring-1 focus:ring-ring focus:outline-none resize-y min-h-[70px]"
+                      placeholder="Write a comment..."
+                      rows={3}
+                      autoFocus
+                    />
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={cancelEditing}
+                        disabled={isSavingEdit}
+                        className="h-6 px-2 text-xs cursor-pointer"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="xs"
+                        onClick={() => handleSaveEdit(item.id)}
+                        disabled={isSavingEdit}
+                        className="h-6 px-2.5 text-xs gap-1 cursor-pointer font-medium"
+                      >
+                        {isSavingEdit ? (
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Check className="w-3 h-3" />
+                        )}
+                        <span>Save</span>
+                      </Button>
+                    </div>
+                  </div>
+                ) : item.text_comment ? (
+                  <p className="text-foreground/90 whitespace-pre-line leading-relaxed mb-2.5 text-xs">
                     {item.text_comment}
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground/60 italic mb-2 text-[11px]">
+                    No written comment
                   </p>
                 )}
 
@@ -282,7 +416,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActivePhoto(url);
+                          openPhoto(url);
                         }}
                         className="relative w-14 h-14 rounded-lg overflow-hidden border border-border hover:border-ring transition-colors cursor-pointer group"
                       >
@@ -353,21 +487,45 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       {/* Lightbox Modal */}
       {activePhoto && (
         <div
-          onClick={() => setActivePhoto(null)}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+          onClick={handleClosePhoto}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer select-none"
         >
+          {/* Prominent Back Button in Top-Left */}
           <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setActivePhoto(null)}
-            className="absolute top-4 right-4"
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClosePhoto();
+            }}
+            className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer font-medium px-3.5 py-2 h-9 rounded-lg"
+            title="Back to notes (Esc)"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
           </Button>
+
+          {/* Close Button in Top-Right */}
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClosePhoto();
+            }}
+            className="absolute top-4 right-4 z-50 bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer h-9 w-9 rounded-lg"
+            title="Close (Esc)"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+
           <img
             src={activePhoto}
             alt="Fullscreen preview"
-            className="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain border border-border"
+            className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain border border-border"
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}

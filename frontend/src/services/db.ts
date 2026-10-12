@@ -247,6 +247,65 @@ export async function saveCachedSlotFeedback(
   }
 }
 
+export async function updateCachedFeedbackComment(
+  slotId: number,
+  feedbackId: string,
+  newComment: string
+): Promise<void> {
+  try {
+    const db = await getDb();
+    const entry = await db.get('cached_feedback', slotId);
+    if (entry && entry.items) {
+      entry.items = entry.items.map((item: FeedbackItem) =>
+        item.id === feedbackId ? { ...item, text_comment: newComment } : item
+      );
+      await db.put('cached_feedback', {
+        ...entry,
+        updatedAt: Date.now(),
+      });
+    }
+    const queued = await db.get('feedback_queue', feedbackId);
+    if (queued) {
+      queued.text_comment = newComment;
+      await db.put('feedback_queue', queued);
+    }
+  } catch (err) {
+    console.warn(`Failed to update cached feedback comment for ${feedbackId}:`, err);
+  }
+}
+
+export async function updateCachedFeedbackItemFull(
+  slotId: number,
+  updatedItem: FeedbackItem
+): Promise<void> {
+  try {
+    const db = await getDb();
+    const entry = await db.get('cached_feedback', slotId);
+    if (entry && entry.items) {
+      entry.items = entry.items.map((item: FeedbackItem) =>
+        item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+      );
+      await db.put('cached_feedback', {
+        ...entry,
+        updatedAt: Date.now(),
+      });
+    }
+  } catch (err) {
+    console.warn(`Failed to update cached feedback item for ${updatedItem.id}:`, err);
+  }
+}
+
+export async function updateQueuedFeedbackItem(
+  queuedItem: QueuedFeedback
+): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.put('feedback_queue', queuedItem);
+  } catch (err) {
+    console.warn(`Failed to update queued feedback item for ${queuedItem.id}:`, err);
+  }
+}
+
 export async function getCachedSlotFeedback(
   slotId: number,
   documentId?: number

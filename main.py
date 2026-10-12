@@ -294,6 +294,141 @@ def get_slot_feedback(
     return result
 
 
+@app.put("/api/v1/feedback/{feedback_id}", response_model=schemas.FeedbackItem)
+async def update_feedback_full(
+    feedback_id: str,
+    station_id: Optional[str] = Form(None),
+    page_ref: Optional[int] = Form(None),
+    section_ref: Optional[str] = Form(None),
+    pin_x: Optional[float] = Form(None),
+    pin_y: Optional[float] = Form(None),
+    author: Optional[str] = Form(None),
+    text_comment: Optional[str] = Form(None),
+    existing_photos: Optional[str] = Form(None),
+    video: Optional[UploadFile] = File(None),
+    remove_video: Optional[str] = Form(None),
+    photos: List[UploadFile] = File([]),
+    db: Session = Depends(get_db),
+):
+    """Full update for a feedback note (page, pin coords, text, section, author, photos, video)."""
+    item = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Feedback item not found")
+
+    if station_id is not None:
+        item.station_id = station_id
+    if page_ref is not None:
+        item.page_ref = page_ref
+    if section_ref is not None:
+        item.section_ref = section_ref.strip() if section_ref.strip() else None
+    if pin_x is not None:
+        item.pin_x = pin_x
+    if pin_y is not None:
+        item.pin_y = pin_y
+    if author is not None:
+        item.author = author
+    if text_comment is not None:
+        item.text_comment = text_comment.strip() if text_comment.strip() else None
+
+    # Handle photos: keep specified existing photos, append new uploads
+    current_photos = json.loads(item.photo_filenames) if item.photo_filenames else []
+    if existing_photos is not None:
+        try:
+            kept_names = json.loads(existing_photos)
+            final_photos = [p for p in kept_names if p in current_photos]
+        except Exception:
+            final_photos = list(current_photos)
+    else:
+        final_photos = list(current_photos)
+
+    for idx, photo in enumerate(photos):
+        if photo and photo.filename:
+            p_ext = photo.filename.split(".")[-1].lower() if "." in photo.filename else "jpg"
+            p_name = f"{feedback_id}_photo_{int(datetime.now(timezone.utc).timestamp())}_{idx}.{p_ext}"
+            p_path = MEDIA_DIR / p_name
+            content = await photo.read()
+            with open(p_path, "wb") as f:
+                f.write(content)
+            final_photos.append(p_name)
+
+    item.photo_filenames = json.dumps(final_photos)
+
+    # Handle video: replace with new upload, or remove if requested
+    if video and video.filename:
+        v_ext = video.filename.split(".")[-1].lower() if "." in video.filename else "mp4"
+        v_name = f"{feedback_id}_video_{int(datetime.now(timezone.utc).timestamp())}.{v_ext}"
+        v_path = MEDIA_DIR / v_name
+        content = await video.read()
+        with open(v_path, "wb") as f:
+            f.write(content)
+        item.video_filename = v_name
+    elif remove_video == "true" or remove_video == "1":
+        item.video_filename = None
+
+    db.commit()
+    db.refresh(item)
+
+    p_names = json.loads(item.photo_filenames) if item.photo_filenames else []
+    return schemas.FeedbackItem(
+        id=item.id,
+        station_id=item.station_id,
+        slot_id=item.slot_id,
+        document_id=item.document_id,
+        page_ref=item.page_ref,
+        section_ref=item.section_ref,
+        pin_x=item.pin_x if item.pin_x is not None else 0.0,
+        pin_y=item.pin_y if item.pin_y is not None else 0.0,
+        author=item.author,
+        text_comment=item.text_comment,
+        video_filename=item.video_filename,
+        video_url=f"/media/{item.video_filename}" if item.video_filename else None,
+        photo_filenames=p_names,
+        photo_urls=[f"/media/{p}" for p in p_names],
+        timestamp=item.timestamp,
+        status=item.status,
+    )
+
+
+@app.patch("/api/v1/feedback/{feedback_id}", response_model=schemas.FeedbackItem)
+def update_feedback(
+    feedback_id: str,
+    update_data: schemas.FeedbackUpdate,
+    db: Session = Depends(get_db),
+):
+    """Update feedback text comment and/or status."""
+    item = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Feedback item not found")
+
+    if update_data.text_comment is not None:
+        item.text_comment = update_data.text_comment.strip() if update_data.text_comment else None
+    if update_data.status is not None:
+        item.status = update_data.status
+
+    db.commit()
+    db.refresh(item)
+
+    p_names = json.loads(item.photo_filenames) if item.photo_filenames else []
+    return schemas.FeedbackItem(
+        id=item.id,
+        station_id=item.station_id,
+        slot_id=item.slot_id,
+        document_id=item.document_id,
+        page_ref=item.page_ref,
+        section_ref=item.section_ref,
+        pin_x=item.pin_x if item.pin_x is not None else 0.0,
+        pin_y=item.pin_y if item.pin_y is not None else 0.0,
+        author=item.author,
+        text_comment=item.text_comment,
+        video_filename=item.video_filename,
+        video_url=f"/media/{item.video_filename}" if item.video_filename else None,
+        photo_filenames=p_names,
+        photo_urls=[f"/media/{p}" for p in p_names],
+        timestamp=item.timestamp,
+        status=item.status,
+    )
+
+
 @app.patch("/api/v1/feedback/{feedback_id}/status")
 def update_feedback_status(
     feedback_id: str,

@@ -16,6 +16,9 @@ export interface PdfiumViewerProps {
   onCancelPlacement?: () => void;
   onPinClick?: (pin: PdfPin) => void;
   onOpenDrawer?: (pin: PdfPin) => void;
+  onViewPhoto?: (url: string) => void;
+  onCommentUpdated?: (pinId: string, newComment: string) => void;
+  onEditPin?: (pin: PdfPin) => void;
 }
 
 // Categories to disable in EmbedPDF to provide a pure, distraction-free reading experience
@@ -41,6 +44,9 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   onCancelPlacement,
   onPinClick,
   onOpenDrawer,
+  onViewPhoto,
+  onCommentUpdated,
+  onEditPin,
 }) => {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
 
@@ -178,6 +184,9 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         onCancelPlacement={onCancelPlacement}
         onPinClick={onPinClick}
         onOpenDrawer={onOpenDrawer}
+        onViewPhoto={onViewPhoto}
+        onCommentUpdated={onCommentUpdated}
+        onEditPin={onEditPin}
       />
     </div>
   );

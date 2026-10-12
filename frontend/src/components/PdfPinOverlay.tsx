@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { FC, MouseEvent, TouchEvent } from 'react';
-import { MapPin, X, Check, CheckCircle2, User, Clock, MessageSquare } from 'lucide-react';
+import { MapPin, X, Check, CheckCircle2, User, Clock, MessageSquare, Pencil, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { PdfPin } from '../types';
 import { getMediaBlob } from '../services/db';
+import { updateFeedbackComment } from '../services/api';
 
 interface PositionedPin extends PdfPin {
   screenX: number;
@@ -21,6 +22,9 @@ interface PdfPinOverlayProps {
   onCancelPlacement?: () => void;
   onPinClick?: (pin: PdfPin) => void;
   onOpenDrawer?: (pin: PdfPin) => void;
+  onViewPhoto?: (url: string) => void;
+  onCommentUpdated?: (pinId: string, newComment: string) => void;
+  onEditPin?: (pin: PdfPin) => void;
 }
 
 /**
@@ -61,6 +65,9 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
   onCancelPlacement,
   onPinClick,
   onOpenDrawer,
+  onViewPhoto,
+  onCommentUpdated,
+  onEditPin,
 }) => {
   const [positionedPins, setPositionedPins] = useState<PositionedPin[]>([]);
   const [candidatePin, setCandidatePin] = useState<{
@@ -73,6 +80,16 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     screenY: number;
   } | null>(null);
   const [activePinId, setActivePinId] = useState<string | null>(null);
+
+  // Pin comment inline editing state
+  const [isEditingComment, setIsEditingComment] = useState(false);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [isSavingComment, setIsSavingComment] = useState(false);
+
+  useEffect(() => {
+    setIsEditingComment(false);
+    setEditCommentText('');
+  }, [activePinId]);
 
   const scrollerElRef = useRef<HTMLElement | null>(null);
   const touchStartRef = useRef<{
@@ -632,27 +649,111 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
           </div>
 
           {/* Comment Text */}
-          <div className="mb-2.5 bg-muted/30 rounded-lg p-2.5 border border-border/40 text-foreground/90 whitespace-pre-line leading-relaxed max-h-36 overflow-y-auto text-[12px]">
-            {activePin.comment ? (
-              activePin.comment
-            ) : (
-              <span className="italic text-muted-foreground">No text comment provided</span>
-            )}
-          </div>
+          {isEditingComment ? (
+            <div className="mb-2.5 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+              <textarea
+                value={editCommentText}
+                onChange={(e) => setEditCommentText(e.target.value)}
+                className="w-full text-xs font-normal border border-input rounded-md p-2 bg-background text-foreground focus:ring-1 focus:ring-ring focus:outline-none resize-y min-h-[60px]"
+                placeholder="Write a comment..."
+                rows={3}
+                autoFocus
+              />
+              <div className="flex items-center justify-end gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => setIsEditingComment(false)}
+                  disabled={isSavingComment}
+                  className="h-6 px-2 text-[11px] cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="xs"
+                  onClick={async () => {
+                    setIsSavingComment(true);
+                    try {
+                      await updateFeedbackComment(activePin.id, editCommentText);
+                      activePin.comment = editCommentText;
+                      onCommentUpdated?.(activePin.id, editCommentText);
+                      setIsEditingComment(false);
+                    } catch (err) {
+                      console.error('Failed to update pin comment:', err);
+                      alert('Failed to save comment');
+                    } finally {
+                      setIsSavingComment(false);
+                    }
+                  }}
+                  disabled={isSavingComment}
+                  className="h-6 px-2.5 text-[11px] gap-1 cursor-pointer font-medium"
+                >
+                  {isSavingComment ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Check className="w-3 h-3" />
+                  )}
+                  <span>Save</span>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-2.5 bg-muted/30 rounded-lg p-2.5 border border-border/40 text-foreground/90 whitespace-pre-line leading-relaxed max-h-36 overflow-y-auto text-[12px] group relative">
+              <div className="flex items-start justify-between gap-1">
+                <div className="flex-1">
+                  {activePin.comment ? (
+                    activePin.comment
+                  ) : (
+                    <span className="italic text-muted-foreground">No text comment provided</span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onEditPin) {
+                      const pin = activePin;
+                      setActivePinId(null);
+                      onEditPin(pin);
+                    } else {
+                      setEditCommentText(activePin.comment || '');
+                      setIsEditingComment(true);
+                    }
+                  }}
+                  className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground cursor-pointer -mt-0.5 -mr-0.5 shrink-0"
+                  title="Edit note"
+                >
+                  <Pencil className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Photo Previews if any */}
           {activePin.photoUrls && activePin.photoUrls.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2.5">
               {activePin.photoUrls.map((url, idx) => (
-                <a
+                <button
                   key={idx}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative w-12 h-12 rounded-md overflow-hidden border border-border/80 shrink-0 hover:border-primary transition-colors"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onViewPhoto) {
+                      onViewPhoto(url);
+                    } else {
+                      window.open(url, '_blank');
+                    }
+                  }}
+                  className="relative w-12 h-12 rounded-md overflow-hidden border border-border/80 shrink-0 hover:border-primary transition-colors cursor-pointer group"
+                  title="View full photo"
                 >
-                  <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
-                </a>
+                  <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                </button>
               ))}
             </div>
           )}

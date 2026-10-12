@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FC, FormEvent, ChangeEvent } from 'react';
 import { Camera, Video, Send, AlertTriangle, X, CheckCircle2, MapPin } from 'lucide-react';
-import { enqueueFeedback } from '../services/db';
-import { submitFeedbackDirect } from '../services/api';
+import { enqueueFeedback, updateCachedFeedbackItemFull } from '../services/db';
+import { submitFeedbackDirect, updateFeedbackDirect } from '../services/api';
 import { syncManager } from '../services/sync';
-import type { QueuedFeedback } from '../types';
+import type { QueuedFeedback, FeedbackItem } from '../types';
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,8 @@ interface FeedbackEngineProps {
   onStartPinPlacement?: () => void;
   onClearDraftPin?: () => void;
   onFeedbackSubmitted: () => void;
+  editingFeedback?: FeedbackItem | null;
+  onCancelEdit?: () => void;
 }
 
 export const FeedbackEngine: FC<FeedbackEngineProps> = ({
@@ -30,6 +32,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   onStartPinPlacement,
   onClearDraftPin,
   onFeedbackSubmitted,
+  editingFeedback,
+  onCancelEdit,
 }) => {
   const stationId = localStorage.getItem('assembly_station_id') || 'Station 1';
   const [author, setAuthor] = useState(
@@ -65,6 +69,55 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     duration?: number;
   } | null>(null);
 
+  // Existing media state for edit mode
+  const [existingPhotos, setExistingPhotos] = useState<{ filename: string; url: string }[]>([]);
+  const [existingVideo, setExistingVideo] = useState<{
+    filename?: string;
+    url: string;
+  } | null>(null);
+  const [removeExistingVideo, setRemoveExistingVideo] = useState(false);
+
+  // Populate form fields when editingFeedback changes
+  useEffect(() => {
+    if (editingFeedback) {
+      setAuthor(editingFeedback.author || '');
+      setPageRef(editingFeedback.page_ref || 1);
+      setSectionRef(editingFeedback.section_ref || '');
+      if ((editingFeedback.pin_x ?? 0) > 0 || (editingFeedback.pin_y ?? 0) > 0) {
+        setPinCoords({ x: editingFeedback.pin_x ?? 0, y: editingFeedback.pin_y ?? 0 });
+      } else {
+        setPinCoords(null);
+      }
+      setTextComment(editingFeedback.text_comment || '');
+
+      const photos: { filename: string; url: string }[] = [];
+      const urls = editingFeedback.photo_urls || [];
+      const filenames = editingFeedback.photo_filenames || [];
+      urls.forEach((url, i) => {
+        const filename = filenames[i] || url.split('/').pop() || `photo_${i}.jpg`;
+        photos.push({ filename, url });
+      });
+      setExistingPhotos(photos);
+
+      if (editingFeedback.video_url || editingFeedback.video_filename) {
+        setExistingVideo({
+          filename: editingFeedback.video_filename || undefined,
+          url: editingFeedback.video_url || (editingFeedback.video_filename ? `/media/${editingFeedback.video_filename}` : ''),
+        });
+      } else {
+        setExistingVideo(null);
+      }
+      setRemoveExistingVideo(false);
+      setSelectedPhotos([]);
+      setSelectedVideo(null);
+      setVideoWarning(null);
+    } else {
+      setExistingPhotos([]);
+      setExistingVideo(null);
+      setRemoveExistingVideo(false);
+    }
+  }, [editingFeedback]);
+
   // Warnings & status
   const [videoWarning, setVideoWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,6 +150,15 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       URL.revokeObjectURL(prev[index].preview);
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const removeExistingPhoto = (index: number) => {
+    setExistingPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingVideoHandler = () => {
+    setExistingVideo(null);
+    setRemoveExistingVideo(true);
   };
 
   // Handle Video selection and duration/size verification
@@ -148,7 +210,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       alert('Please enter your name or operator ID.');
       return;
     }
-    if (!textComment.trim() && selectedPhotos.length === 0 && !selectedVideo) {
+    const hasExistingMedia = existingPhotos.length > 0 || (existingVideo !== null && !removeExistingVideo);
+    if (!textComment.trim() && selectedPhotos.length === 0 && !selectedVideo && !hasExistingMedia) {
       alert('Please enter a comment or attach a photo/video.');
       return;
     }
@@ -156,11 +219,95 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     setIsSubmitting(true);
     setSubmitMessage(null);
 
+    const isOnline = navigator.onLine;
+
+    // Handle editing an existing feedback note
+    if (editingFeedback) {
+      if (isOnline) {
+        try {
+          const formData = new FormData();
+          formData.append('station_id', stationId || 'Station 1');
+          formData.append('slot_id', slotId.toString());
+          if (documentId !== undefined) {
+            formData.append('document_id', documentId.toString());
+          }
+          formData.append('page_ref', pageRef.toString());
+          formData.append('section_ref', sectionRef.trim());
+          formData.append('pin_x', (pinCoords?.x ?? 0.0).toString());
+          formData.append('pin_y', (pinCoords?.y ?? 0.0).toString());
+          formData.append('author', author.trim());
+          formData.append('text_comment', textComment.trim());
+
+          // Send retained existing photos as JSON array of filenames
+          const retainedFilenames = existingPhotos.map((p) => p.filename);
+          formData.append('existing_photos', JSON.stringify(retainedFilenames));
+
+          // Append any newly added photos
+          for (const photo of selectedPhotos) {
+            formData.append('photos', photo.file, photo.file.name);
+          }
+
+          // Handle new video or removal of video
+          if (selectedVideo) {
+            formData.append('video', selectedVideo.file, selectedVideo.file.name);
+          } else if (removeExistingVideo) {
+            formData.append('remove_video', 'true');
+          }
+
+          await updateFeedbackDirect(editingFeedback.id, formData);
+          syncManager.recordSuccessfulSync();
+          setSubmitMessage({
+            text: 'Note updated successfully!',
+            type: 'success',
+          });
+          resetForm();
+          onFeedbackSubmitted();
+          return;
+        } catch (err) {
+          console.warn('Direct update failed, falling back to offline update:', err);
+        }
+      }
+
+      // Offline edit fallback
+      try {
+        const updatedItem: FeedbackItem = {
+          ...editingFeedback,
+          station_id: stationId || 'Station 1',
+          page_ref: pageRef,
+          section_ref: sectionRef.trim() || undefined,
+          pin_x: pinCoords?.x ?? 0.0,
+          pin_y: pinCoords?.y ?? 0.0,
+          author: author.trim(),
+          text_comment: textComment.trim() || undefined,
+          photo_filenames: existingPhotos.map((p) => p.filename),
+          photo_urls: existingPhotos.map((p) => p.url),
+          video_filename: removeExistingVideo && !selectedVideo ? null : (selectedVideo ? selectedVideo.file.name : editingFeedback.video_filename),
+          video_url: removeExistingVideo && !selectedVideo ? null : (selectedVideo ? selectedVideo.preview : editingFeedback.video_url),
+        };
+
+        await updateCachedFeedbackItemFull(slotId, updatedItem);
+        setSubmitMessage({
+          text: 'Note updated locally! Queued for auto-sync once connected.',
+          type: 'queued',
+        });
+        resetForm();
+        onFeedbackSubmitted();
+      } catch (queueErr) {
+        console.error('Failed to update feedback locally:', queueErr);
+        setSubmitMessage({
+          text: 'Failed to update note. Please try again.',
+          type: 'error',
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // Creating a new feedback note
     const feedbackId = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : `fb_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-    const isOnline = navigator.onLine;
 
     if (isOnline) {
       try {
@@ -251,8 +398,14 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     setPinCoords(null);
     onClearDraftPin?.();
     setSelectedPhotos([]);
+    setExistingPhotos([]);
+    setExistingVideo(null);
+    setRemoveExistingVideo(false);
     removeVideo();
     setIsSubmitting(false);
+    if (editingFeedback) {
+      onCancelEdit?.();
+    }
   };
 
   return (
@@ -261,14 +414,32 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-card-foreground text-sm md:text-base">
-              Submit Station Note
+              {editingFeedback ? 'Edit Station Note' : 'Submit Station Note'}
             </h3>
             <Badge variant="outline" className="text-xs font-mono font-medium">
               Slot {slotId}
             </Badge>
+            {editingFeedback && (
+              <Badge variant="secondary" className="text-xs font-mono font-medium text-primary">
+                Editing
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
-            Offline sync active
+            {editingFeedback ? (
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  onCancelEdit?.();
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
+              >
+                Cancel Edit
+              </button>
+            ) : (
+              'Offline sync active'
+            )}
           </div>
         </div>
 
@@ -428,12 +599,38 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
               </div>
             )}
 
-            {/* Previews */}
-            {(selectedPhotos.length > 0 || selectedVideo) && (
+            {/* Previews: Existing and New Media */}
+            {(existingPhotos.length > 0 || (existingVideo && !removeExistingVideo) || selectedPhotos.length > 0 || selectedVideo) && (
               <div className="mt-3 flex flex-wrap gap-2.5">
+                {/* Existing Photos */}
+                {existingPhotos.map((photo, idx) => (
+                  <div
+                    key={`exist-photo-${idx}`}
+                    className="relative w-16 h-16 rounded-lg overflow-hidden border border-primary/40 bg-muted/40 group"
+                  >
+                    <img
+                      src={photo.url}
+                      alt={`Photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeExistingPhoto(idx)}
+                      className="absolute top-1 right-1 bg-black/80 hover:bg-destructive p-0.5 rounded text-white transition-colors cursor-pointer"
+                      title="Remove photo"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <span className="absolute bottom-0 inset-x-0 bg-black/60 text-[9px] text-white text-center font-mono py-0.2">
+                      Saved
+                    </span>
+                  </div>
+                ))}
+
+                {/* Newly Selected Photos */}
                 {selectedPhotos.map((photo, idx) => (
                   <div
-                    key={idx}
+                    key={`new-photo-${idx}`}
                     className="relative w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted/40 group"
                   >
                     <img
@@ -445,12 +642,37 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                       type="button"
                       onClick={() => removePhoto(idx)}
                       className="absolute top-1 right-1 bg-black/80 hover:bg-destructive p-0.5 rounded text-white transition-colors cursor-pointer"
+                      title="Remove photo"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
 
+                {/* Existing Video */}
+                {existingVideo && !removeExistingVideo && !selectedVideo && (
+                  <div className="relative rounded-lg overflow-hidden border border-primary/40 bg-muted/40 p-2 flex items-center gap-2">
+                    <Video className="w-4 h-4 text-primary shrink-0" />
+                    <div className="text-xs">
+                      <div className="font-medium text-foreground truncate max-w-[140px]">
+                        {existingVideo.filename || 'Attached Video'}
+                      </div>
+                      <div className="text-muted-foreground text-[10px]">
+                        Saved video attachment
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeExistingVideoHandler}
+                      className="p-1 hover:bg-destructive rounded text-muted-foreground hover:text-destructive-foreground transition-colors cursor-pointer"
+                      title="Remove video"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Newly Selected Video */}
                 {selectedVideo && (
                   <div className="relative rounded-lg overflow-hidden border border-border bg-muted/40 p-2 flex items-center gap-2">
                     <Video className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -467,6 +689,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                       type="button"
                       onClick={removeVideo}
                       className="p-1 hover:bg-destructive rounded text-muted-foreground hover:text-destructive-foreground transition-colors cursor-pointer"
+                      title="Remove video"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -476,14 +699,34 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
             )}
           </div>
 
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full mt-2 gap-2"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>{isSubmitting ? 'Recording Note...' : 'Submit Note'}</span>
-          </Button>
+          <div className="flex items-center gap-2 mt-2">
+            {editingFeedback && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  resetForm();
+                  onCancelEdit?.();
+                }}
+                disabled={isSubmitting}
+                className="flex-1 cursor-pointer"
+              >
+                Cancel
+              </Button>
+            )}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={cn("gap-2", editingFeedback ? "flex-1" : "w-full")}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>
+                {isSubmitting
+                  ? (editingFeedback ? 'Saving Changes...' : 'Recording Note...')
+                  : (editingFeedback ? 'Save Changes' : 'Submit Note')}
+              </span>
+            </Button>
+          </div>
         </form>
       </div>
     </Card>

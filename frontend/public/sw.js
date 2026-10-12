@@ -1,7 +1,7 @@
 // Comprehensive Offline Service Worker for Assembly PWA
 // Manages App Shell precaching, SPA navigation fallback, and PDF manual offline storage
 
-const APP_SHELL_CACHE = 'assembly_app_shell_v2';
+const APP_SHELL_CACHE = 'assembly_app_shell_v3';
 const PDF_CACHE = 'assembly_pdf_cache';
 
 const PRECACHE_ASSETS = [
@@ -12,6 +12,7 @@ const PRECACHE_ASSETS = [
   '/apple-touch-icon.png',
   '/pwa-192x192.png',
   '/pwa-512x512.png',
+  '/pwa-maskable-512x512.png',
   '/pdfium.wasm',
 ];
 

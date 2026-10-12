@@ -35,3 +35,6 @@ Thumbs.db
 certs/*
 !certs/.gitkeep
 
+# Backups
+backups/
+

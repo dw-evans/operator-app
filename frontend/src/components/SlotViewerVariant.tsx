@@ -6,7 +6,7 @@ import { FeedbackStream } from './FeedbackStream';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin, Eye, EyeOff } from 'lucide-react';
+import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DocumentRevision, FeedbackItem, PdfPin } from '../types';
 import { fetchSlotFeedback } from '../services/api';
@@ -33,6 +33,59 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const [draftPin, setDraftPin] = useState<{ pageNumber: number; x: number; y: number } | null>(null);
   const [showPins, setShowPins] = useState(true);
   const [highlightedFeedbackId, setHighlightedFeedbackId] = useState<string | null>(null);
+  const [editingFeedback, setEditingFeedback] = useState<FeedbackItem | null>(null);
+
+  const handleStartEdit = useCallback((item: FeedbackItem) => {
+    setEditingFeedback(item);
+    if ((item.pin_x ?? 0) > 0 || (item.pin_y ?? 0) > 0) {
+      setDraftPin({
+        pageNumber: item.page_ref,
+        x: item.pin_x ?? 0,
+        y: item.pin_y ?? 0,
+      });
+    } else {
+      setDraftPin(null);
+    }
+    setActiveTab('submit');
+    setIsNotesOpen(true);
+  }, []);
+
+  // Unified Photo Lightbox State with Back Button Navigation
+  const [activePhoto, setActivePhoto] = useState<string | null>(null);
+
+  const openPhoto = useCallback((url: string) => {
+    window.history.pushState({ modal: 'photo', photoUrl: url }, '');
+    setActivePhoto(url);
+  }, []);
+
+  const handleClosePhoto = useCallback(() => {
+    if (activePhoto) {
+      if (window.history.state?.modal === 'photo') {
+        window.history.back();
+      } else {
+        setActivePhoto(null);
+      }
+    }
+  }, [activePhoto]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (activePhoto) {
+        setActivePhoto(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activePhoto) {
+        handleClosePhoto();
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activePhoto, handleClosePhoto]);
 
   const loadFeedback = useCallback(async () => {
     try {
@@ -65,22 +118,24 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 
   // Map feedback items and draft pin to pins for PdfiumViewer
   const pins: PdfPin[] = useMemo(() => {
-    const list: PdfPin[] = relevantFeedback.map((fb) => ({
-      id: fb.id,
-      pageNumber: fb.page_ref,
-      x: fb.pin_x ?? 0,
-      y: fb.pin_y ?? 0,
-      author: fb.author,
-      comment: fb.text_comment || undefined,
-      sectionRef: fb.section_ref || undefined,
-      stationId: fb.station_id,
-      timestamp: fb.timestamp,
-      status: fb.status,
-      photoUrls: fb.photo_urls,
-      videoUrl: fb.video_url || (fb.video_filename ? `/media/${fb.video_filename}` : undefined),
-      videoFilename: fb.video_filename || undefined,
-      isDraft: false,
-    }));
+    const list: PdfPin[] = relevantFeedback
+      .filter((fb) => !editingFeedback || fb.id !== editingFeedback.id)
+      .map((fb) => ({
+        id: fb.id,
+        pageNumber: fb.page_ref,
+        x: fb.pin_x ?? 0,
+        y: fb.pin_y ?? 0,
+        author: fb.author,
+        comment: fb.text_comment || undefined,
+        sectionRef: fb.section_ref || undefined,
+        stationId: fb.station_id,
+        timestamp: fb.timestamp,
+        status: fb.status,
+        photoUrls: fb.photo_urls,
+        videoUrl: fb.video_url || (fb.video_filename ? `/media/${fb.video_filename}` : undefined),
+        videoFilename: fb.video_filename || undefined,
+        isDraft: false,
+      }));
 
     if (draftPin) {
       list.push({
@@ -93,7 +148,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     }
 
     return list;
-  }, [relevantFeedback, draftPin]);
+  }, [relevantFeedback, draftPin, editingFeedback]);
 
   // Filter pins based on showPins toggle, keeping draft pins visible
   const visiblePins = useMemo(() => {
@@ -163,6 +218,8 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             variant="outline"
             size="sm"
             onClick={() => {
+              setEditingFeedback(null);
+              setDraftPin(null);
               setActiveTab('submit');
               setIsNotesOpen(true);
             }}
@@ -215,6 +272,14 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             setHighlightedFeedbackId(pin.id);
             setActiveTab('stream');
             setIsNotesOpen(true);
+          }}
+          onViewPhoto={openPhoto}
+          onCommentUpdated={loadFeedback}
+          onEditPin={(pin) => {
+            const item = feedbackList.find((f) => f.id === pin.id);
+            if (item) {
+              handleStartEdit(item);
+            }
           }}
         />
       </div>
@@ -281,7 +346,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                   )}
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Submit Note</span>
+                  <span>{editingFeedback ? 'Edit Note' : 'Submit Note'}</span>
                 </button>
 
                 <button
@@ -318,7 +383,13 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                     setIsNotesOpen(false);
                   }}
                   onClearDraftPin={() => setDraftPin(null)}
+                  editingFeedback={editingFeedback}
+                  onCancelEdit={() => {
+                    setEditingFeedback(null);
+                    setDraftPin(null);
+                  }}
                   onFeedbackSubmitted={() => {
+                    setEditingFeedback(null);
                     setDraftPin(null);
                     loadFeedback();
                     onFeedbackSubmitted?.();
@@ -331,10 +402,59 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                   documentId={document?.id}
                   highlightedFeedbackId={highlightedFeedbackId}
                   onSelectFeedback={(id) => setHighlightedFeedbackId(id)}
+                  onViewPhoto={openPhoto}
+                  onCommentUpdated={loadFeedback}
+                  onEditNote={handleStartEdit}
                 />
               )}
             </div>
           </aside>
+        </div>
+      )}
+
+      {/* Unified Photo Lightbox Modal with Back Button Navigation */}
+      {activePhoto && (
+        <div
+          onClick={handleClosePhoto}
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer select-none"
+        >
+          {/* Prominent Back Button in Top-Left */}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClosePhoto();
+            }}
+            className="absolute top-4 left-4 z-[110] flex items-center gap-2 bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer font-medium px-3.5 py-2 h-9 rounded-lg"
+            title="Back to manual (Esc)"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </Button>
+
+          {/* Close Button in Top-Right */}
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClosePhoto();
+            }}
+            className="absolute top-4 right-4 z-[110] bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer h-9 w-9 rounded-lg"
+            title="Close (Esc)"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+
+          <img
+            src={activePhoto}
+            alt="Fullscreen preview"
+            className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain border border-border"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

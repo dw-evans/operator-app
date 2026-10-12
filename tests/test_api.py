@@ -189,6 +189,44 @@ def test_feedback_submission_and_status():
     fb_list_resp2 = client.get("/api/v1/feedback/2")
     assert fb_list_resp2.json()[0]["status"] == "reviewed"
 
+    # Edit feedback comment text
+    edit_resp = client.patch(
+        f"/api/v1/feedback/{fb_id}",
+        json={"text_comment": "Updated comment: screw alignment resolved with torque wrench"},
+    )
+    assert edit_resp.status_code == 200
+    assert edit_resp.json()["text_comment"] == "Updated comment: screw alignment resolved with torque wrench"
+
+    # Verify updated comment persists in list
+    fb_list_resp3 = client.get("/api/v1/feedback/2")
+    assert fb_list_resp3.json()[0]["text_comment"] == "Updated comment: screw alignment resolved with torque wrench"
+
+    # Full update of feedback note (page, pin coords, section, comment, new photo, remove video)
+    new_mock_photo = ("new_part.jpg", io.BytesIO(b"new fake image data"), "image/jpeg")
+    put_resp = client.put(
+        f"/api/v1/feedback/{fb_id}",
+        data={
+            "page_ref": 5,
+            "section_ref": "3.2",
+            "pin_x": 42.5,
+            "pin_y": 78.1,
+            "author": "Jane Doe",
+            "text_comment": "Fully modified note with new pin and page",
+            "remove_video": "true",
+        },
+        files=[("photos", new_mock_photo)],
+    )
+    assert put_resp.status_code == 200
+    updated_data = put_resp.json()
+    assert updated_data["page_ref"] == 5
+    assert updated_data["section_ref"] == "3.2"
+    assert updated_data["pin_x"] == 42.5
+    assert updated_data["pin_y"] == 78.1
+    assert updated_data["author"] == "Jane Doe"
+    assert updated_data["text_comment"] == "Fully modified note with new pin and page"
+    assert updated_data["video_filename"] is None  # Removed video
+    assert len(updated_data["photo_filenames"]) == 2  # Kept previous + 1 new
+
 
 def test_feedback_idempotency():
     # Sending the same feedback ID twice should succeed gracefully (for offline retry sync)

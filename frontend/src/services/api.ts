@@ -1,6 +1,8 @@
-import type { DocumentRevision, FeedbackItem, SlotSummary } from '../types';
+import type { SlotSummary, FeedbackItem, DocumentRevision } from '../types';
 import {
   saveCachedSlotFeedback,
+  updateCachedFeedbackComment,
+  updateCachedFeedbackItemFull,
   getCachedSlotFeedback,
   getQueuedFeedbackForSlot,
   mergeServerAndPendingFeedback,
@@ -84,6 +86,58 @@ export async function updateFeedbackStatus(
   });
   if (!res.ok) throw new Error(`Failed to update status: ${res.statusText}`);
   return res.json();
+}
+
+export async function updateFeedbackComment(
+  feedbackId: string,
+  newComment: string,
+  slotId?: number
+): Promise<FeedbackItem> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/feedback/${feedbackId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text_comment: newComment }),
+    });
+    if (res.ok) {
+      const data: FeedbackItem = await res.json();
+      await updateCachedFeedbackComment(data.slot_id, feedbackId, newComment);
+      return data;
+    }
+  } catch (err) {
+    console.warn(`Network edit failed, updating locally in IndexedDB: ${err}`);
+  }
+
+  // Offline fallback: update local IndexedDB cache directly
+  if (slotId !== undefined) {
+    await updateCachedFeedbackComment(slotId, feedbackId, newComment);
+  }
+  return {
+    id: feedbackId,
+    station_id: 'Station 1',
+    slot_id: slotId || 1,
+    page_ref: 1,
+    author: '',
+    text_comment: newComment,
+    photo_filenames: [],
+    photo_urls: [],
+    timestamp: new Date().toISOString(),
+    status: 'open',
+  };
+}
+
+export async function updateFeedbackDirect(
+  feedbackId: string,
+  formData: FormData
+): Promise<FeedbackItem> {
+  const res = await fetch(`${API_BASE}/api/v1/feedback/${feedbackId}`, {
+    method: 'PUT',
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Failed to update feedback: ${res.statusText}`);
+  const data: FeedbackItem = await res.json();
+  await updateCachedFeedbackItemFull(data.slot_id, data);
+  return data;
 }
 
 export async function adminUploadManual(
