@@ -197,7 +197,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     const viewerHeight = viewerRect.height;
 
     // Desired popup width (adaptive to screen width)
-    const popupWidth = Math.min(320, viewerWidth - 32);
+    const popupWidth = Math.min(380, viewerWidth - 32);
 
     // Center over pin, clamped within viewer boundaries
     const idealLeft = activePin.screenX - popupWidth / 2;
@@ -535,7 +535,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                 }}
                 title={
                   pin.author
-                    ? `${pin.author}${pin.sectionRef ? ` (Sec ${pin.sectionRef})` : ''}: ${pin.comment || 'Note'}`
+                    ? `${pin.author}${pin.status ? ` (${pin.status})` : ''} · Page ${pin.pageNumber}: ${pin.comment || 'Note'}`
                     : `Note on Page ${pin.pageNumber}`
                 }
                 className={cn(
@@ -561,18 +561,13 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
           onClick={(e) => e.stopPropagation()}
           className="pin-comment-popup z-40 bg-card/95 backdrop-blur-md border border-border shadow-2xl rounded-xl p-3.5 text-xs text-foreground animate-in fade-in zoom-in-95 duration-150 select-text max-h-[85vh] overflow-y-auto"
         >
-          {/* Header: Author, Station, Status, Close */}
+          {/* Header: Name, Status, and Close */}
           <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-border/60">
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              <span className="font-semibold text-foreground flex items-center gap-1 truncate">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <span className="font-semibold text-foreground flex items-center gap-1.5 text-sm truncate">
                 <User className="w-3.5 h-3.5 text-primary shrink-0" />
                 <span className="truncate">{activePin.author || 'Anonymous'}</span>
               </span>
-              {activePin.stationId && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-mono">
-                  {activePin.stationId}
-                </Badge>
-              )}
               {activePin.status && (
                 <Badge
                   variant={
@@ -601,24 +596,17 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
             </Button>
           </div>
 
-          {/* Location & Time Badges */}
-          <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-muted-foreground mb-2">
+          {/* Subheader: Page and Time only */}
+          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground mb-2.5">
             <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0 h-4.5">
               Page {activePin.pageNumber}
             </Badge>
-            {activePin.sectionRef && (
-              <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 h-4.5 text-primary border-primary/30">
-                Sec {activePin.sectionRef}
-              </Badge>
-            )}
-            <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 h-4.5 gap-1 text-muted-foreground">
-              <MapPin className="w-2.5 h-2.5 text-primary" />
-              <span>{activePin.x}%, {activePin.y}%</span>
-            </Badge>
             {activePin.timestamp && (
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/80 ml-auto font-mono">
-                <Clock className="w-2.5 h-2.5" />
-                <span>{new Date(activePin.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
+                <Clock className="w-3 h-3 text-muted-foreground/70" />
+                <span>
+                  {new Date(activePin.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </span>
             )}
           </div>
@@ -709,27 +697,33 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
             </div>
           )}
 
-          {/* Photo Previews if any */}
+          {/* Photo Previews if any - generous sizing so operators can see details */}
           {activePin.photoUrls && activePin.photoUrls.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2.5">
-              {activePin.photoUrls.map((url, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onViewPhoto) {
-                      onViewPhoto(url);
-                    } else {
-                      window.open(url, '_blank');
-                    }
-                  }}
-                  className="relative w-12 h-12 rounded-md overflow-hidden border border-border/80 shrink-0 hover:border-primary transition-colors cursor-pointer group"
-                  title="View full photo"
-                >
-                  <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                </button>
-              ))}
+            <div className="mb-2.5 space-y-1.5">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+                {activePin.photoUrls.map((url, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onViewPhoto) {
+                        onViewPhoto(url);
+                      } else {
+                        window.open(url, '_blank');
+                      }
+                    }}
+                    className="relative rounded-lg overflow-hidden border border-border/80 hover:border-primary transition-all cursor-pointer bg-muted/20 shrink-0 max-h-52 max-w-[280px] group"
+                    title="Click to view full photo"
+                  >
+                    <img
+                      src={url}
+                      alt={`Photo ${idx + 1}`}
+                      className="max-h-48 w-auto object-contain rounded-md group-hover:scale-102 transition-transform"
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

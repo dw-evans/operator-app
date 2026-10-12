@@ -720,7 +720,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Station / Author</TableHead>
+                    <TableHead>Author</TableHead>
                     <TableHead>Page</TableHead>
                     <TableHead>Comment</TableHead>
                     <TableHead>Status</TableHead>
@@ -731,9 +731,6 @@ export const AdminPortal: FC<AdminPortalProps> = ({
                     <TableRow key={fb.id}>
                       <TableCell>
                         <div className="font-medium text-xs">
-                          {fb.station_id}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
                           {fb.author}
                         </div>
                       </TableCell>

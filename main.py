@@ -171,7 +171,7 @@ def get_slots_summary(db: Session = Depends(get_db)):
 @app.post("/api/v1/feedback")
 async def create_feedback(
     id: str = Form(...),
-    station_id: str = Form("Station 1"),
+    station_id: Optional[str] = Form(None),
     slot_id: int = Form(...),
     document_id: Optional[int] = Form(None),
     page_ref: int = Form(...),

@@ -307,9 +307,6 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                       <User className="w-3.5 h-3.5 text-muted-foreground" />
                       {item.author}
                     </span>
-                    <Badge variant="outline" className="font-mono text-[11px]">
-                      {item.station_id}
-                    </Badge>
                     <Badge variant="secondary" className="font-mono text-[11px]">
                       Page {item.page_ref}
                     </Badge>
@@ -409,7 +406,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 
                 {/* Photos Gallery */}
                 {item.photo_urls && item.photo_urls.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2.5">
+                  <div className="flex flex-wrap gap-2.5 mb-2.5">
                     {item.photo_urls.map((url, pIdx) => (
                       <button
                         key={pIdx}
@@ -418,12 +415,13 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                           e.stopPropagation();
                           openPhoto(url);
                         }}
-                        className="relative w-14 h-14 rounded-lg overflow-hidden border border-border hover:border-ring transition-colors cursor-pointer group"
+                        className="relative group rounded-lg overflow-hidden border border-border hover:border-primary transition-all cursor-pointer bg-muted/20 max-h-44 max-w-[260px]"
+                        title="Click to enlarge photo"
                       >
                         <img
                           src={url}
                           alt="Feedback photo"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          className="max-h-40 w-auto object-contain rounded-md group-hover:scale-102 transition-transform"
                         />
                       </button>
                     ))}
