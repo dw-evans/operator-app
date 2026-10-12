@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import type { FC, FormEvent } from 'react';
+import { useState, useEffect, useMemo } from "react";
+import type { FC, FormEvent } from "react";
 import {
   Upload,
   History,
@@ -10,17 +10,22 @@ import {
   MessageSquare,
   RefreshCw,
   ShieldCheck,
-} from 'lucide-react';
-import type { DocumentRevision, FeedbackItem, SlotSummary } from '../types';
+  RotateCcw,
+  Eye,
+} from "lucide-react";
+import type { DocumentRevision, FeedbackItem, SlotSummary } from "../types";
 import {
   fetchSlots,
   fetchSlotHistory,
   adminUploadManual,
+  adminReinstateRevision,
   checkPinStatus,
   verifyPin,
   fetchSlotFeedback,
   updateFeedbackStatus,
-} from '../services/api';
+} from "../services/api";
+import { SlotViewerVariant } from "./SlotViewerVariant";
+import { cn } from "@/lib/utils";
 
 import {
   Card,
@@ -29,18 +34,18 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
-} from '@/components/ui/card';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from "@/components/ui/card";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Table,
   TableHeader,
@@ -48,16 +53,19 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 
 interface AdminPortalProps {
   onClose: () => void;
   onSlotsUpdated: () => void;
 }
 
-export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) => {
+export const AdminPortal: FC<AdminPortalProps> = ({
+  onClose,
+  onSlotsUpdated,
+}) => {
   const [isPinLocked, setIsPinLocked] = useState(false);
-  const [pinInput, setPinInput] = useState('');
+  const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState<string | null>(null);
 
   const [slots, setSlots] = useState<SlotSummary[]>([]);
@@ -67,6 +75,8 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
   const [historySlotId, setHistorySlotId] = useState<number | null>(null);
   const [revisions, setRevisions] = useState<DocumentRevision[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [reinstatingId, setReinstatingId] = useState<number | null>(null);
+  const [viewingRevision, setViewingRevision] = useState<DocumentRevision | null>(null);
 
   // Upload state per slot
   const [uploadingSlotId, setUploadingSlotId] = useState<number | null>(null);
@@ -74,8 +84,17 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
 
   // Feedback audit state
   const [auditSlotId, setAuditSlotId] = useState<number | null>(null);
+  const [auditDocId, setAuditDocId] = useState<number | null>(null);
   const [auditFeedback, setAuditFeedback] = useState<FeedbackItem[]>([]);
+  const [auditFilter, setAuditFilter] = useState<'live' | 'all'>('live');
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
+
+  const displayedAuditFeedback = useMemo(() => {
+    if (auditFilter === 'live' && auditDocId) {
+      return auditFeedback.filter((fb) => fb.document_id === auditDocId);
+    }
+    return auditFeedback;
+  }, [auditFeedback, auditFilter, auditDocId]);
 
   useEffect(() => {
     checkPin();
@@ -86,7 +105,8 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
     try {
       const res = await checkPinStatus();
       if (res.pin_required) {
-        const sessionUnlocked = sessionStorage.getItem('assembly_admin_unlocked') === 'true';
+        const sessionUnlocked =
+          sessionStorage.getItem("assembly_admin_unlocked") === "true";
         setIsPinLocked(!sessionUnlocked);
       } else {
         setIsPinLocked(false);
@@ -103,12 +123,12 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       const res = await verifyPin(pinInput);
       if (res.valid) {
         setIsPinLocked(false);
-        sessionStorage.setItem('assembly_admin_unlocked', 'true');
+        sessionStorage.setItem("assembly_admin_unlocked", "true");
       } else {
-        setPinError('Incorrect PIN. Please try again.');
+        setPinError("Incorrect PIN. Please try again.");
       }
     } catch {
-      setPinError('Failed to verify PIN with server.');
+      setPinError("Failed to verify PIN with server.");
     }
   };
 
@@ -118,7 +138,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       const data = await fetchSlots();
       setSlots(data);
     } catch (err) {
-      console.error('Failed to load slots in admin:', err);
+      console.error("Failed to load slots in admin:", err);
     } finally {
       setIsLoadingSlots(false);
     }
@@ -147,35 +167,63 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       const history = await fetchSlotHistory(slotId);
       setRevisions(history);
     } catch (err) {
-      console.error('Failed to load history:', err);
+      console.error("Failed to load history:", err);
     } finally {
       setIsLoadingHistory(false);
     }
   };
 
-  const openAudit = async (slotId: number) => {
+  const handleReinstate = async (docId: number) => {
+    setReinstatingId(docId);
+    try {
+      await adminReinstateRevision(docId);
+      if (historySlotId !== null) {
+        await openHistory(historySlotId);
+      }
+      if (viewingRevision && viewingRevision.id === docId) {
+        setViewingRevision((prev) =>
+          prev ? { ...prev, is_live: true, obsolescence_date: null } : null
+        );
+      }
+      await loadSlots();
+      onSlotsUpdated();
+    } catch (err: any) {
+      alert(`Failed to reinstate revision: ${err.message}`);
+    } finally {
+      setReinstatingId(null);
+    }
+  };
+
+  const openAudit = async (slotId: number, documentId?: number) => {
     setAuditSlotId(slotId);
+    setAuditDocId(documentId ?? null);
+    setAuditFilter(documentId ? 'live' : 'all');
     setIsLoadingAudit(true);
     try {
       const items = await fetchSlotFeedback(slotId);
       setAuditFeedback(items);
     } catch (err) {
-      console.error('Failed to load audit feedback:', err);
+      console.error("Failed to load audit feedback:", err);
     } finally {
       setIsLoadingAudit(false);
     }
   };
 
-  const handleUpdateStatus = async (fbId: string, newStatus: 'open' | 'reviewed' | 'resolved') => {
+  const handleUpdateStatus = async (
+    fbId: string,
+    newStatus: "open" | "reviewed" | "resolved",
+  ) => {
     try {
       await updateFeedbackStatus(fbId, newStatus);
       setAuditFeedback((prev) =>
-        prev.map((item) => (item.id === fbId ? { ...item, status: newStatus } : item))
+        prev.map((item) =>
+          item.id === fbId ? { ...item, status: newStatus } : item,
+        ),
       );
       await loadSlots();
       onSlotsUpdated();
     } catch {
-      alert('Failed to update status');
+      alert("Failed to update status");
     }
   };
 
@@ -186,7 +234,9 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
           <CardHeader className="text-center">
             <Lock className="mx-auto h-8 w-8 text-muted-foreground mb-1" />
             <CardTitle>Admin PIN Required</CardTitle>
-            <CardDescription>Enter PIN to access document management.</CardDescription>
+            <CardDescription>
+              Enter PIN to access document management.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleVerifyPin} className="space-y-4">
@@ -198,9 +248,18 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                 placeholder="PIN"
                 className="text-center text-lg tracking-widest font-mono"
               />
-              {pinError && <p className="text-xs text-destructive text-center">{pinError}</p>}
+              {pinError && (
+                <p className="text-xs text-destructive text-center">
+                  {pinError}
+                </p>
+              )}
               <div className="flex gap-2">
-                <Button type="button" variant="outline" className="w-1/2" onClick={onClose}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-1/2"
+                  onClick={onClose}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" className="w-1/2">
@@ -220,8 +279,9 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       <header className="flex items-center justify-between pb-4 border-b">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">Management Portal</h1>
-            <Badge variant="outline">Slots 1–10</Badge>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Management Portal
+            </h1>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
             Manage PDF instruction manuals and audit station feedback notes.
@@ -229,8 +289,15 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadSlots} disabled={isLoadingSlots}>
-            <RefreshCw className={`h-4 w-4 ${isLoadingSlots ? 'animate-spin' : ''}`} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadSlots}
+            disabled={isLoadingSlots}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${isLoadingSlots ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -255,13 +322,18 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
               HTTPS Root CA Certificate
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Download and install this certificate on Android tablets to enable offline PWA installation over HTTPS.
+              Download and install this certificate on Android tablets to enable
+              offline PWA installation over HTTPS.
             </p>
           </div>
           <a
             href="/api/v1/cert/ca.crt"
             download="assembly-pwa-ca.crt"
-            className={buttonVariants({ variant: 'default', size: 'sm', className: 'gap-1.5 shrink-0' })}
+            className={buttonVariants({
+              variant: "default",
+              size: "sm",
+              className: "gap-1.5 shrink-0",
+            })}
           >
             <Download className="h-4 w-4" />
             Download Certificate (.crt)
@@ -287,10 +359,12 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                   )}
                 </div>
                 <CardTitle className="text-base truncate pt-1">
-                  {doc ? doc.title : 'Empty Slot'}
+                  {doc ? doc.title : "Empty Slot"}
                 </CardTitle>
                 <CardDescription className="text-xs truncate">
-                  {doc ? `Uploaded ${new Date(doc.upload_date).toLocaleDateString()}` : 'No PDF deployed'}
+                  {doc
+                    ? `Uploaded ${new Date(doc.upload_date).toLocaleDateString()}`
+                    : "No PDF deployed"}
                 </CardDescription>
               </CardHeader>
 
@@ -304,7 +378,10 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                       href={doc.url}
                       target="_blank"
                       rel="noreferrer"
-                      className={buttonVariants({ variant: 'link', size: 'xs' })}
+                      className={buttonVariants({
+                        variant: "link",
+                        size: "xs",
+                      })}
                     >
                       <Download className="h-3 w-3 mr-1" />
                       PDF
@@ -323,19 +400,25 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleUpload(slot.slot_id, file);
-                    e.target.value = '';
+                    e.target.value = "";
                   }}
                 />
                 <label
                   htmlFor={`file-${slot.slot_id}`}
                   className={buttonVariants({
-                    variant: 'outline',
-                    size: 'sm',
-                    className: 'w-full cursor-pointer justify-center',
+                    variant: "outline",
+                    size: "sm",
+                    className: "w-full cursor-pointer justify-center",
                   })}
                 >
-                  <Upload className={`h-3.5 w-3.5 mr-1 ${isSlotUploading ? 'animate-bounce' : ''}`} />
-                  {isSlotUploading ? 'Uploading...' : doc ? 'Replace PDF' : 'Upload PDF'}
+                  <Upload
+                    className={`h-3.5 w-3.5 mr-1 ${isSlotUploading ? "animate-bounce" : ""}`}
+                  />
+                  {isSlotUploading
+                    ? "Uploading..."
+                    : doc
+                      ? "Replace PDF"
+                      : "Upload PDF"}
                 </label>
 
                 <div className="flex w-full gap-1">
@@ -352,7 +435,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                     variant="ghost"
                     size="sm"
                     className="flex-1 text-xs px-2"
-                    onClick={() => openAudit(slot.slot_id)}
+                    onClick={() => openAudit(slot.slot_id, slot.live_document?.id)}
                   >
                     <MessageSquare className="h-3.5 w-3.5 mr-1" />
                     Notes ({slot.total_feedback})
@@ -400,7 +483,9 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                 <TableBody>
                   {revisions.map((rev) => (
                     <TableRow key={rev.id}>
-                      <TableCell className="font-medium">v{rev.version}</TableCell>
+                      <TableCell className="font-medium">
+                        v{rev.version}
+                      </TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {rev.title}
                       </TableCell>
@@ -415,14 +500,57 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <a
-                          href={rev.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-                        >
-                          <Download className="h-4 w-4" />
-                        </a>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs gap-1 cursor-pointer"
+                            onClick={() => setViewingRevision(rev)}
+                            title="View revision and its comments"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>View</span>
+                          </Button>
+
+                          {!rev.is_live && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs gap-1 text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer"
+                              onClick={() => handleReinstate(rev.id)}
+                              disabled={reinstatingId === rev.id}
+                              title="Reinstate this version as the live document"
+                            >
+                              <RotateCcw
+                                className={cn(
+                                  "h-3.5 w-3.5",
+                                  reinstatingId === rev.id && "animate-spin"
+                                )}
+                              />
+                              <span>
+                                {reinstatingId === rev.id
+                                  ? "Reinstating..."
+                                  : "Reinstate"}
+                              </span>
+                            </Button>
+                          )}
+
+                          <a
+                            href={rev.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={cn(
+                              buttonVariants({
+                                variant: "ghost",
+                                size: "icon-sm",
+                              }),
+                              "h-7 w-7 p-0"
+                            )}
+                            title="Download PDF"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -433,6 +561,105 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
         </DialogContent>
       </Dialog>
 
+      {/* Revision Inspection Viewer Dialog */}
+      <Dialog
+        open={viewingRevision !== null}
+        onOpenChange={(open) => !open && setViewingRevision(null)}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden bg-background rounded-xl border border-border shadow-2xl"
+        >
+          {viewingRevision && (
+            <>
+              {/* Revision Header Banner */}
+              <div className="shrink-0 bg-muted/70 border-b border-border px-4 py-2.5 flex items-center justify-between text-xs z-20">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Badge
+                    variant={viewingRevision.is_live ? "default" : "secondary"}
+                    className="shrink-0"
+                  >
+                    {viewingRevision.is_live ? "Live Version" : "Obsolete Revision"}
+                  </Badge>
+                  <span className="font-semibold text-foreground text-sm truncate">
+                    Slot {viewingRevision.slot_id}: {viewingRevision.title} (v{viewingRevision.version})
+                  </span>
+                  <span className="text-muted-foreground text-xs font-mono shrink-0 hidden sm:inline">
+                    Uploaded {new Date(viewingRevision.upload_date).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {!viewingRevision.is_live && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer"
+                      onClick={() => handleReinstate(viewingRevision.id)}
+                      disabled={reinstatingId === viewingRevision.id}
+                      title="Reinstate this version as the live document"
+                    >
+                      <RotateCcw
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          reinstatingId === viewingRevision.id && "animate-spin"
+                        )}
+                      />
+                      <span>
+                        {reinstatingId === viewingRevision.id
+                          ? "Reinstating..."
+                          : "Reinstate as Live"}
+                      </span>
+                    </Button>
+                  )}
+
+                  <a
+                    href={viewingRevision.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={cn(
+                      buttonVariants({
+                        variant: "outline",
+                        size: "icon-sm",
+                      }),
+                      "h-7 w-7 p-0"
+                    )}
+                    title="Download this revision"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
+
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-7 w-7 p-0 cursor-pointer"
+                    onClick={() => setViewingRevision(null)}
+                    title="Close revision viewer"
+                    aria-label="Close revision viewer"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Revision Fullscreen Viewer using PdfiumViewer + SlotViewerVariant */}
+              <div className="flex-1 min-h-0 relative w-full h-full overflow-hidden">
+                <SlotViewerVariant
+                  slotId={viewingRevision.slot_id}
+                  document={viewingRevision}
+                  onFeedbackSubmitted={() => {
+                    loadSlots();
+                    if (historySlotId !== null) {
+                      openHistory(viewingRevision.slot_id);
+                    }
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Feedback Audit Dialog */}
       <Dialog
         open={auditSlotId !== null}
@@ -440,10 +667,42 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
       >
         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Slot {auditSlotId} Feedback Notes</DialogTitle>
-            <DialogDescription>
-              Operator notes and issues reported for Slot {auditSlotId}.
-            </DialogDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pr-6">
+              <div>
+                <DialogTitle>Slot {auditSlotId} Feedback Notes</DialogTitle>
+                <DialogDescription>
+                  {auditFilter === 'live' && auditDocId
+                    ? `Operator notes and issues reported for live document revision.`
+                    : `All operator notes recorded across all revisions of Slot ${auditSlotId}.`}
+                </DialogDescription>
+              </div>
+              {auditDocId && (
+                <div className="flex bg-muted p-0.5 rounded-lg text-xs border border-border self-start sm:self-auto shrink-0">
+                  <button
+                    onClick={() => setAuditFilter('live')}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md transition-colors cursor-pointer",
+                      auditFilter === 'live'
+                        ? "bg-background text-foreground shadow-sm font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Live Doc ({auditFeedback.filter((fb) => fb.document_id === auditDocId).length})
+                  </button>
+                  <button
+                    onClick={() => setAuditFilter('all')}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md transition-colors cursor-pointer",
+                      auditFilter === 'all'
+                        ? "bg-background text-foreground shadow-sm font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    All Revisions ({auditFeedback.length})
+                  </button>
+                </div>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="overflow-y-auto flex-1 mt-2">
@@ -451,42 +710,51 @@ export const AdminPortal: FC<AdminPortalProps> = ({ onClose, onSlotsUpdated }) =
               <p className="text-sm text-muted-foreground text-center py-6">
                 Loading notes...
               </p>
-            ) : auditFeedback.length === 0 ? (
+            ) : displayedAuditFeedback.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
-                No notes submitted for this slot yet.
+                {auditFilter === 'live' && auditDocId && auditFeedback.length > 0
+                  ? "No notes reported for this live revision yet."
+                  : "No notes submitted for this slot yet."}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Station / Author</TableHead>
+                    <TableHead>Author</TableHead>
                     <TableHead>Page</TableHead>
                     <TableHead>Comment</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {auditFeedback.map((fb) => (
+                  {displayedAuditFeedback.map((fb) => (
                     <TableRow key={fb.id}>
                       <TableCell>
-                        <div className="font-medium text-xs">{fb.station_id}</div>
-                        <div className="text-[11px] text-muted-foreground">{fb.author}</div>
+                        <div className="font-medium text-xs">
+                          {fb.author}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-xs font-mono">P.{fb.page_ref}</TableCell>
+                      <TableCell className="text-xs font-mono">
+                        P.{fb.page_ref}
+                      </TableCell>
                       <TableCell className="max-w-xs text-xs">
                         <p className="line-clamp-2">{fb.text_comment}</p>
                         <div className="flex gap-2 text-[11px] text-muted-foreground mt-1">
                           {fb.photo_urls && fb.photo_urls.length > 0 && (
                             <span>📷 {fb.photo_urls.length} photo(s)</span>
                           )}
-                          {Boolean(fb.video_url || fb.video_filename) && <span>🎥 video</span>}
+                          {Boolean(fb.video_url || fb.video_filename) && (
+                            <span>🎥 video</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <select
                             value={fb.status}
-                            onChange={(e) => handleUpdateStatus(fb.id, e.target.value as any)}
+                            onChange={(e) =>
+                              handleUpdateStatus(fb.id, e.target.value as any)
+                            }
                             className="text-xs border border-input rounded-md px-2 py-1 bg-background text-foreground focus:ring-1 focus:ring-ring focus:outline-none"
                           >
                             <option value="open">Open</option>

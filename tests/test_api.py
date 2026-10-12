@@ -151,7 +151,6 @@ def test_feedback_submission_and_status():
         "/api/v1/feedback",
         data={
             "id": fb_id,
-            "station_id": "Station 3",
             "slot_id": 2,
             "page_ref": 4,
             "author": "John Doe",
@@ -169,7 +168,6 @@ def test_feedback_submission_and_status():
     assert len(fb_list) == 1
     item = fb_list[0]
     assert item["id"] == fb_id
-    assert item["station_id"] == "Station 3"
     assert item["page_ref"] == 4
     assert item["author"] == "John Doe"
     assert item["text_comment"] == "Screw alignment difficult on step 4"
@@ -189,6 +187,44 @@ def test_feedback_submission_and_status():
     fb_list_resp2 = client.get("/api/v1/feedback/2")
     assert fb_list_resp2.json()[0]["status"] == "reviewed"
 
+    # Edit feedback comment text
+    edit_resp = client.patch(
+        f"/api/v1/feedback/{fb_id}",
+        json={"text_comment": "Updated comment: screw alignment resolved with torque wrench"},
+    )
+    assert edit_resp.status_code == 200
+    assert edit_resp.json()["text_comment"] == "Updated comment: screw alignment resolved with torque wrench"
+
+    # Verify updated comment persists in list
+    fb_list_resp3 = client.get("/api/v1/feedback/2")
+    assert fb_list_resp3.json()[0]["text_comment"] == "Updated comment: screw alignment resolved with torque wrench"
+
+    # Full update of feedback note (page, pin coords, section, comment, new photo, remove video)
+    new_mock_photo = ("new_part.jpg", io.BytesIO(b"new fake image data"), "image/jpeg")
+    put_resp = client.put(
+        f"/api/v1/feedback/{fb_id}",
+        data={
+            "page_ref": 5,
+            "section_ref": "3.2",
+            "pin_x": 42.5,
+            "pin_y": 78.1,
+            "author": "Jane Doe",
+            "text_comment": "Fully modified note with new pin and page",
+            "remove_video": "true",
+        },
+        files=[("photos", new_mock_photo)],
+    )
+    assert put_resp.status_code == 200
+    updated_data = put_resp.json()
+    assert updated_data["page_ref"] == 5
+    assert updated_data["section_ref"] == "3.2"
+    assert updated_data["pin_x"] == 42.5
+    assert updated_data["pin_y"] == 78.1
+    assert updated_data["author"] == "Jane Doe"
+    assert updated_data["text_comment"] == "Fully modified note with new pin and page"
+    assert updated_data["video_filename"] is None  # Removed video
+    assert len(updated_data["photo_filenames"]) == 2  # Kept previous + 1 new
+
 
 def test_feedback_idempotency():
     # Sending the same feedback ID twice should succeed gracefully (for offline retry sync)
@@ -197,7 +233,6 @@ def test_feedback_idempotency():
         "/api/v1/feedback",
         data={
             "id": fb_id,
-            "station_id": "Station 1",
             "slot_id": 1,
             "page_ref": 1,
             "author": "Alice",
@@ -210,7 +245,6 @@ def test_feedback_idempotency():
         "/api/v1/feedback",
         data={
             "id": fb_id,
-            "station_id": "Station 1",
             "slot_id": 1,
             "page_ref": 1,
             "author": "Alice",
@@ -219,6 +253,60 @@ def test_feedback_idempotency():
     )
     assert resp2.status_code == 200
     assert "already recorded" in resp2.json().get("message", "")
+
+
+def test_feedback_section_ref():
+    fb_id = "sec-ref-uuid-101"
+    resp = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": fb_id,
+            "slot_id": 3,
+            "page_ref": 5,
+            "section_ref": "1.4",
+            "author": "Bob",
+            "text_comment": "Torque spec on section 1.4 unclear",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "success"
+
+    fb_list = client.get("/api/v1/feedback/3").json()
+    assert len(fb_list) == 1
+    assert fb_list[0]["id"] == fb_id
+    assert fb_list[0]["page_ref"] == 5
+    assert fb_list[0]["section_ref"] == "1.4"
+    assert fb_list[0]["author"] == "Bob"
+    # When omitted, pins default to 0.0
+    assert fb_list[0]["pin_x"] == 0.0
+    assert fb_list[0]["pin_y"] == 0.0
+
+
+def test_feedback_pin_coordinates():
+    fb_id = "pin-uuid-202"
+    resp = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": fb_id,
+            "slot_id": 4,
+            "page_ref": 2,
+            "section_ref": "2.1",
+            "pin_x": 42.5,
+            "pin_y": 68.0,
+            "author": "Charlie",
+            "text_comment": "Inspect clamp bolt here",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "success"
+
+    fb_list = client.get("/api/v1/feedback/4").json()
+    assert len(fb_list) == 1
+    item = fb_list[0]
+    assert item["id"] == fb_id
+    assert item["page_ref"] == 2
+    assert item["pin_x"] == 42.5
+    assert item["pin_y"] == 68.0
 
 
 def test_invalid_slot_validation():
@@ -279,6 +367,128 @@ def test_static_pwa_serving():
     resp_bad_manual = client.get("/manuals/non_existent_file.pdf")
     assert resp_bad_manual.status_code == 404
     assert "Assembly Station Instructions & Feedback" not in resp_bad_manual.text
+
+
+def test_admin_reinstate_old_version():
+    # Upload v1 for slot 3
+    resp_v1 = client.post(
+        "/api/v1/admin/upload/3",
+        files={"file": ("manual_v1.pdf", io.BytesIO(b"%PDF-1.4 v1"), "application/pdf")},
+    )
+    assert resp_v1.status_code == 200
+
+    hist = client.get("/api/v1/admin/history/3").json()
+    assert len(hist) == 1
+    v1_id = hist[0]["id"]
+    assert hist[0]["is_live"] is True
+
+    # Upload v2 for slot 3
+    resp_v2 = client.post(
+        "/api/v1/admin/upload/3",
+        files={"file": ("manual_v2.pdf", io.BytesIO(b"%PDF-1.4 v2"), "application/pdf")},
+    )
+    assert resp_v2.status_code == 200
+
+    hist2 = client.get("/api/v1/admin/history/3").json()
+    assert len(hist2) == 2
+    assert hist2[0]["version"] == 2
+    assert hist2[0]["is_live"] is True
+    assert hist2[1]["version"] == 1
+    assert hist2[1]["is_live"] is False
+
+    # Reinstate v1
+    reinstate_resp = client.post(f"/api/v1/admin/reinstate/{v1_id}")
+    assert reinstate_resp.status_code == 200
+    assert reinstate_resp.json()["version"] == 1
+
+    # Check history after reinstate
+    hist3 = client.get("/api/v1/admin/history/3").json()
+    assert hist3[0]["version"] == 2
+    assert hist3[0]["is_live"] is False
+    assert hist3[1]["version"] == 1
+    assert hist3[1]["is_live"] is True
+
+    # Manifest should report version 1 as live
+    manifest = client.get("/api/v1/manifest").json()
+    s3_doc = next(d for d in manifest["documents"] if d["slot_id"] == 3)
+    assert s3_doc["version"] == 1
+
+
+def test_version_specific_feedback():
+    # Upload v1 for slot 4
+    client.post(
+        "/api/v1/admin/upload/4",
+        files={"file": ("part_v1.pdf", io.BytesIO(b"%PDF-1.4 v1"), "application/pdf")},
+    )
+    h1 = client.get("/api/v1/admin/history/4").json()
+    doc1_id = h1[0]["id"]
+
+    # Submit feedback on v1
+    resp_fb1 = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": "fb-v1-note",
+            "slot_id": 4,
+            "document_id": doc1_id,
+            "page_ref": 1,
+            "author": "Operator 1",
+            "text_comment": "Note for version 1",
+        },
+    )
+    assert resp_fb1.status_code == 200
+
+    # Upload v2 for slot 4
+    client.post(
+        "/api/v1/admin/upload/4",
+        files={"file": ("part_v2.pdf", io.BytesIO(b"%PDF-1.4 v2"), "application/pdf")},
+    )
+    h2 = client.get("/api/v1/admin/history/4").json()
+    doc2_id = h2[0]["id"]
+
+    # Submit feedback on v2
+    resp_fb2 = client.post(
+        "/api/v1/feedback",
+        data={
+            "id": "fb-v2-note",
+            "slot_id": 4,
+            "document_id": doc2_id,
+            "page_ref": 2,
+            "author": "Operator 2",
+            "text_comment": "Note for version 2",
+        },
+    )
+    assert resp_fb2.status_code == 200
+
+    # Filter feedback by v1 doc_id
+    v1_notes = client.get(f"/api/v1/feedback/4?document_id={doc1_id}").json()
+    assert len(v1_notes) == 1
+    assert v1_notes[0]["id"] == "fb-v1-note"
+    assert v1_notes[0]["text_comment"] == "Note for version 1"
+
+    # Filter feedback by v2 doc_id
+    v2_notes = client.get(f"/api/v1/feedback/4?document_id={doc2_id}").json()
+    assert len(v2_notes) == 1
+    assert v2_notes[0]["id"] == "fb-v2-note"
+    assert v2_notes[0]["text_comment"] == "Note for version 2"
+
+    # Unfiltered returns all notes for slot 4
+    all_notes = client.get("/api/v1/feedback/4").json()
+    assert len(all_notes) == 2
+
+    # Slot summary note count must reflect current live document (v2 has 1 note)
+    slots = client.get("/api/v1/slots").json()
+    slot4 = next(s for s in slots if s["slot_id"] == 4)
+    assert slot4["total_feedback"] == 1
+    assert slot4["live_document"]["version"] == 2
+
+    # Reinstate v1 -> Slot summary note count must reflect reinstated live document (v1 has 1 note)
+    reinstate_resp = client.post(f"/api/v1/admin/reinstate/{doc1_id}")
+    assert reinstate_resp.status_code == 200
+    slots_after = client.get("/api/v1/slots").json()
+    slot4_after = next(s for s in slots_after if s["slot_id"] == 4)
+    assert slot4_after["total_feedback"] == 1
+    assert slot4_after["live_document"]["version"] == 1
+
 
 
 

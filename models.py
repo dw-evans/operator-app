@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -24,10 +24,12 @@ class Feedback(Base):
     __tablename__ = "feedback"
 
     id = Column(String, primary_key=True)  # Client-generated UUID
-    station_id = Column(String, nullable=False)
     slot_id = Column(Integer, index=True, nullable=False)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
     page_ref = Column(Integer, nullable=False)
+    section_ref = Column(String, nullable=True)
+    pin_x = Column(Float, nullable=True, default=0.0)
+    pin_y = Column(Float, nullable=True, default=0.0)
     author = Column(String, nullable=False)
     text_comment = Column(Text, nullable=True)
     video_filename = Column(String, nullable=True)
