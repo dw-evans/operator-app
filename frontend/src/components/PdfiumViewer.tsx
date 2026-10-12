@@ -1,14 +1,16 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import { PDFViewer } from '@embedpdf/react-pdf-viewer';
 import type { PluginRegistry } from '@embedpdf/snippet';
 import type { PdfPin } from '../types';
-import { PdfPinOverlay } from './PdfPinOverlay';
+import { PdfPinOverlay, getPageContainers } from './PdfPinOverlay';
 import { getPdfBlob } from '../services/db';
 
 export interface PdfiumViewerProps {
   url: string;
   onPageChange?: (pageNumber: number) => void;
+  targetPage?: number | { pageNumber: number; timestamp?: number; seq?: number } | null;
+  selectedPinId?: string | null;
   pins?: PdfPin[];
   isPlacingPin?: boolean;
   initialPin?: { pageNumber: number; x: number; y: number } | null;
@@ -37,6 +39,8 @@ const DISABLED_CATEGORIES = [
 export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   url,
   onPageChange,
+  targetPage,
+  selectedPinId,
   pins = [],
   isPlacingPin = false,
   initialPin,
@@ -49,6 +53,8 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   onEditPin,
 }) => {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const scrollCapabilityRef = useRef<any>(null);
+  const pendingPageRef = useRef<number | null>(null);
 
   // Guarantee absolute URLs based on current host/protocol (prevents worker/blob resolution delays)
   const absoluteWasmUrl = new URL('/pdfium.wasm', window.location.origin).href;
@@ -86,6 +92,46 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
     };
   }, [url, absoluteDocUrl]);
 
+  const scrollToTargetPage = useCallback(
+    (page: number) => {
+      if (!page || page < 1) return;
+
+      const capability = scrollCapabilityRef.current;
+      if (capability?.scrollToPage) {
+        try {
+          capability.scrollToPage({ pageNumber: page, behavior: 'smooth' });
+          return;
+        } catch (err) {
+          console.warn('capability.scrollToPage failed, attempting DOM fallback:', err);
+        }
+      } else {
+        pendingPageRef.current = page;
+      }
+
+      // DOM fallback via ShadowRoot page containers
+      if (containerEl) {
+        const embedEl = containerEl.querySelector('embedpdf-container');
+        const shadow = embedEl?.shadowRoot;
+        if (shadow) {
+          const pages = getPageContainers(shadow);
+          const targetEl = pages[page - 1];
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      }
+    },
+    [containerEl]
+  );
+
+  useEffect(() => {
+    if (!targetPage) return;
+    const pageNum = typeof targetPage === 'number' ? targetPage : targetPage.pageNumber;
+    if (typeof pageNum === 'number' && pageNum > 0) {
+      scrollToTargetPage(pageNum);
+    }
+  }, [targetPage, scrollToTargetPage]);
+
   const handleReady = useCallback(
     (registry: PluginRegistry) => {
       // Synchronize disabled categories on commands and ui plugins
@@ -105,50 +151,60 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         console.warn('Could not sync disabled categories on plugins:', e);
       }
 
-      if (!onPageChange) return;
-
       const scrollPlugin = (registry.getPlugin?.('scroll') ||
         registry.getCapabilityProvider?.('scroll')) as any;
 
       if (!scrollPlugin) return;
 
       const capability = scrollPlugin.buildCapability ? scrollPlugin.buildCapability() : scrollPlugin;
+      scrollCapabilityRef.current = capability;
 
-      // Read current initial page
-      const syncCurrentPage = () => {
-        const page = capability.getCurrentPage?.() ?? scrollPlugin.getCurrentPage?.();
-        if (typeof page === 'number' && page > 0) {
-          onPageChange(page);
-        }
-      };
+      // Handle any pending scroll navigation queued before viewer was ready
+      if (pendingPageRef.current) {
+        const target = pendingPageRef.current;
+        pendingPageRef.current = null;
+        setTimeout(() => {
+          scrollToTargetPage(target);
+        }, 120);
+      }
 
-      syncCurrentPage();
-
-      // Subscribe to page change events
-      if (capability.onPageChange) {
-        capability.onPageChange((event: { pageNumber?: number }) => {
-          if (typeof event?.pageNumber === 'number' && event.pageNumber > 0) {
-            onPageChange(event.pageNumber);
+      if (onPageChange) {
+        // Read current initial page
+        const syncCurrentPage = () => {
+          const page = capability.getCurrentPage?.() ?? scrollPlugin.getCurrentPage?.();
+          if (typeof page === 'number' && page > 0) {
+            onPageChange(page);
           }
-        });
-      }
+        };
 
-      // Also listen to onScroll for real-time page detection while scrolling
-      if (capability.onScroll) {
-        capability.onScroll(() => {
-          syncCurrentPage();
-        });
-      }
+        syncCurrentPage();
 
-      // Also subscribe to core store updates
-      const store = registry.getStore?.();
-      if (store && typeof store.subscribe === 'function') {
-        store.subscribe(() => {
-          syncCurrentPage();
-        });
+        // Subscribe to page change events
+        if (capability.onPageChange) {
+          capability.onPageChange((event: { pageNumber?: number }) => {
+            if (typeof event?.pageNumber === 'number' && event.pageNumber > 0) {
+              onPageChange(event.pageNumber);
+            }
+          });
+        }
+
+        // Also listen to onScroll for real-time page detection while scrolling
+        if (capability.onScroll) {
+          capability.onScroll(() => {
+            syncCurrentPage();
+          });
+        }
+
+        // Also subscribe to core store updates
+        const store = registry.getStore?.();
+        if (store && typeof store.subscribe === 'function') {
+          store.subscribe(() => {
+            syncCurrentPage();
+          });
+        }
       }
     },
-    [onPageChange]
+    [onPageChange, scrollToTargetPage]
   );
 
   return (
@@ -178,6 +234,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
       <PdfPinOverlay
         viewerContainer={containerEl}
         pins={pins}
+        selectedPinId={selectedPinId}
         isPlacingPin={isPlacingPin}
         initialPin={initialPin}
         onPinPlaced={onPinPlaced}

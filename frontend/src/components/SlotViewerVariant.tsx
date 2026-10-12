@@ -34,6 +34,19 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const [showPins, setShowPins] = useState(true);
   const [highlightedFeedbackId, setHighlightedFeedbackId] = useState<string | null>(null);
   const [editingFeedback, setEditingFeedback] = useState<FeedbackItem | null>(null);
+  const [targetPage, setTargetPage] = useState<{ pageNumber: number; seq: number } | null>(null);
+
+  const handleSelectFeedback = useCallback(
+    (id: string | null, item?: FeedbackItem) => {
+      setHighlightedFeedbackId(id);
+      if (!id) return;
+      const target = item || feedbackList.find((f) => f.id === id);
+      if (target && target.page_ref > 0) {
+        setTargetPage({ pageNumber: target.page_ref, seq: Date.now() });
+      }
+    },
+    [feedbackList]
+  );
 
   const handleStartEdit = useCallback((item: FeedbackItem) => {
     setEditingFeedback(item);
@@ -312,7 +325,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             slotId={slotId}
             documentId={document?.id}
             highlightedFeedbackId={highlightedFeedbackId}
-            onSelectFeedback={(id) => setHighlightedFeedbackId(id)}
+            onSelectFeedback={handleSelectFeedback}
             onViewPhoto={openPhoto}
             onCommentUpdated={loadFeedback}
             onEditNote={handleStartEdit}
@@ -440,6 +453,8 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           <PdfiumViewer
             url={document.url}
             onPageChange={setActivePage}
+            targetPage={targetPage}
+            selectedPinId={highlightedFeedbackId}
             pins={visiblePins}
             isPlacingPin={isPlacingPin}
             initialPin={draftPin}

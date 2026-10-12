@@ -13,7 +13,7 @@ interface FeedbackStreamProps {
   slotId: number;
   documentId?: number;
   highlightedFeedbackId?: string | null;
-  onSelectFeedback?: (feedbackId: string | null) => void;
+  onSelectFeedback?: (feedbackId: string | null, item?: FeedbackItem) => void;
   onCommentUpdated?: (feedbackId: string, newComment: string) => void;
   onViewPhoto?: (url: string) => void;
   onEditNote?: (item: FeedbackItem) => void;
@@ -59,10 +59,9 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
     }
   }, [highlightedFeedbackId, feedbackList]);
 
-  const handleCardClick = (itemId: string) => {
-    const nextId = selectedId === itemId ? null : itemId;
-    setSelectedId(nextId);
-    onSelectFeedback?.(nextId);
+  const handleCardClick = (item: FeedbackItem) => {
+    setSelectedId(item.id);
+    onSelectFeedback?.(item.id, item);
   };
 
   // Video state per item: item.id -> { isLoaded: boolean; videoSrc?: string; isCached: boolean; isDownloading: boolean }
@@ -292,7 +291,8 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                 ref={(el) => {
                   itemRefs.current[item.id] = el;
                 }}
-                onClick={() => handleCardClick(item.id)}
+                onClick={() => handleCardClick(item)}
+                title={item.page_ref > 0 ? `Jump to Page ${item.page_ref} in PDF` : undefined}
                 className={cn(
                   "border rounded-xl p-3.5 transition-all text-xs md:text-sm cursor-pointer",
                   isSelected

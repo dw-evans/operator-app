@@ -13,9 +13,10 @@ interface PositionedPin extends PdfPin {
   screenY: number;
 }
 
-interface PdfPinOverlayProps {
+export interface PdfPinOverlayProps {
   viewerContainer: HTMLDivElement | null;
   pins: PdfPin[];
+  selectedPinId?: string | null;
   isPlacingPin: boolean;
   initialPin?: { pageNumber: number; x: number; y: number } | null;
   onPinPlaced?: (coords: { pageNumber: number; x: number; y: number }) => void;
@@ -31,7 +32,7 @@ interface PdfPinOverlayProps {
  * Pure read-only helper to locate page elements inside EmbedPDF's shadow root.
  * Never mutates or alters any elements inside the shadow root.
  */
-function getPageContainers(shadow: ShadowRoot): HTMLElement[] {
+export function getPageContainers(shadow: ShadowRoot): HTMLElement[] {
   // Method 1: Query white-background page containers created by EmbedPDF (zs component)
   const whiteBgElements = Array.from(
     shadow.querySelectorAll<HTMLElement>(
@@ -59,6 +60,7 @@ function getPageContainers(shadow: ShadowRoot): HTMLElement[] {
 export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
   viewerContainer,
   pins,
+  selectedPinId,
   isPlacingPin,
   initialPin,
   onPinPlaced,
@@ -201,22 +203,22 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     const idealLeft = activePin.screenX - popupWidth / 2;
     const clampedLeft = Math.max(16, Math.min(idealLeft, viewerWidth - popupWidth - 16));
 
-    // Prefer placing above pin (pin tip is at screenY, top of pin is ~34px above).
-    // If screenY is too close to top (< 220px), place below pin tip
+    // Prefer placing above pin (pin circle diameter is ~28px, centered at screenY).
+    // If screenY is too close to top (< 220px), place below pin
     const placeBelow = activePin.screenY < 220;
 
     let style: React.CSSProperties;
     if (placeBelow) {
       style = {
         position: 'absolute',
-        top: `${activePin.screenY + 14}px`,
+        top: `${activePin.screenY + 20}px`,
         left: `${clampedLeft}px`,
         width: `${popupWidth}px`,
       };
     } else {
       style = {
         position: 'absolute',
-        bottom: `${viewerHeight - activePin.screenY + 40}px`,
+        bottom: `${viewerHeight - activePin.screenY + 20}px`,
         left: `${clampedLeft}px`,
         width: `${popupWidth}px`,
       };
@@ -514,7 +516,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                 position: 'absolute',
                 left: `${pin.screenX}px`,
                 top: `${pin.screenY}px`,
-                transform: 'translate(-50%, -100%)',
+                transform: 'translate(-50%, -50%)',
                 pointerEvents: 'auto',
                 cursor: 'pointer',
               }}
@@ -531,48 +533,46 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                   : `Note on Page ${pin.pageNumber}`
               }
               className={cn(
-                "group transition-transform hover:scale-110 active:scale-95 assembly-pdf-pin",
-                activePinId === pin.id && "scale-125 z-40 drop-shadow-[0_4px_10px_rgba(2,132,199,0.7)]"
+                "group transition-all hover:scale-110 active:scale-95 assembly-pdf-pin select-none",
+                (activePinId === pin.id || selectedPinId === pin.id) && "scale-110 z-40"
               )}
             >
               {pin.isDraft ? (
-                // Draft Pin with pulsating radar ring
+                // Draft Pin: Transparent circle with pulsating radar ring
                 <div className="relative flex items-center justify-center">
-                  <span className="absolute w-8 h-8 rounded-full bg-red-500/30 animate-ping" />
-                  <svg
-                    width="28"
-                    height="34"
-                    viewBox="0 0 28 34"
-                    fill="none"
-                    className="drop-shadow-[0_3px_6px_rgba(239,68,68,0.7)]"
-                  >
-                    <path
-                      d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 20 14 20s14-9.5 14-20c0-7.732-6.268-14-14-14z"
-                      fill="#ef4444"
-                      stroke="#ffffff"
-                      strokeWidth="2"
-                    />
-                    <circle cx="14" cy="13" r="4.5" fill="#ffffff" />
-                  </svg>
+                  <span className="absolute w-10 h-10 rounded-full bg-red-500/25 animate-ping pointer-events-none" />
+                  <div className="w-8 h-8 rounded-full border-2 border-red-500 bg-red-500/20 shadow-[0_0_0_1px_rgba(255,255,255,0.8),0_2px_8px_rgba(239,68,68,0.4)] flex items-center justify-center">
+                    <span className="w-2 h-2 rounded-full bg-red-600 shadow-xs" />
+                  </div>
                 </div>
               ) : (
-                // Saved Note Pin
+                // Saved Note Pin: Transparent circle centered on coordinate
                 <div className="relative flex items-center justify-center">
-                  <svg
-                    width="24"
-                    height="30"
-                    viewBox="0 0 28 34"
-                    fill="none"
-                    className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
-                  >
-                    <path
-                      d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 20 14 20s14-9.5 14-20c0-7.732-6.268-14-14-14z"
-                      fill="#0284c7"
-                      stroke="#ffffff"
-                      strokeWidth="1.8"
+                  {(activePinId === pin.id || selectedPinId === pin.id) && (
+                    <span
+                      className={cn(
+                        "absolute w-10 h-10 rounded-full animate-ping pointer-events-none opacity-75",
+                        pin.status === 'resolved' ? "bg-emerald-500/25" : "bg-primary/25"
+                      )}
                     />
-                    <circle cx="14" cy="13" r="4.5" fill="#ffffff" />
-                  </svg>
+                  )}
+                  <div
+                    className={cn(
+                      "w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all flex items-center justify-center",
+                      pin.status === 'resolved'
+                        ? "border-emerald-500 bg-emerald-500/20 shadow-[0_0_0_1px_rgba(255,255,255,0.7),0_2px_6px_rgba(16,185,129,0.3)] hover:bg-emerald-500/35"
+                        : "border-primary bg-primary/20 shadow-[0_0_0_1px_rgba(255,255,255,0.7),0_2px_6px_rgba(2,132,199,0.3)] hover:bg-primary/35",
+                      (activePinId === pin.id || selectedPinId === pin.id) &&
+                        "ring-2 ring-primary ring-offset-1 ring-offset-background bg-primary/30 scale-110"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "w-1.5 h-1.5 rounded-full shadow-xs",
+                        pin.status === 'resolved' ? "bg-emerald-600" : "bg-primary"
+                      )}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -836,50 +836,26 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
             position: 'absolute',
             left: `${candidateScreenPos.screenX}px`,
             top: `${candidateScreenPos.screenY}px`,
-            transform: 'translate(-50%, -100%)',
+            transform: 'translate(-50%, -50%)',
             pointerEvents: 'none',
           }}
           className="z-50 select-none animate-in fade-in zoom-in-75 duration-150"
         >
           {/* Coordinates Tooltip Pill */}
-          <div className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/85 text-white font-mono text-[10px] px-2 py-0.5 rounded shadow-lg border border-white/10 pointer-events-none">
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/85 text-white font-mono text-[10px] px-2 py-0.5 rounded shadow-lg border border-white/10 pointer-events-none">
             Page {candidatePin.pageNumber} · {candidatePin.x}%, {candidatePin.y}%
           </div>
 
-          {/* Pin Graphic */}
+          {/* Circle Pin Graphic */}
           <div className="relative flex items-center justify-center">
             {/* Pulsating Radar Rings */}
             <span className="absolute w-12 h-12 rounded-full bg-red-500/25 animate-ping" />
-            <span className="absolute w-6 h-6 rounded-full bg-red-500/40" />
+            <span className="absolute w-9 h-9 rounded-full bg-red-500/30" />
 
-            <svg
-              width="32"
-              height="40"
-              viewBox="0 0 28 34"
-              fill="none"
-              className="drop-shadow-[0_4px_10px_rgba(239,68,68,0.8)] filter"
-            >
-              <path
-                d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 20 14 20s14-9.5 14-20c0-7.732-6.268-14-14-14z"
-                fill="#ef4444"
-                stroke="#ffffff"
-                strokeWidth="2.2"
-              />
-              <circle cx="14" cy="13" r="5" fill="#ffffff" />
-            </svg>
-          </div>
-
-          {/* Precision Target Crosshair at the coordinate tip */}
-          <div
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: '100%',
-              transform: 'translate(-50%, -50%)',
-            }}
-            className="w-3.5 h-3.5 rounded-full border-2 border-red-500 bg-white/95 shadow-sm flex items-center justify-center pointer-events-none"
-          >
-            <div className="w-1 h-1 rounded-full bg-red-600" />
+            {/* Transparent Circle with Center Dot */}
+            <div className="w-8 h-8 rounded-full border-2 border-dashed border-red-500 bg-red-500/20 shadow-[0_0_0_1px_rgba(255,255,255,0.8),0_4px_10px_rgba(239,68,68,0.5)] flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-red-600 shadow-sm" />
+            </div>
           </div>
         </div>
       )}
