@@ -25,14 +25,20 @@ export function App() {
       setIsAdmin(true);
       setSelectedSlotId(null);
     } else {
-      const match = pathname.match(/^\/slot\/(\d+)$/);
-      if (match) {
-        setIsAdmin(false);
-        const slot = parseInt(match[1], 10);
-        setSelectedSlotId(slot);
+      const adminSlotMatch = pathname.match(/^\/admin\/slot\/(\d+)$/);
+      if (adminSlotMatch) {
+        setIsAdmin(true);
+        setSelectedSlotId(parseInt(adminSlotMatch[1], 10));
       } else {
-        setIsAdmin(false);
-        setSelectedSlotId(null);
+        const match = pathname.match(/^\/slot\/(\d+)$/);
+        if (match) {
+          setIsAdmin(false);
+          const slot = parseInt(match[1], 10);
+          setSelectedSlotId(slot);
+        } else {
+          setIsAdmin(false);
+          setSelectedSlotId(null);
+        }
       }
     }
   }, []);
@@ -97,7 +103,9 @@ export function App() {
   // Keep session storage updated so PWA keeps location as long as app isn't shut down
   useEffect(() => {
     const currentPath = isAdmin
-      ? '/admin'
+      ? selectedSlotId !== null
+        ? `/admin/slot/${selectedSlotId}`
+        : '/admin'
       : selectedSlotId !== null
       ? `/slot/${selectedSlotId}`
       : '/';
@@ -178,13 +186,21 @@ export function App() {
     <div className="fixed inset-0 h-screen h-[100dvh] w-screen overflow-hidden bg-background text-foreground flex flex-col font-sans select-none">
       <Navbar
         currentSlotId={selectedSlotId}
-        onBackToSlots={() => navigateTo('/')}
+        onBackToSlots={() => navigateTo(isAdmin ? '/admin' : '/')}
         isAdmin={isAdmin}
         onToggleAdmin={() => {
           if (isAdmin) {
-            navigateTo('/');
+            if (selectedSlotId !== null) {
+              navigateTo(`/slot/${selectedSlotId}`);
+            } else {
+              navigateTo('/');
+            }
           } else {
-            navigateTo('/admin');
+            if (selectedSlotId !== null) {
+              navigateTo(`/admin/slot/${selectedSlotId}`);
+            } else {
+              navigateTo('/admin');
+            }
           }
         }}
         onRefresh={handleRefresh}
@@ -245,6 +261,14 @@ export function App() {
             <Badge variant="outline" className="font-mono text-[11px] shrink-0 font-bold">
               Slot {selectedSlotId}
             </Badge>
+            {isAdmin && (
+              <Badge
+                variant="secondary"
+                className="font-mono text-[10px] shrink-0 text-amber-500 border-amber-500/30 bg-amber-500/10"
+              >
+                Admin
+              </Badge>
+            )}
             <span className="font-medium text-foreground truncate">
               {currentDoc?.title || currentDoc?.filename || `Manual Slot ${selectedSlotId}`}
             </span>
@@ -280,14 +304,23 @@ export function App() {
       )}
 
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {isAdmin ? (
+        {selectedSlotId !== null ? (
+          /* Active Variant: PDFium WebAssembly Fullscreen Viewer with Popover Notes Drawer */
+          <SlotViewerVariant
+            slotId={selectedSlotId}
+            document={currentDoc || null}
+            totalFeedbackCount={currentSlot?.total_feedback || 0}
+            onFeedbackSubmitted={loadSlots}
+          />
+        ) : isAdmin ? (
           <div className="flex-1 min-h-0 overflow-y-auto">
             <AdminPortal
               onClose={() => navigateTo('/')}
               onSlotsUpdated={loadSlots}
+              onViewSlot={(slotId) => navigateTo(`/admin/slot/${slotId}`)}
             />
           </div>
-        ) : selectedSlotId === null ? (
+        ) : (
           <div className="flex-1 min-h-0 overflow-y-auto">
             <SlotSelector
               slots={slots}
@@ -297,14 +330,6 @@ export function App() {
               isLoading={isLoadingSlots}
             />
           </div>
-        ) : (
-          /* Active Variant: PDFium WebAssembly Fullscreen Viewer with Popover Notes Drawer */
-          <SlotViewerVariant
-            slotId={selectedSlotId}
-            document={currentDoc || null}
-            totalFeedbackCount={currentSlot?.total_feedback || 0}
-            onFeedbackSubmitted={loadSlots}
-          />
         )}
       </main>
     </div>

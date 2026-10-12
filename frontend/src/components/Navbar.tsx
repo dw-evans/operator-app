@@ -57,8 +57,8 @@ export const Navbar: FC<NavbarProps> = ({
             variant="outline"
             size="icon"
             onClick={onBackToSlots}
-            title="All Manuals"
-            aria-label="All Manuals"
+            title={isAdmin ? "Back to Admin" : "All Manuals"}
+            aria-label={isAdmin ? "Back to Admin" : "All Manuals"}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>

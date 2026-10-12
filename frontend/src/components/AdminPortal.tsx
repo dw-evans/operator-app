@@ -58,11 +58,13 @@ import {
 interface AdminPortalProps {
   onClose: () => void;
   onSlotsUpdated: () => void;
+  onViewSlot?: (slotId: number) => void;
 }
 
 export const AdminPortal: FC<AdminPortalProps> = ({
   onClose,
   onSlotsUpdated,
+  onViewSlot,
 }) => {
   const [isPinLocked, setIsPinLocked] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -403,12 +405,23 @@ export const AdminPortal: FC<AdminPortalProps> = ({
                     e.target.value = "";
                   }}
                 />
+                {doc && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="w-full text-xs font-medium cursor-pointer"
+                    onClick={() => onViewSlot?.(slot.slot_id)}
+                  >
+                    <Eye className="h-3.5 w-3.5 mr-1" />
+                    View Manual
+                  </Button>
+                )}
                 <label
                   htmlFor={`file-${slot.slot_id}`}
                   className={buttonVariants({
                     variant: "outline",
                     size: "sm",
-                    className: "w-full cursor-pointer justify-center",
+                    className: "w-full cursor-pointer justify-center text-xs",
                   })}
                 >
                   <Upload
@@ -505,7 +518,14 @@ export const AdminPortal: FC<AdminPortalProps> = ({
                             variant="outline"
                             size="sm"
                             className="h-7 px-2 text-xs gap-1 cursor-pointer"
-                            onClick={() => setViewingRevision(rev)}
+                            onClick={() => {
+                              if (rev.is_live && onViewSlot) {
+                                setHistorySlotId(null);
+                                onViewSlot(rev.slot_id);
+                              } else {
+                                setViewingRevision(rev);
+                              }
+                            }}
                             title="View revision and its comments"
                           >
                             <Eye className="h-3.5 w-3.5" />
@@ -568,7 +588,7 @@ export const AdminPortal: FC<AdminPortalProps> = ({
       >
         <DialogContent
           showCloseButton={false}
-          className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden bg-background rounded-xl border border-border shadow-2xl"
+          className="sm:max-w-[96vw] sm:w-[96vw] max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden bg-background rounded-xl border border-border shadow-2xl"
         >
           {viewingRevision && (
             <>
