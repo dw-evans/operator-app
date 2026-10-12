@@ -345,7 +345,6 @@ export async function getQueuedFeedbackForSlot(
 export function queuedToFeedbackItem(q: QueuedFeedback): FeedbackItem {
   return {
     id: q.id,
-    station_id: q.station_id || 'Station 1',
     slot_id: q.slot_id,
     document_id: q.document_id || null,
     page_ref: q.page_ref,

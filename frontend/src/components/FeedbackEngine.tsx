@@ -35,7 +35,6 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   editingFeedback,
   onCancelEdit,
 }) => {
-  const stationId = localStorage.getItem('assembly_station_id') || '';
   const [author, setAuthor] = useState(
     () => localStorage.getItem('assembly_author') || ''
   );
@@ -226,7 +225,6 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       if (isOnline) {
         try {
           const formData = new FormData();
-          formData.append('station_id', stationId || '');
           formData.append('slot_id', slotId.toString());
           if (documentId !== undefined) {
             formData.append('document_id', documentId.toString());
@@ -272,7 +270,6 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       try {
         const updatedItem: FeedbackItem = {
           ...editingFeedback,
-          station_id: stationId || '',
           page_ref: pageRef,
           section_ref: sectionRef.trim() || undefined,
           pin_x: pinCoords?.x ?? 0.0,
@@ -313,7 +310,6 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       try {
         const formData = new FormData();
         formData.append('id', feedbackId);
-        formData.append('station_id', stationId || '');
         formData.append('slot_id', slotId.toString());
         if (documentId !== undefined) {
           formData.append('document_id', documentId.toString());
@@ -353,7 +349,6 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     try {
       const queuedItem: QueuedFeedback = {
         id: feedbackId,
-        station_id: stationId || '',
         slot_id: slotId,
         document_id: documentId,
         page_ref: pageRef,

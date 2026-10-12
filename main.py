@@ -171,7 +171,6 @@ def get_slots_summary(db: Session = Depends(get_db)):
 @app.post("/api/v1/feedback")
 async def create_feedback(
     id: str = Form(...),
-    station_id: Optional[str] = Form(None),
     slot_id: int = Form(...),
     document_id: Optional[int] = Form(None),
     page_ref: int = Form(...),
@@ -234,7 +233,6 @@ async def create_feedback(
 
     db_feedback = models.Feedback(
         id=id,
-        station_id=station_id,
         slot_id=slot_id,
         document_id=doc_id,
         page_ref=page_ref,
@@ -272,7 +270,6 @@ def get_slot_feedback(
         result.append(
             schemas.FeedbackItem(
                 id=item.id,
-                station_id=item.station_id,
                 slot_id=item.slot_id,
                 document_id=item.document_id,
                 page_ref=item.page_ref,
@@ -297,7 +294,6 @@ def get_slot_feedback(
 @app.put("/api/v1/feedback/{feedback_id}", response_model=schemas.FeedbackItem)
 async def update_feedback_full(
     feedback_id: str,
-    station_id: Optional[str] = Form(None),
     page_ref: Optional[int] = Form(None),
     section_ref: Optional[str] = Form(None),
     pin_x: Optional[float] = Form(None),
@@ -315,8 +311,6 @@ async def update_feedback_full(
     if not item:
         raise HTTPException(status_code=404, detail="Feedback item not found")
 
-    if station_id is not None:
-        item.station_id = station_id
     if page_ref is not None:
         item.page_ref = page_ref
     if section_ref is not None:
@@ -371,7 +365,6 @@ async def update_feedback_full(
     p_names = json.loads(item.photo_filenames) if item.photo_filenames else []
     return schemas.FeedbackItem(
         id=item.id,
-        station_id=item.station_id,
         slot_id=item.slot_id,
         document_id=item.document_id,
         page_ref=item.page_ref,
@@ -411,7 +404,6 @@ def update_feedback(
     p_names = json.loads(item.photo_filenames) if item.photo_filenames else []
     return schemas.FeedbackItem(
         id=item.id,
-        station_id=item.station_id,
         slot_id=item.slot_id,
         document_id=item.document_id,
         page_ref=item.page_ref,

@@ -33,7 +33,6 @@ export interface SlotSummary {
 
 export interface FeedbackItem {
   id: string;
-  station_id: string;
   slot_id: number;
   document_id?: number | null;
   page_ref: number;
@@ -52,7 +51,6 @@ export interface FeedbackItem {
 
 export interface QueuedFeedback {
   id: string;
-  station_id: string;
   slot_id: number;
   document_id?: number;
   page_ref: number;
@@ -76,7 +74,6 @@ export interface PdfPin {
   author?: string;
   comment?: string;
   sectionRef?: string;
-  stationId?: string;
   timestamp?: string;
   status?: 'open' | 'reviewed' | 'resolved';
   photoUrls?: string[];

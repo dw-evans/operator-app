@@ -42,7 +42,6 @@ class SlotSummary(BaseModel):
 
 class FeedbackItem(BaseModel):
     id: str
-    station_id: Optional[str] = None
     slot_id: int
     document_id: Optional[int] = None
     page_ref: int

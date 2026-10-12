@@ -151,7 +151,6 @@ def test_feedback_submission_and_status():
         "/api/v1/feedback",
         data={
             "id": fb_id,
-            "station_id": "Station 3",
             "slot_id": 2,
             "page_ref": 4,
             "author": "John Doe",
@@ -169,7 +168,6 @@ def test_feedback_submission_and_status():
     assert len(fb_list) == 1
     item = fb_list[0]
     assert item["id"] == fb_id
-    assert item["station_id"] == "Station 3"
     assert item["page_ref"] == 4
     assert item["author"] == "John Doe"
     assert item["text_comment"] == "Screw alignment difficult on step 4"
@@ -235,7 +233,6 @@ def test_feedback_idempotency():
         "/api/v1/feedback",
         data={
             "id": fb_id,
-            "station_id": "Station 1",
             "slot_id": 1,
             "page_ref": 1,
             "author": "Alice",
@@ -248,7 +245,6 @@ def test_feedback_idempotency():
         "/api/v1/feedback",
         data={
             "id": fb_id,
-            "station_id": "Station 1",
             "slot_id": 1,
             "page_ref": 1,
             "author": "Alice",
@@ -259,7 +255,7 @@ def test_feedback_idempotency():
     assert "already recorded" in resp2.json().get("message", "")
 
 
-def test_feedback_section_ref_and_optional_station():
+def test_feedback_section_ref():
     fb_id = "sec-ref-uuid-101"
     resp = client.post(
         "/api/v1/feedback",
@@ -278,7 +274,6 @@ def test_feedback_section_ref_and_optional_station():
     fb_list = client.get("/api/v1/feedback/3").json()
     assert len(fb_list) == 1
     assert fb_list[0]["id"] == fb_id
-    assert fb_list[0]["station_id"] is None
     assert fb_list[0]["page_ref"] == 5
     assert fb_list[0]["section_ref"] == "1.4"
     assert fb_list[0]["author"] == "Bob"
@@ -433,7 +428,6 @@ def test_version_specific_feedback():
         "/api/v1/feedback",
         data={
             "id": "fb-v1-note",
-            "station_id": "Station A",
             "slot_id": 4,
             "document_id": doc1_id,
             "page_ref": 1,
@@ -456,7 +450,6 @@ def test_version_specific_feedback():
         "/api/v1/feedback",
         data={
             "id": "fb-v2-note",
-            "station_id": "Station A",
             "slot_id": 4,
             "document_id": doc2_id,
             "page_ref": 2,

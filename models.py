@@ -24,7 +24,6 @@ class Feedback(Base):
     __tablename__ = "feedback"
 
     id = Column(String, primary_key=True)  # Client-generated UUID
-    station_id = Column(String, nullable=True, default=None)
     slot_id = Column(Integer, index=True, nullable=False)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
     page_ref = Column(Integer, nullable=False)

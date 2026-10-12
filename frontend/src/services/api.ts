@@ -114,7 +114,6 @@ export async function updateFeedbackComment(
   }
   return {
     id: feedbackId,
-    station_id: 'Station 1',
     slot_id: slotId || 1,
     page_ref: 1,
     author: '',

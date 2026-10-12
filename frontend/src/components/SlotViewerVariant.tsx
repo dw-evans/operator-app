@@ -197,7 +197,6 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         author: fb.author,
         comment: fb.text_comment || undefined,
         sectionRef: fb.section_ref || undefined,
-        stationId: fb.station_id,
         timestamp: fb.timestamp,
         status: fb.status,
         photoUrls: fb.photo_urls,
@@ -426,7 +425,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               "h-7 px-2.5 gap-1.5 text-xs font-medium cursor-pointer shadow-sm transition-all",
               isWideScreen && isNotesOpen && "border border-border"
             )}
-            title={isWideScreen && isNotesOpen ? "Collapse comments dock (Esc)" : "Open station notes"}
+            title={isWideScreen && isNotesOpen ? "Collapse comments dock (Esc)" : "Open notes"}
           >
             {isWideScreen && isNotesOpen ? (
               <PanelRightClose className="w-3.5 h-3.5 text-primary" />
