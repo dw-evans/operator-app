@@ -6,7 +6,7 @@ import { FeedbackStream } from './FeedbackStream';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin, Eye, EyeOff, ArrowLeft, PanelRightClose } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DocumentRevision, FeedbackItem, PdfPin } from '../types';
 import { fetchSlotFeedback } from '../services/api';
@@ -50,6 +50,58 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     setIsNotesOpen(true);
   }, []);
 
+  // Responsive Wide-Screen State (>= 1024px triggers side-by-side dock layout)
+  const [isWideScreen, setIsWideScreen] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth >= 1024 : false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsWideScreen(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Resizable Dock Width State (default 460px, bounded between 340px and 65% of screen)
+  const [dockWidth, setDockWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('assembly_dock_width');
+    return saved ? Math.max(340, Math.min(850, parseInt(saved, 10))) : 460;
+  });
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+
+  const startResizing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    const startX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const startWidth = dockWidth;
+
+    const onMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const currentX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const delta = startX - currentX;
+      const maxAllowed = Math.min(900, Math.floor(window.innerWidth * 0.65));
+      const nextWidth = Math.max(340, Math.min(maxAllowed, startWidth + delta));
+      setDockWidth(nextWidth);
+    };
+
+    const onUp = () => {
+      setIsResizing(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+      setDockWidth((w) => {
+        localStorage.setItem('assembly_dock_width', w.toString());
+        return w;
+      });
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove);
+    window.addEventListener('touchend', onUp);
+  }, [dockWidth]);
+
   // Unified Photo Lightbox State with Back Button Navigation
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
@@ -75,8 +127,12 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && activePhoto) {
-        handleClosePhoto();
+      if (e.key === 'Escape') {
+        if (activePhoto) {
+          handleClosePhoto();
+        } else if (isNotesOpen) {
+          setIsNotesOpen(false);
+        }
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -85,7 +141,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activePhoto, handleClosePhoto]);
+  }, [activePhoto, handleClosePhoto, isNotesOpen]);
 
   const loadFeedback = useCallback(async () => {
     try {
@@ -154,6 +210,117 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const visiblePins = useMemo(() => {
     return showPins ? pins : pins.filter((p) => p.isDraft);
   }, [pins, showPins]);
+
+  const renderNotesContent = (isDock: boolean) => (
+    <div className="flex flex-col h-full w-full overflow-hidden bg-card">
+      {/* Header */}
+      <header className="px-4 py-3 border-b border-border bg-card flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+            <FileText className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-foreground">
+                Station Notes & Discrepancies
+              </h2>
+              <Badge variant="outline" className="font-mono text-[11px]">
+                Slot {slotId}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setIsNotesOpen(false)}
+          title={isDock ? "Collapse Notes Dock (Esc)" : "Close Notes"}
+          className="cursor-pointer text-muted-foreground hover:text-foreground h-8 w-8"
+        >
+          {isDock ? <PanelRightClose className="w-4 h-4" /> : <X className="w-4 h-4" />}
+        </Button>
+      </header>
+
+      {/* Tab Navigation */}
+      <div className="p-3 border-b border-border bg-muted/20 shrink-0">
+        <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
+          <button
+            onClick={() => setActiveTab('submit')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer',
+              activeTab === 'submit'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>{editingFeedback ? 'Edit Note' : 'Submit Note'}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('stream')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer',
+              activeTab === 'stream'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Notes</span>
+            {noteCount > 0 && (
+              <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">
+                {noteCount}
+              </Badge>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Drawer / Dock Body (Scrollable) */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-background/50">
+        {activeTab === 'submit' ? (
+          <FeedbackEngine
+            slotId={slotId}
+            documentId={document?.id}
+            initialPageRef={activePage}
+            draftPin={draftPin}
+            onStartPinPlacement={() => {
+              setShowPins(true);
+              setIsPlacingPin(true);
+              if (!isWideScreen) {
+                setIsNotesOpen(false);
+              }
+            }}
+            onClearDraftPin={() => setDraftPin(null)}
+            editingFeedback={editingFeedback}
+            onCancelEdit={() => {
+              setEditingFeedback(null);
+              setDraftPin(null);
+            }}
+            onFeedbackSubmitted={() => {
+              setEditingFeedback(null);
+              setDraftPin(null);
+              loadFeedback();
+              onFeedbackSubmitted?.();
+              setActiveTab('stream');
+            }}
+          />
+        ) : (
+          <FeedbackStream
+            slotId={slotId}
+            documentId={document?.id}
+            highlightedFeedbackId={highlightedFeedbackId}
+            onSelectFeedback={(id) => setHighlightedFeedbackId(id)}
+            onViewPhoto={openPhoto}
+            onCommentUpdated={loadFeedback}
+            onEditNote={handleStartEdit}
+          />
+        )}
+      </div>
+    </div>
+  );
 
   if (!document) {
     return (
@@ -231,19 +398,34 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 
           {/* Notes / Comments Button */}
           <Button
-            variant="default"
+            variant={isWideScreen && isNotesOpen ? "secondary" : "default"}
             size="sm"
             onClick={() => {
-              setHighlightedFeedbackId(null);
-              setActiveTab('stream');
-              setIsNotesOpen(true);
+              if (isWideScreen && isNotesOpen) {
+                setIsNotesOpen(false);
+              } else {
+                setHighlightedFeedbackId(null);
+                setActiveTab('stream');
+                setIsNotesOpen(true);
+              }
             }}
-            className="h-7 px-2.5 gap-1.5 text-xs font-medium cursor-pointer shadow-sm"
+            className={cn(
+              "h-7 px-2.5 gap-1.5 text-xs font-medium cursor-pointer shadow-sm transition-all",
+              isWideScreen && isNotesOpen && "border border-border"
+            )}
+            title={isWideScreen && isNotesOpen ? "Collapse comments dock (Esc)" : "Open station notes"}
           >
-            <MessageSquare className="w-3.5 h-3.5" />
+            {isWideScreen && isNotesOpen ? (
+              <PanelRightClose className="w-3.5 h-3.5 text-primary" />
+            ) : (
+              <MessageSquare className="w-3.5 h-3.5" />
+            )}
             <span>Notes</span>
             {noteCount > 0 && (
-              <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">
+              <Badge
+                variant={isWideScreen && isNotesOpen ? "default" : "secondary"}
+                className="px-1.5 py-0 h-4 text-[10px]"
+              >
                 {noteCount}
               </Badge>
             )}
@@ -251,165 +433,95 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         </div>
       </div>
 
-      {/* PDF Component Container */}
-      <div className="flex-1 min-h-0 w-full h-full relative overflow-hidden bg-background">
-        <PdfiumViewer
-          url={document.url}
-          onPageChange={setActivePage}
-          pins={visiblePins}
-          isPlacingPin={isPlacingPin}
-          initialPin={draftPin}
-          onPinPlaced={(coords) => {
-            setDraftPin(coords);
-            setIsPlacingPin(false);
-            setIsNotesOpen(true);
-          }}
-          onCancelPlacement={() => {
-            setIsPlacingPin(false);
-            setIsNotesOpen(true);
-          }}
-          onOpenDrawer={(pin) => {
-            setHighlightedFeedbackId(pin.id);
-            setActiveTab('stream');
-            setIsNotesOpen(true);
-          }}
-          onViewPhoto={openPhoto}
-          onCommentUpdated={loadFeedback}
-          onEditPin={(pin) => {
-            const item = feedbackList.find((f) => f.id === pin.id);
-            if (item) {
-              handleStartEdit(item);
-            }
-          }}
-        />
+      {/* Main Area: Side-by-side flex row on wide screens, pushing PDF to the left */}
+      <div className="flex-1 min-h-0 w-full h-full flex flex-row relative overflow-hidden bg-background">
+        {/* PDF Component Container - flex-1 min-w-0 */}
+        <div className="flex-1 min-w-0 h-full relative overflow-hidden bg-background">
+          <PdfiumViewer
+            url={document.url}
+            onPageChange={setActivePage}
+            pins={visiblePins}
+            isPlacingPin={isPlacingPin}
+            initialPin={draftPin}
+            onPinPlaced={(coords) => {
+              setDraftPin(coords);
+              setIsPlacingPin(false);
+              setIsNotesOpen(true);
+            }}
+            onCancelPlacement={() => {
+              setIsPlacingPin(false);
+              setIsNotesOpen(true);
+            }}
+            onOpenDrawer={(pin) => {
+              setHighlightedFeedbackId(pin.id);
+              setActiveTab('stream');
+              setIsNotesOpen(true);
+            }}
+            onViewPhoto={openPhoto}
+            onCommentUpdated={loadFeedback}
+            onEditPin={(pin) => {
+              const item = feedbackList.find((f) => f.id === pin.id);
+              if (item) {
+                handleStartEdit(item);
+              }
+            }}
+          />
+        </div>
+
+        {/* Resizable Dock on Wide Screens (>= 1024px) */}
+        {isWideScreen && isNotesOpen && (
+          <>
+            {/* Draggable Resizer Bar */}
+            <div
+              onMouseDown={startResizing}
+              onTouchStart={startResizing}
+              className={cn(
+                "w-2 hover:w-2.5 shrink-0 cursor-col-resize h-full bg-border/80 hover:bg-primary/50 transition-colors select-none relative group z-20 flex items-center justify-center",
+                isResizing && "w-2.5 bg-primary select-none"
+              )}
+              title="Drag to resize notes dock"
+              aria-label="Resize notes dock"
+            >
+              <div className="w-0.5 h-8 bg-muted-foreground/40 rounded-full group-hover:bg-primary-foreground transition-colors" />
+            </div>
+
+            {/* Docked Notes Panel Container */}
+            <aside
+              style={{ width: `${dockWidth}px` }}
+              className="shrink-0 h-full bg-card border-l border-border flex flex-col shadow-lg z-10 overflow-hidden"
+              role="region"
+              aria-label="Station Notes and Comments Dock"
+            >
+              {renderNotesContent(true)}
+            </aside>
+          </>
+        )}
       </div>
 
-      {/* Notes & Comments Popover / Slide-over Drawer */}
-      {isNotesOpen && (
+      {/* Slide-over Drawer on Mobile / Narrow Screens (< 1024px) */}
+      {!isWideScreen && isNotesOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop (semi-transparent to keep PDF sharp) */}
+          {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/30 transition-opacity animate-in fade-in-0 duration-200"
+            className="fixed inset-0 bg-black/40 transition-opacity animate-in fade-in-0 duration-200"
             onClick={() => setIsNotesOpen(false)}
           />
 
-          {/* Drawer Container: Fullscreen on mobile, max-width slide-over on landscape/desktop */}
+          {/* Drawer Container */}
           <aside
             role="dialog"
             aria-modal="true"
             aria-label="Station Notes and Comments"
-            className={cn(
-              'relative z-50 flex flex-col bg-card border-border shadow-2xl transition-all duration-200 overflow-hidden',
-              'inset-0 w-full h-full',
-              'md:inset-y-0 md:right-0 md:left-auto md:w-full md:max-w-lg lg:max-w-xl md:border-l md:rounded-l-2xl'
-            )}
+            className="relative z-50 flex flex-col bg-card border-border shadow-2xl transition-all duration-200 overflow-hidden inset-0 w-full h-full md:inset-y-0 md:right-0 md:left-auto md:w-full md:max-w-lg md:border-l md:rounded-l-2xl"
           >
-            {/* Drawer Header */}
-            <header className="px-4 py-3 border-b border-border bg-card flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-foreground">
-                      Station Notes & Discrepancies
-                    </h2>
-                    <Badge variant="outline" className="font-mono text-[11px]">
-                      Slot {slotId}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setIsNotesOpen(false)}
-                title="Close Notes"
-                className="cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </header>
-
-            {/* Tab Navigation */}
-            <div className="p-3 border-b border-border bg-muted/20 shrink-0">
-              <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
-                <button
-                  onClick={() => setActiveTab('submit')}
-                  className={cn(
-                    'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer',
-                    activeTab === 'submit'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>{editingFeedback ? 'Edit Note' : 'Submit Note'}</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('stream')}
-                  className={cn(
-                    'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer',
-                    activeTab === 'stream'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Notes</span>
-                  {noteCount > 0 && (
-                    <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">
-                      {noteCount}
-                    </Badge>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Drawer Body (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-background/50">
-              {activeTab === 'submit' ? (
-                <FeedbackEngine
-                  slotId={slotId}
-                  documentId={document?.id}
-                  initialPageRef={activePage}
-                  draftPin={draftPin}
-                  onStartPinPlacement={() => {
-                    setShowPins(true);
-                    setIsPlacingPin(true);
-                    setIsNotesOpen(false);
-                  }}
-                  onClearDraftPin={() => setDraftPin(null)}
-                  editingFeedback={editingFeedback}
-                  onCancelEdit={() => {
-                    setEditingFeedback(null);
-                    setDraftPin(null);
-                  }}
-                  onFeedbackSubmitted={() => {
-                    setEditingFeedback(null);
-                    setDraftPin(null);
-                    loadFeedback();
-                    onFeedbackSubmitted?.();
-                    setActiveTab('stream');
-                  }}
-                />
-              ) : (
-                <FeedbackStream
-                  slotId={slotId}
-                  documentId={document?.id}
-                  highlightedFeedbackId={highlightedFeedbackId}
-                  onSelectFeedback={(id) => setHighlightedFeedbackId(id)}
-                  onViewPhoto={openPhoto}
-                  onCommentUpdated={loadFeedback}
-                  onEditNote={handleStartEdit}
-                />
-              )}
-            </div>
+            {renderNotesContent(false)}
           </aside>
         </div>
+      )}
+
+      {/* Invisible global mouse tracking overlay while dragging resizer */}
+      {isResizing && (
+        <div className="fixed inset-0 z-[100] cursor-col-resize select-none pointer-events-auto bg-transparent" />
       )}
 
       {/* Unified Photo Lightbox Modal with Back Button Navigation */}
