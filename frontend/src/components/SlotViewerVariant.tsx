@@ -15,7 +15,6 @@ import {
   MapPin,
   Eye,
   EyeOff,
-  ArrowLeft,
   PanelRightClose,
   RotateCcw,
 } from "lucide-react";
@@ -23,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { DocumentRevision, FeedbackItem, PdfPin } from "../types";
 import { fetchSlotFeedback, deleteFeedbackDirect } from "../services/api";
 import { DeleteNoteDialog } from "./DeleteNoteDialog";
+import { PhotoLightboxModal } from "./PhotoLightboxModal";
 
 interface SlotViewerVariantProps {
   slotId: number;
@@ -690,51 +690,11 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         <div className="fixed inset-0 z-[100] cursor-col-resize select-none pointer-events-auto bg-transparent" />
       )}
 
-      {/* Unified Photo Lightbox Modal with Back Button Navigation */}
-      {activePhoto && (
-        <div
-          onClick={handleClosePhoto}
-          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer select-none"
-        >
-          {/* Prominent Back Button in Top-Left */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClosePhoto();
-            }}
-            className="absolute top-4 left-4 z-[110] flex items-center gap-2 bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer font-medium px-3.5 py-2 h-9 rounded-lg"
-            title="Back to manual (Esc)"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back</span>
-          </Button>
-
-          {/* Close Button in Top-Right */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClosePhoto();
-            }}
-            className="absolute top-4 right-4 z-[110] bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer h-9 w-9 rounded-lg"
-            title="Close (Esc)"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-
-          <img
-            src={activePhoto}
-            alt="Fullscreen preview"
-            className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain border border-border"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      {/* Unified Zoomable Photo Lightbox Modal */}
+      <PhotoLightboxModal
+        photoUrl={activePhoto}
+        onClose={handleClosePhoto}
+      />
 
       {/* Delete Confirmation Warning Dialog */}
       <DeleteNoteDialog

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FC } from 'react';
-import { MessageSquare, Clock, User, Download, RefreshCw, X, Pencil, Trash2, Check, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Clock, User, Download, RefreshCw, Pencil, Trash2, Check } from 'lucide-react';
 import type { FeedbackItem } from '../types';
 import { fetchSlotFeedback, updateFeedbackComment, deleteFeedbackDirect, updateFeedbackStatus } from '../services/api';
 import { isMediaCached, getMediaBlob, saveMediaBlob } from '../services/db';
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { cn, formatNoteDateTime } from '@/lib/utils';
 import { DeleteNoteDialog } from './DeleteNoteDialog';
+import { PhotoLightboxModal } from './PhotoLightboxModal';
 
 interface FeedbackStreamProps {
   slotId: number;
@@ -591,50 +592,10 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       </div>
 
       {/* Lightbox Modal */}
-      {activePhoto && (
-        <div
-          onClick={handleClosePhoto}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer select-none"
-        >
-          {/* Prominent Back Button in Top-Left */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClosePhoto();
-            }}
-            className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer font-medium px-3.5 py-2 h-9 rounded-lg"
-            title="Back to notes (Esc)"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back</span>
-          </Button>
-
-          {/* Close Button in Top-Right */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClosePhoto();
-            }}
-            className="absolute top-4 right-4 z-50 bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer h-9 w-9 rounded-lg"
-            title="Close (Esc)"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-
-          <img
-            src={activePhoto}
-            alt="Fullscreen preview"
-            className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain border border-border"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      <PhotoLightboxModal
+        photoUrl={activePhoto}
+        onClose={handleClosePhoto}
+      />
 
       {/* Delete Confirmation Warning Dialog */}
       <DeleteNoteDialog
