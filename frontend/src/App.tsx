@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar';
 import { SlotSelector } from './components/SlotSelector';
 import { SlotViewerVariant } from './components/SlotViewerVariant';
 import { AdminPortal } from './components/AdminPortal';
+import { AdminPinGate } from './components/AdminPinGate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Bug, Trash2, CheckCircle2 } from 'lucide-react';
@@ -11,6 +12,7 @@ import {
   syncAllSlotsFeedback,
   fetchSlotRevisionByVersion,
   adminReinstateRevision,
+  checkPinStatus,
 } from './services/api';
 import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
 import { pdfCacheManager } from './services/pdfCache';
@@ -25,6 +27,23 @@ export function App() {
   const [specificRevision, setSpecificRevision] = useState<DocumentRevision | null>(null);
   const [isLoadingRevision, setIsLoadingRevision] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPinRequired, setIsPinRequired] = useState<boolean | null>(null);
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && sessionStorage.getItem('assembly_admin_unlocked') === 'true';
+  });
+
+  useEffect(() => {
+    checkPinStatus()
+      .then((res) => {
+        setIsPinRequired(res.pin_required);
+      })
+      .catch((err) => {
+        console.warn('Failed to check PIN status, defaulting to required for security:', err);
+        setIsPinRequired(true);
+      });
+  }, []);
+
+  const isPinLocked = isAdmin && isPinRequired !== false && !isAdminUnlocked;
 
   // Synchronize UI state with current URL pathname
   const syncStateFromUrl = useCallback(() => {
@@ -287,6 +306,8 @@ export function App() {
         isAdmin={isAdmin}
         onToggleAdmin={() => {
           if (isAdmin) {
+            sessionStorage.removeItem('assembly_admin_unlocked');
+            setIsAdminUnlocked(false);
             if (selectedSlotId !== null) {
               const target = selectedVersion !== null
                 ? `/manual/${selectedSlotId}/v/${selectedVersion}`
@@ -358,7 +379,7 @@ export function App() {
       )}
 
       {/* Single-line Document Info Strip directly underneath Navbar */}
-      {selectedSlotId !== null && (
+      {selectedSlotId !== null && !isPinLocked && (
         <div className="shrink-0 bg-muted/40 border-b border-border px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs min-h-[2.125rem]">
           <div className="flex items-center gap-2 min-w-0">
             <Badge variant="outline" className="font-mono text-[11px] shrink-0 font-bold">
@@ -419,7 +440,24 @@ export function App() {
       )}
 
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {selectedSlotId !== null ? (
+        {isPinLocked ? (
+          <AdminPinGate
+            onUnlock={() => {
+              sessionStorage.setItem('assembly_admin_unlocked', 'true');
+              setIsAdminUnlocked(true);
+            }}
+            onCancel={() => {
+              if (selectedSlotId !== null) {
+                const target = selectedVersion !== null
+                  ? `/manual/${selectedSlotId}/v/${selectedVersion}`
+                  : `/manual/${selectedSlotId}`;
+                navigateTo(target);
+              } else {
+                navigateTo('/');
+              }
+            }}
+          />
+        ) : selectedSlotId !== null ? (
           /* Active Variant: PDFium WebAssembly Fullscreen Viewer with Popover Notes Drawer */
           <SlotViewerVariant
             slotId={selectedSlotId}
@@ -432,7 +470,11 @@ export function App() {
         ) : isAdmin ? (
           <div className="flex-1 min-h-0 overflow-y-auto">
             <AdminPortal
-              onClose={() => navigateTo('/')}
+              onClose={() => {
+                sessionStorage.removeItem('assembly_admin_unlocked');
+                setIsAdminUnlocked(false);
+                navigateTo('/');
+              }}
               onSlotsUpdated={loadSlots}
               onViewSlot={(slotId, version) => {
                 const target = version !== undefined
