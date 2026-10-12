@@ -162,6 +162,7 @@ export function App() {
   const currentDoc = currentSlot?.live_document;
 
   const [isCurrentDocCached, setIsCurrentDocCached] = useState(false);
+  const SHOW_DEBUG = false;
 
   useEffect(() => {
     return pdfCacheManager.subscribe(() => {
@@ -186,53 +187,56 @@ export function App() {
             navigateTo('/admin');
           }
         }}
+        onRefresh={handleRefresh}
       />
 
-      {/* Debug Bar directly underneath Navbar */}
-      <div className="shrink-0 bg-amber-950/25 border-b border-amber-500/25 px-3 py-1 flex items-center justify-between text-xs min-h-[1.875rem] gap-2 overflow-x-auto z-20">
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge
-            variant="outline"
-            className="font-mono text-[10px] uppercase font-bold bg-amber-500/15 text-amber-400 border-amber-500/40 px-1.5 py-0 flex items-center gap-1"
-          >
-            <Bug className="w-2.5 h-2.5" />
-            <span>debug</span>
-          </Badge>
-          <span className="font-mono text-[11px] text-muted-foreground hidden sm:inline">
-            {debugInfo.viewport}
-          </span>
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {debugInfo.isPwa ? 'Standalone PWA' : 'Browser'}
-          </span>
-          <span className="font-mono text-[11px] text-muted-foreground hidden md:inline">
-            {debugInfo.isOnline ? 'Online' : 'Offline'}
-          </span>
-        </div>
+      {/* Debug Bar directly underneath Navbar (hidden for now) */}
+      {SHOW_DEBUG && (
+        <div className="shrink-0 bg-amber-950/25 border-b border-amber-500/25 px-3 py-1 flex items-center justify-between text-xs min-h-[1.875rem] gap-2 overflow-x-auto z-20">
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge
+              variant="outline"
+              className="font-mono text-[10px] uppercase font-bold bg-amber-500/15 text-amber-400 border-amber-500/40 px-1.5 py-0 flex items-center gap-1"
+            >
+              <Bug className="w-2.5 h-2.5" />
+              <span>debug</span>
+            </Badge>
+            <span className="font-mono text-[11px] text-muted-foreground hidden sm:inline">
+              {debugInfo.viewport}
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {debugInfo.isPwa ? 'Standalone PWA' : 'Browser'}
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground hidden md:inline">
+              {debugInfo.isOnline ? 'Online' : 'Offline'}
+            </span>
+          </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            title="Reload web page inside PWA"
-            className="h-5.5 px-2 text-[11px] font-medium gap-1 cursor-pointer bg-background/80 hover:bg-muted"
-          >
-            <RefreshCw className="w-3 h-3 text-primary" />
-            <span>Refresh</span>
-          </Button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              title="Reload web page inside PWA"
+              className="h-5.5 px-2 text-[11px] font-medium gap-1 cursor-pointer bg-background/80 hover:bg-muted"
+            >
+              <RefreshCw className="w-3 h-3 text-primary" />
+              <span>Refresh</span>
+            </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearCacheAndReload}
-            title="Unregister Service Worker, clear cache, and reload"
-            className="h-5.5 px-1.5 text-[10px] text-muted-foreground hover:text-destructive gap-1 cursor-pointer"
-          >
-            <Trash2 className="w-2.5 h-2.5" />
-            <span className="hidden sm:inline">Clear SW</span>
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearCacheAndReload}
+              title="Unregister Service Worker, clear cache, and reload"
+              className="h-5.5 px-1.5 text-[10px] text-muted-foreground hover:text-destructive gap-1 cursor-pointer"
+            >
+              <Trash2 className="w-2.5 h-2.5" />
+              <span className="hidden sm:inline">Clear SW</span>
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Single-line Document Info Strip directly underneath Navbar */}
       {selectedSlotId !== null && (

@@ -1,15 +1,26 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { FC } from 'react';
-import { PdfiumViewer } from './PdfiumViewer';
-import { FeedbackEngine } from './FeedbackEngine';
-import { FeedbackStream } from './FeedbackStream';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { X, MessageSquare, PlusCircle, AlertCircle, FileText, MapPin, Eye, EyeOff, ArrowLeft, PanelRightClose } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { DocumentRevision, FeedbackItem, PdfPin } from '../types';
-import { fetchSlotFeedback } from '../services/api';
+import { useState, useEffect, useMemo, useCallback } from "react";
+import type { FC } from "react";
+import { PdfiumViewer } from "./PdfiumViewer";
+import { FeedbackEngine } from "./FeedbackEngine";
+import { FeedbackStream } from "./FeedbackStream";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  X,
+  MessageSquare,
+  PlusCircle,
+  AlertCircle,
+  FileText,
+  MapPin,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  PanelRightClose,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { DocumentRevision, FeedbackItem, PdfPin } from "../types";
+import { fetchSlotFeedback } from "../services/api";
 
 interface SlotViewerVariantProps {
   slotId: number;
@@ -25,16 +36,27 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   onFeedbackSubmitted,
 }) => {
   const [isNotesOpen, setIsNotesOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'submit' | 'stream'>('submit');
+  const [activeTab, setActiveTab] = useState<"submit" | "stream">("submit");
   const [activePage, setActivePage] = useState<number>(1);
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [hasLoadedFeedback, setHasLoadedFeedback] = useState(false);
   const [isPlacingPin, setIsPlacingPin] = useState(false);
-  const [draftPin, setDraftPin] = useState<{ pageNumber: number; x: number; y: number } | null>(null);
+  const [draftPin, setDraftPin] = useState<{
+    pageNumber: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [showPins, setShowPins] = useState(true);
-  const [highlightedFeedbackId, setHighlightedFeedbackId] = useState<string | null>(null);
-  const [editingFeedback, setEditingFeedback] = useState<FeedbackItem | null>(null);
-  const [targetPage, setTargetPage] = useState<{ pageNumber: number; seq: number } | null>(null);
+  const [highlightedFeedbackId, setHighlightedFeedbackId] = useState<
+    string | null
+  >(null);
+  const [editingFeedback, setEditingFeedback] = useState<FeedbackItem | null>(
+    null,
+  );
+  const [targetPage, setTargetPage] = useState<{
+    pageNumber: number;
+    seq: number;
+  } | null>(null);
 
   const handleSelectFeedback = useCallback(
     (id: string | null, item?: FeedbackItem) => {
@@ -45,7 +67,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         setTargetPage({ pageNumber: target.page_ref, seq: Date.now() });
       }
     },
-    [feedbackList]
+    [feedbackList],
   );
 
   const handleStartEdit = useCallback((item: FeedbackItem) => {
@@ -59,73 +81,82 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     } else {
       setDraftPin(null);
     }
-    setActiveTab('submit');
+    setActiveTab("submit");
     setIsNotesOpen(true);
   }, []);
 
   // Responsive Wide-Screen State (>= 1024px triggers side-by-side dock layout)
   const [isWideScreen, setIsWideScreen] = useState<boolean>(() => {
-    return typeof window !== 'undefined' ? window.innerWidth >= 1024 : false;
+    return typeof window !== "undefined" ? window.innerWidth >= 1024 : false;
   });
 
   useEffect(() => {
     const handleResize = () => {
       setIsWideScreen(window.innerWidth >= 1024);
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Resizable Dock Width State (default 460px, bounded between 340px and 65% of screen)
   const [dockWidth, setDockWidth] = useState<number>(() => {
-    const saved = localStorage.getItem('assembly_dock_width');
+    const saved = localStorage.getItem("assembly_dock_width");
     return saved ? Math.max(340, Math.min(850, parseInt(saved, 10))) : 460;
   });
   const [isResizing, setIsResizing] = useState<boolean>(false);
 
-  const startResizing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-    const startX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const startWidth = dockWidth;
+  const startResizing = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      setIsResizing(true);
+      const startX = "touches" in e ? e.touches[0].clientX : e.clientX;
+      const startWidth = dockWidth;
 
-    const onMove = (moveEvent: MouseEvent | TouchEvent) => {
-      const currentX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
-      const delta = startX - currentX;
-      const maxAllowed = Math.min(900, Math.floor(window.innerWidth * 0.65));
-      const nextWidth = Math.max(340, Math.min(maxAllowed, startWidth + delta));
-      setDockWidth(nextWidth);
-    };
+      const onMove = (moveEvent: MouseEvent | TouchEvent) => {
+        const currentX =
+          "touches" in moveEvent
+            ? moveEvent.touches[0].clientX
+            : moveEvent.clientX;
+        const delta = startX - currentX;
+        const maxAllowed = Math.min(900, Math.floor(window.innerWidth * 0.65));
+        const nextWidth = Math.max(
+          340,
+          Math.min(maxAllowed, startWidth + delta),
+        );
+        setDockWidth(nextWidth);
+      };
 
-    const onUp = () => {
-      setIsResizing(false);
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onUp);
-      setDockWidth((w) => {
-        localStorage.setItem('assembly_dock_width', w.toString());
-        return w;
-      });
-    };
+      const onUp = () => {
+        setIsResizing(false);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("touchmove", onMove);
+        window.removeEventListener("touchend", onUp);
+        setDockWidth((w) => {
+          localStorage.setItem("assembly_dock_width", w.toString());
+          return w;
+        });
+      };
 
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchmove', onMove);
-    window.addEventListener('touchend', onUp);
-  }, [dockWidth]);
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+      window.addEventListener("touchmove", onMove);
+      window.addEventListener("touchend", onUp);
+    },
+    [dockWidth],
+  );
 
   // Unified Photo Lightbox State with Back Button Navigation
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
   const openPhoto = useCallback((url: string) => {
-    window.history.pushState({ modal: 'photo', photoUrl: url }, '');
+    window.history.pushState({ modal: "photo", photoUrl: url }, "");
     setActivePhoto(url);
   }, []);
 
   const handleClosePhoto = useCallback(() => {
     if (activePhoto) {
-      if (window.history.state?.modal === 'photo') {
+      if (window.history.state?.modal === "photo") {
         window.history.back();
       } else {
         setActivePhoto(null);
@@ -140,7 +171,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (activePhoto) {
           handleClosePhoto();
         } else if (isNotesOpen) {
@@ -148,11 +179,11 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         }
       }
     };
-    window.addEventListener('popstate', handlePopState);
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener('popstate', handlePopState);
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [activePhoto, handleClosePhoto, isNotesOpen]);
 
@@ -162,7 +193,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       setFeedbackList(items);
       setHasLoadedFeedback(true);
     } catch (err) {
-      console.warn('Could not fetch feedback for slot pins:', err);
+      console.warn("Could not fetch feedback for slot pins:", err);
     }
   }, [slotId, document?.id]);
 
@@ -174,7 +205,9 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   // Notes specifically relevant to this document revision
   const relevantFeedback = useMemo(() => {
     if (!document?.id) return feedbackList;
-    return feedbackList.filter((fb) => !fb.document_id || fb.document_id === document.id);
+    return feedbackList.filter(
+      (fb) => !fb.document_id || fb.document_id === document.id,
+    );
   }, [feedbackList, document?.id]);
 
   // Display note count reflects current document once loaded, or slot summary initial count
@@ -200,14 +233,16 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         timestamp: fb.timestamp,
         status: fb.status,
         photoUrls: fb.photo_urls,
-        videoUrl: fb.video_url || (fb.video_filename ? `/media/${fb.video_filename}` : undefined),
+        videoUrl:
+          fb.video_url ||
+          (fb.video_filename ? `/media/${fb.video_filename}` : undefined),
         videoFilename: fb.video_filename || undefined,
         isDraft: false,
       }));
 
     if (draftPin) {
       list.push({
-        id: 'draft-pin',
+        id: "draft-pin",
         pageNumber: draftPin.pageNumber,
         x: draftPin.x,
         y: draftPin.y,
@@ -250,7 +285,11 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           title={isDock ? "Collapse Notes Dock (Esc)" : "Close Notes"}
           className="cursor-pointer text-muted-foreground hover:text-foreground h-8 w-8"
         >
-          {isDock ? <PanelRightClose className="w-4 h-4" /> : <X className="w-4 h-4" />}
+          {isDock ? (
+            <PanelRightClose className="w-4 h-4" />
+          ) : (
+            <X className="w-4 h-4" />
+          )}
         </Button>
       </header>
 
@@ -258,31 +297,34 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       <div className="p-3 border-b border-border bg-muted/20 shrink-0">
         <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
           <button
-            onClick={() => setActiveTab('submit')}
+            onClick={() => setActiveTab("submit")}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer',
-              activeTab === 'submit'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+              "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer",
+              activeTab === "submit"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>{editingFeedback ? 'Edit Note' : 'Submit Note'}</span>
+            <span>{editingFeedback ? "Edit Note" : "Submit Note"}</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('stream')}
+            onClick={() => setActiveTab("stream")}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer',
-              activeTab === 'stream'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+              "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer",
+              activeTab === "stream"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span>Notes</span>
             {noteCount > 0 && (
-              <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">
+              <Badge
+                variant="secondary"
+                className="px-1.5 py-0 h-4 text-[10px]"
+              >
                 {noteCount}
               </Badge>
             )}
@@ -292,7 +334,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 
       {/* Drawer / Dock Body (Scrollable) */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-background/50">
-        {activeTab === 'submit' ? (
+        {activeTab === "submit" ? (
           <FeedbackEngine
             slotId={slotId}
             documentId={document?.id}
@@ -316,7 +358,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               setDraftPin(null);
               loadFeedback();
               onFeedbackSubmitted?.();
-              setActiveTab('stream');
+              setActiveTab("stream");
             }}
           />
         ) : (
@@ -343,7 +385,8 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             No Manual Uploaded
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Slot {slotId} does not currently have an active instruction manual PDF.
+            Slot {slotId} does not currently have an active instruction manual
+            PDF.
           </p>
         </Card>
       </div>
@@ -357,9 +400,11 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-primary" />
-            <span className="hidden sm:inline">Station Controls</span>
           </span>
-          <Badge variant="outline" className="font-mono text-[11px] px-2 py-0.5 h-5 bg-background">
+          <Badge
+            variant="outline"
+            className="font-mono text-[11px] px-2 py-0.5 h-5 bg-background"
+          >
             Page {activePage}
           </Badge>
           {pins.length > 0 && (
@@ -368,7 +413,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                 variant="secondary"
                 className={cn(
                   "font-mono text-[10px] px-1.5 py-0 h-5 gap-1 transition-opacity",
-                  !showPins && "opacity-50"
+                  !showPins && "opacity-50",
                 )}
               >
                 <MapPin className="w-3 h-3 text-primary" />
@@ -380,12 +425,22 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                 onClick={() => setShowPins((prev) => !prev)}
                 className={cn(
                   "h-5 w-5 p-0 cursor-pointer transition-colors border-border/80",
-                  showPins ? "text-primary hover:text-primary/80" : "text-muted-foreground hover:text-foreground"
+                  showPins
+                    ? "text-primary hover:text-primary/80"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
-                title={showPins ? "Hide pins on document" : "Show pins on document"}
-                aria-label={showPins ? "Hide pins on document" : "Show pins on document"}
+                title={
+                  showPins ? "Hide pins on document" : "Show pins on document"
+                }
+                aria-label={
+                  showPins ? "Hide pins on document" : "Show pins on document"
+                }
               >
-                {showPins ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                {showPins ? (
+                  <Eye className="w-3 h-3" />
+                ) : (
+                  <EyeOff className="w-3 h-3 text-muted-foreground" />
+                )}
               </Button>
             </div>
           )}
@@ -399,7 +454,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             onClick={() => {
               setEditingFeedback(null);
               setDraftPin(null);
-              setActiveTab('submit');
+              setActiveTab("submit");
               setIsNotesOpen(true);
             }}
             className="h-7 px-2.5 gap-1.5 text-xs font-medium cursor-pointer"
@@ -417,15 +472,19 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
                 setIsNotesOpen(false);
               } else {
                 setHighlightedFeedbackId(null);
-                setActiveTab('stream');
+                setActiveTab("stream");
                 setIsNotesOpen(true);
               }
             }}
             className={cn(
               "h-7 px-2.5 gap-1.5 text-xs font-medium cursor-pointer shadow-sm transition-all",
-              isWideScreen && isNotesOpen && "border border-border"
+              isWideScreen && isNotesOpen && "border border-border",
             )}
-            title={isWideScreen && isNotesOpen ? "Collapse comments dock (Esc)" : "Open notes"}
+            title={
+              isWideScreen && isNotesOpen
+                ? "Collapse comments dock (Esc)"
+                : "Open notes"
+            }
           >
             {isWideScreen && isNotesOpen ? (
               <PanelRightClose className="w-3.5 h-3.5 text-primary" />
@@ -468,7 +527,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             }}
             onOpenDrawer={(pin) => {
               setHighlightedFeedbackId(pin.id);
-              setActiveTab('stream');
+              setActiveTab("stream");
               setIsNotesOpen(true);
             }}
             onViewPhoto={openPhoto}
@@ -491,7 +550,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               onTouchStart={startResizing}
               className={cn(
                 "w-2 hover:w-2.5 shrink-0 cursor-col-resize h-full bg-border/80 hover:bg-primary/50 transition-colors select-none relative group z-20 flex items-center justify-center",
-                isResizing && "w-2.5 bg-primary select-none"
+                isResizing && "w-2.5 bg-primary select-none",
               )}
               title="Drag to resize notes dock"
               aria-label="Resize notes dock"

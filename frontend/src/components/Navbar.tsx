@@ -18,6 +18,7 @@ interface NavbarProps {
   onBackToSlots: () => void;
   isAdmin: boolean;
   onToggleAdmin: () => void;
+  onRefresh?: () => void;
 }
 
 const formatSyncDateTime = (date: Date): string => {
@@ -40,6 +41,7 @@ export const Navbar: FC<NavbarProps> = ({
   onBackToSlots,
   isAdmin,
   onToggleAdmin,
+  onRefresh,
 }) => {
   const [syncState, setSyncState] = useState<SyncState>(syncManager.getState());
 
@@ -141,6 +143,17 @@ export const Navbar: FC<NavbarProps> = ({
             <WifiOff className="h-4 w-4 text-red-500" />
           )}
         </div>
+
+        {/* Reload / Refresh PWA Page Button */}
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={onRefresh ?? (() => window.location.reload())}
+          title="Reload application"
+          aria-label="Reload application"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
 
         {/* Certificate Download Button */}
         <a
