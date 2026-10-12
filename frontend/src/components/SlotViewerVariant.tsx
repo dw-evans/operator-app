@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import type { FC } from "react";
 import { PdfiumViewer } from "./PdfiumViewer";
 import { FeedbackEngine } from "./FeedbackEngine";
@@ -173,10 +173,41 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     }
   }, [activePhoto]);
 
+  // Notes drawer history integration (swipe-back closes notes without navigating off document)
+  const isNotesInHistoryRef = useRef(false);
+
+  useEffect(() => {
+    if (isNotesOpen) {
+      if (!isNotesInHistoryRef.current && window.history.state?.panel !== "notes") {
+        window.history.pushState(
+          { ...window.history.state, panel: "notes" },
+          "",
+          window.location.href
+        );
+        isNotesInHistoryRef.current = true;
+      }
+    } else {
+      isNotesInHistoryRef.current = false;
+    }
+  }, [isNotesOpen]);
+
+  const handleCloseNotes = useCallback(() => {
+    setIsNotesOpen(false);
+    if (window.history.state?.panel === "notes") {
+      isNotesInHistoryRef.current = false;
+      window.history.back();
+    }
+  }, []);
+
   useEffect(() => {
     const handlePopState = () => {
       if (activePhoto) {
         setActivePhoto(null);
+        return;
+      }
+      if (isNotesOpen) {
+        isNotesInHistoryRef.current = false;
+        setIsNotesOpen(false);
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -184,7 +215,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         if (activePhoto) {
           handleClosePhoto();
         } else if (isNotesOpen) {
-          setIsNotesOpen(false);
+          handleCloseNotes();
         }
       }
     };
@@ -194,7 +225,17 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [activePhoto, handleClosePhoto, isNotesOpen]);
+  }, [activePhoto, handleClosePhoto, handleCloseNotes, isNotesOpen]);
+
+  // Cleanup on unmount if notes panel entry was still active in history
+  useEffect(() => {
+    return () => {
+      if (isNotesInHistoryRef.current && window.history.state?.panel === "notes") {
+        isNotesInHistoryRef.current = false;
+        window.history.back();
+      }
+    };
+  }, []);
 
   const loadFeedback = useCallback(async () => {
     try {
@@ -320,7 +361,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={() => setIsNotesOpen(false)}
+          onClick={handleCloseNotes}
           title={isDock ? "Collapse Notes Dock (Esc)" : "Close Notes"}
           className="cursor-pointer text-muted-foreground hover:text-foreground h-8 w-8"
         >
@@ -545,7 +586,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             size="sm"
             onClick={() => {
               if (isWideScreen && isNotesOpen) {
-                setIsNotesOpen(false);
+                handleCloseNotes();
               } else {
                 setHighlightedFeedbackId(null);
                 setActiveTab("stream");
@@ -667,7 +708,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               "fixed inset-0 bg-black/40 transition-opacity duration-200",
               !isNotesOpen ? "opacity-0 pointer-events-none" : "opacity-100"
             )}
-            onClick={() => setIsNotesOpen(false)}
+            onClick={handleCloseNotes}
           />
 
           {/* Drawer Container */}
