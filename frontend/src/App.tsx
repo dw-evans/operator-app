@@ -299,7 +299,7 @@ export function App() {
   }, [currentDoc?.url]);
 
   return (
-    <div className="fixed inset-0 h-screen h-[100dvh] w-screen overflow-hidden bg-background text-foreground flex flex-col font-sans select-none">
+    <div className="fixed inset-0 h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-background text-foreground flex flex-col font-sans select-none pb-[env(safe-area-inset-bottom)]">
       <Navbar
         currentSlotId={selectedSlotId}
         onBackToSlots={() => navigateTo(isAdmin ? '/admin' : '/')}
