@@ -3,7 +3,7 @@ import type { FC, MouseEvent, TouchEvent } from 'react';
 import { MapPin, X, Check, CheckCircle2, User, Clock, MessageSquare, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatNoteDateTime } from '@/lib/utils';
 import type { PdfPin } from '../types';
 import { getMediaBlob } from '../services/db';
 import { updateFeedbackComment } from '../services/api';
@@ -588,13 +588,30 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
           onClick={(e) => e.stopPropagation()}
           className="pin-comment-popup z-40 bg-card/95 backdrop-blur-md border border-border shadow-2xl rounded-xl p-3.5 text-xs text-foreground animate-in fade-in zoom-in-95 duration-150 select-text max-h-[85vh] overflow-y-auto"
         >
-          {/* Header: Name, Status, and Close */}
-          <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-border/60">
+          {/* Meta Header */}
+          <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-border/60">
             <div className="flex items-center gap-2 flex-wrap min-w-0">
-              <span className="font-semibold text-foreground flex items-center gap-1.5 text-sm truncate">
-                <User className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="font-medium text-foreground flex items-center gap-1.5 text-xs truncate">
+                <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="truncate">{activePin.author || 'Anonymous'}</span>
               </span>
+              <Badge variant="secondary" className="font-mono text-[11px]">
+                Page {activePin.pageNumber}
+              </Badge>
+              {activePin.sectionRef && (
+                <Badge variant="outline" className="font-mono text-[11px] border-primary/40 text-primary">
+                  Sec {activePin.sectionRef}
+                </Badge>
+              )}
+              {activePin.timestamp && (
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
+                  <Clock className="w-3 h-3 text-muted-foreground/70" />
+                  <span>{formatNoteDateTime(activePin.timestamp)}</span>
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
               {activePin.status && (
                 <Badge
                   variant={
@@ -604,38 +621,30 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                       ? 'secondary'
                       : 'outline'
                   }
-                  className="text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider font-mono font-medium"
+                  className={cn(
+                    "text-[10px] uppercase tracking-wider font-mono font-medium",
+                    activePin.status === 'resolved' &&
+                      "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                    activePin.status === 'reviewed' &&
+                      "bg-blue-500/10 text-blue-400 border-blue-500/30",
+                    activePin.status === 'open' &&
+                      "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  )}
                 >
                   {activePin.status}
                 </Badge>
               )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => setActivePinId(null)}
+                className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground cursor-pointer rounded-full"
+                title="Close"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
             </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => setActivePinId(null)}
-              className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground cursor-pointer -mr-1 -mt-0.5 rounded-full shrink-0"
-              title="Close"
-            >
-              <X className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-
-          {/* Subheader: Page and Time only */}
-          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground mb-2.5">
-            <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0 h-4.5">
-              Page {activePin.pageNumber}
-            </Badge>
-            {activePin.timestamp && (
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
-                <Clock className="w-3 h-3 text-muted-foreground/70" />
-                <span>
-                  {new Date(activePin.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </span>
-            )}
           </div>
 
           {/* Comment Text */}

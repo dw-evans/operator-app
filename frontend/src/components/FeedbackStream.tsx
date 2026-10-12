@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FC } from 'react';
-import { MessageSquare, Clock, User, Download, RefreshCw, X, MapPin, Pencil, Trash2, Check, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Clock, User, Download, RefreshCw, X, Pencil, Trash2, Check, ArrowLeft } from 'lucide-react';
 import type { FeedbackItem } from '../types';
 import { fetchSlotFeedback, updateFeedbackComment, deleteFeedbackDirect, updateFeedbackStatus } from '../services/api';
 import { isMediaCached, getMediaBlob, saveMediaBlob } from '../services/db';
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import { cn, formatNoteDateTime } from '@/lib/utils';
 import { DeleteNoteDialog } from './DeleteNoteDialog';
 
 interface FeedbackStreamProps {
@@ -365,11 +365,11 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                         Sec {item.section_ref}
                       </Badge>
                     )}
-                    {((item.pin_x ?? 0) > 0 || (item.pin_y ?? 0) > 0) && (
-                      <Badge variant="outline" className="font-mono text-[10px] gap-1 text-primary border-primary/30">
-                        <MapPin className="w-2.5 h-2.5" />
-                        <span>{item.pin_x}%, {item.pin_y}%</span>
-                      </Badge>
+                    {item.timestamp && (
+                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
+                        <Clock className="w-3 h-3 text-muted-foreground/70" />
+                        <span>{formatNoteDateTime(item.timestamp)}</span>
+                      </span>
                     )}
                   </div>
 
@@ -584,12 +584,6 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                     </div>
                   </div>
                 )}
-
-                {/* Timestamp */}
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-2 font-mono">
-                  <Clock className="w-3 h-3" />
-                  <span>{new Date(item.timestamp).toLocaleString()}</span>
-                </div>
               </div>
             );
           })
