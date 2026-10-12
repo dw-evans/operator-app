@@ -6,16 +6,24 @@ import { AdminPortal } from './components/AdminPortal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Bug, Trash2, CheckCircle2 } from 'lucide-react';
-import { fetchSlots, syncAllSlotsFeedback } from './services/api';
+import {
+  fetchSlots,
+  syncAllSlotsFeedback,
+  fetchSlotRevisionByVersion,
+  adminReinstateRevision,
+} from './services/api';
 import { getCachedManifest, saveCachedManifest, requestPersistentStorage } from './services/db';
 import { pdfCacheManager } from './services/pdfCache';
 import { syncManager } from './services/sync';
-import type { SlotSummary } from './types';
+import type { SlotSummary, DocumentRevision } from './types';
 
 export function App() {
   const [slots, setSlots] = useState<SlotSummary[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(true);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [specificRevision, setSpecificRevision] = useState<DocumentRevision | null>(null);
+  const [isLoadingRevision, setIsLoadingRevision] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Synchronize UI state with current URL pathname
@@ -24,22 +32,51 @@ export function App() {
     if (pathname === '/admin') {
       setIsAdmin(true);
       setSelectedSlotId(null);
+      setSelectedVersion(null);
+      setSpecificRevision(null);
     } else {
-      const adminSlotMatch = pathname.match(/^\/admin\/slot\/(\d+)$/);
+      // 1. Admin with specific version: /admin/manual/:slotId/v/:version or /admin/slot/:slotId/v/:version
+      const adminVersionMatch = pathname.match(/^\/admin\/(?:manual|slot)\/(\d+)\/v\/(\d+)$/);
+      if (adminVersionMatch) {
+        setIsAdmin(true);
+        setSelectedSlotId(parseInt(adminVersionMatch[1], 10));
+        setSelectedVersion(parseInt(adminVersionMatch[2], 10));
+        return;
+      }
+
+      // 2. Admin live: /admin/manual/:slotId or /admin/slot/:slotId
+      const adminSlotMatch = pathname.match(/^\/admin\/(?:manual|slot)\/(\d+)$/);
       if (adminSlotMatch) {
         setIsAdmin(true);
         setSelectedSlotId(parseInt(adminSlotMatch[1], 10));
-      } else {
-        const match = pathname.match(/^\/slot\/(\d+)$/);
-        if (match) {
-          setIsAdmin(false);
-          const slot = parseInt(match[1], 10);
-          setSelectedSlotId(slot);
-        } else {
-          setIsAdmin(false);
-          setSelectedSlotId(null);
-        }
+        setSelectedVersion(null);
+        setSpecificRevision(null);
+        return;
       }
+
+      // 3. Operator with specific version: /manual/:slotId/v/:version or /slot/:slotId/v/:version
+      const operatorVersionMatch = pathname.match(/^\/(?:manual|slot)\/(\d+)\/v\/(\d+)$/);
+      if (operatorVersionMatch) {
+        setIsAdmin(false);
+        setSelectedSlotId(parseInt(operatorVersionMatch[1], 10));
+        setSelectedVersion(parseInt(operatorVersionMatch[2], 10));
+        return;
+      }
+
+      // 4. Operator live: /manual/:slotId or /slot/:slotId
+      const match = pathname.match(/^\/(?:manual|slot)\/(\d+)$/);
+      if (match) {
+        setIsAdmin(false);
+        setSelectedSlotId(parseInt(match[1], 10));
+        setSelectedVersion(null);
+        setSpecificRevision(null);
+        return;
+      }
+
+      setIsAdmin(false);
+      setSelectedSlotId(null);
+      setSelectedVersion(null);
+      setSpecificRevision(null);
     }
   }, []);
 
@@ -102,15 +139,26 @@ export function App() {
 
   // Keep session storage updated so PWA keeps location as long as app isn't shut down
   useEffect(() => {
-    const currentPath = isAdmin
-      ? selectedSlotId !== null
-        ? `/admin/slot/${selectedSlotId}`
-        : '/admin'
-      : selectedSlotId !== null
-      ? `/slot/${selectedSlotId}`
-      : '/';
+    let currentPath = '/';
+    if (isAdmin) {
+      if (selectedSlotId !== null) {
+        currentPath = selectedVersion !== null
+          ? `/admin/manual/${selectedSlotId}/v/${selectedVersion}`
+          : `/admin/manual/${selectedSlotId}`;
+      } else {
+        currentPath = '/admin';
+      }
+    } else {
+      if (selectedSlotId !== null) {
+        currentPath = selectedVersion !== null
+          ? `/manual/${selectedSlotId}/v/${selectedVersion}`
+          : `/manual/${selectedSlotId}`;
+      } else {
+        currentPath = '/';
+      }
+    }
     sessionStorage.setItem('assembly_last_path', currentPath);
-  }, [isAdmin, selectedSlotId]);
+  }, [isAdmin, selectedSlotId, selectedVersion]);
 
   const [debugInfo, setDebugInfo] = useState({
     viewport: `${window.innerWidth}x${window.innerHeight}`,
@@ -167,7 +215,56 @@ export function App() {
   };
 
   const currentSlot = slots.find((s) => s.slot_id === selectedSlotId);
-  const currentDoc = currentSlot?.live_document;
+  const liveDoc = currentSlot?.live_document;
+
+  // Load specific revision when selectedVersion is specified
+  useEffect(() => {
+    if (selectedSlotId === null || selectedVersion === null) {
+      setSpecificRevision(null);
+      return;
+    }
+
+    // If liveDoc matches selectedVersion, use it directly
+    if (liveDoc && liveDoc.version === selectedVersion) {
+      setSpecificRevision(liveDoc);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoadingRevision(true);
+    fetchSlotRevisionByVersion(selectedSlotId, selectedVersion)
+      .then((rev) => {
+        if (!isCancelled) {
+          setSpecificRevision(rev);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load version:', err);
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoadingRevision(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedSlotId, selectedVersion, liveDoc]);
+
+  const currentDoc = selectedVersion !== null ? specificRevision : liveDoc;
+
+  const handleReinstateDocument = async (docId: number) => {
+    try {
+      await adminReinstateRevision(docId);
+      await loadSlots();
+      if (selectedSlotId !== null) {
+        navigateTo(isAdmin ? `/admin/manual/${selectedSlotId}` : `/manual/${selectedSlotId}`);
+      }
+    } catch (err: any) {
+      alert(`Failed to reinstate revision: ${err.message}`);
+    }
+  };
 
   const [isCurrentDocCached, setIsCurrentDocCached] = useState(false);
   const SHOW_DEBUG = false;
@@ -191,13 +288,19 @@ export function App() {
         onToggleAdmin={() => {
           if (isAdmin) {
             if (selectedSlotId !== null) {
-              navigateTo(`/slot/${selectedSlotId}`);
+              const target = selectedVersion !== null
+                ? `/manual/${selectedSlotId}/v/${selectedVersion}`
+                : `/manual/${selectedSlotId}`;
+              navigateTo(target);
             } else {
               navigateTo('/');
             }
           } else {
             if (selectedSlotId !== null) {
-              navigateTo(`/admin/slot/${selectedSlotId}`);
+              const target = selectedVersion !== null
+                ? `/admin/manual/${selectedSlotId}/v/${selectedVersion}`
+                : `/admin/manual/${selectedSlotId}`;
+              navigateTo(target);
             } else {
               navigateTo('/admin');
             }
@@ -269,14 +372,26 @@ export function App() {
                 Admin
               </Badge>
             )}
+            {currentDoc && !currentDoc.is_live && (
+              <Badge
+                variant="secondary"
+                className="font-mono text-[10px] shrink-0 text-amber-400 bg-amber-500/10 border-amber-500/30"
+              >
+                Obsolete
+              </Badge>
+            )}
             <span className="font-medium text-foreground truncate">
               {currentDoc?.title || currentDoc?.filename || `Manual Slot ${selectedSlotId}`}
             </span>
-            {currentDoc && (
+            {isLoadingRevision ? (
+              <span className="text-muted-foreground text-[11px] shrink-0 font-mono animate-pulse">
+                Loading v{selectedVersion}...
+              </span>
+            ) : currentDoc ? (
               <span className="text-muted-foreground text-[11px] shrink-0 font-mono">
                 v{currentDoc.version}
               </span>
-            )}
+            ) : null}
           </div>
 
           {currentDoc && (
@@ -310,14 +425,21 @@ export function App() {
             slotId={selectedSlotId}
             document={currentDoc || null}
             totalFeedbackCount={currentSlot?.total_feedback || 0}
+            isAdmin={isAdmin}
             onFeedbackSubmitted={loadSlots}
+            onReinstateDocument={handleReinstateDocument}
           />
         ) : isAdmin ? (
           <div className="flex-1 min-h-0 overflow-y-auto">
             <AdminPortal
               onClose={() => navigateTo('/')}
               onSlotsUpdated={loadSlots}
-              onViewSlot={(slotId) => navigateTo(`/admin/slot/${slotId}`)}
+              onViewSlot={(slotId, version) => {
+                const target = version !== undefined
+                  ? `/admin/manual/${slotId}/v/${version}`
+                  : `/admin/manual/${slotId}`;
+                navigateTo(target);
+              }}
             />
           </div>
         ) : (
@@ -325,7 +447,7 @@ export function App() {
             <SlotSelector
               slots={slots}
               onSelectSlot={(slotId) => {
-                navigateTo(`/slot/${slotId}`);
+                navigateTo(`/manual/${slotId}`);
               }}
               isLoading={isLoadingSlots}
             />

@@ -555,6 +555,63 @@ def get_slot_history(slot_id: int, db: Session = Depends(get_db)):
     ]
 
 
+@app.get("/api/v1/documents/{doc_id}", response_model=schemas.DocumentRevision)
+def get_document_revision(doc_id: int, db: Session = Depends(get_db)):
+    """Retrieve metadata for a specific document revision by its ID."""
+    doc = db.query(models.Document).filter(models.Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document revision not found")
+    return schemas.DocumentRevision(
+        id=doc.id,
+        slot_id=doc.slot_id,
+        title=doc.title,
+        filename=doc.filename,
+        original_filename=doc.original_filename,
+        file_hash=doc.file_hash,
+        file_size=doc.file_size,
+        version=doc.version,
+        is_live=doc.is_live,
+        upload_date=doc.upload_date,
+        obsolescence_date=doc.obsolescence_date,
+        url=f"/manuals/{doc.filename}?v={doc.file_hash}",
+    )
+
+
+@app.get(
+    "/api/v1/slots/{slot_id}/revisions/{version}",
+    response_model=schemas.DocumentRevision,
+)
+def get_slot_revision_by_version(
+    slot_id: int, version: int, db: Session = Depends(get_db)
+):
+    """Retrieve metadata for a slot's specific version number."""
+    if slot_id < 1 or slot_id > 10:
+        raise HTTPException(status_code=400, detail="Slot ID must be between 1 and 10")
+    doc = (
+        db.query(models.Document)
+        .filter(models.Document.slot_id == slot_id, models.Document.version == version)
+        .first()
+    )
+    if not doc:
+        raise HTTPException(
+            status_code=404, detail=f"Version {version} for slot {slot_id} not found"
+        )
+    return schemas.DocumentRevision(
+        id=doc.id,
+        slot_id=doc.slot_id,
+        title=doc.title,
+        filename=doc.filename,
+        original_filename=doc.original_filename,
+        file_hash=doc.file_hash,
+        file_size=doc.file_size,
+        version=doc.version,
+        is_live=doc.is_live,
+        upload_date=doc.upload_date,
+        obsolescence_date=doc.obsolescence_date,
+        url=f"/manuals/{doc.filename}?v={doc.file_hash}",
+    )
+
+
 @app.post("/api/v1/admin/reinstate/{doc_id}")
 def reinstate_document(doc_id: int, db: Session = Depends(get_db)):
     """Reinstate an older revision as the live document for its slot."""

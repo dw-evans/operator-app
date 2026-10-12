@@ -50,6 +50,21 @@ export async function adminReinstateRevision(docId: number): Promise<any> {
   return res.json();
 }
 
+export async function fetchDocumentRevision(docId: number): Promise<DocumentRevision> {
+  const res = await fetch(`${API_BASE}/api/v1/documents/${docId}`);
+  if (!res.ok) throw new Error(`Failed to fetch document revision: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchSlotRevisionByVersion(
+  slotId: number,
+  version: number
+): Promise<DocumentRevision> {
+  const res = await fetch(`${API_BASE}/api/v1/slots/${slotId}/revisions/${version}`);
+  if (!res.ok) throw new Error(`Failed to fetch slot revision: ${res.statusText}`);
+  return res.json();
+}
+
 export async function syncAllSlotsFeedback(slotIds?: number[]): Promise<void> {
   const ids = slotIds && slotIds.length > 0 ? slotIds : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   await Promise.allSettled(

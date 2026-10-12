@@ -24,7 +24,6 @@ import {
   fetchSlotFeedback,
   updateFeedbackStatus,
 } from "../services/api";
-import { SlotViewerVariant } from "./SlotViewerVariant";
 import { cn } from "@/lib/utils";
 
 import {
@@ -58,7 +57,7 @@ import {
 interface AdminPortalProps {
   onClose: () => void;
   onSlotsUpdated: () => void;
-  onViewSlot?: (slotId: number) => void;
+  onViewSlot?: (slotId: number, version?: number) => void;
 }
 
 export const AdminPortal: FC<AdminPortalProps> = ({
@@ -78,7 +77,6 @@ export const AdminPortal: FC<AdminPortalProps> = ({
   const [revisions, setRevisions] = useState<DocumentRevision[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [reinstatingId, setReinstatingId] = useState<number | null>(null);
-  const [viewingRevision, setViewingRevision] = useState<DocumentRevision | null>(null);
 
   // Upload state per slot
   const [uploadingSlotId, setUploadingSlotId] = useState<number | null>(null);
@@ -181,11 +179,6 @@ export const AdminPortal: FC<AdminPortalProps> = ({
       await adminReinstateRevision(docId);
       if (historySlotId !== null) {
         await openHistory(historySlotId);
-      }
-      if (viewingRevision && viewingRevision.id === docId) {
-        setViewingRevision((prev) =>
-          prev ? { ...prev, is_live: true, obsolescence_date: null } : null
-        );
       }
       await loadSlots();
       onSlotsUpdated();
@@ -519,11 +512,9 @@ export const AdminPortal: FC<AdminPortalProps> = ({
                             size="sm"
                             className="h-7 px-2 text-xs gap-1 cursor-pointer"
                             onClick={() => {
-                              if (rev.is_live && onViewSlot) {
+                              if (onViewSlot) {
                                 setHistorySlotId(null);
-                                onViewSlot(rev.slot_id);
-                              } else {
-                                setViewingRevision(rev);
+                                onViewSlot(rev.slot_id, rev.version);
                               }
                             }}
                             title="View revision and its comments"
@@ -578,105 +569,6 @@ export const AdminPortal: FC<AdminPortalProps> = ({
               </Table>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Revision Inspection Viewer Dialog */}
-      <Dialog
-        open={viewingRevision !== null}
-        onOpenChange={(open) => !open && setViewingRevision(null)}
-      >
-        <DialogContent
-          showCloseButton={false}
-          className="sm:max-w-[96vw] sm:w-[96vw] max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] p-0 flex flex-col gap-0 overflow-hidden bg-background rounded-xl border border-border shadow-2xl"
-        >
-          {viewingRevision && (
-            <>
-              {/* Revision Header Banner */}
-              <div className="shrink-0 bg-muted/70 border-b border-border px-4 py-2.5 flex items-center justify-between text-xs z-20">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Badge
-                    variant={viewingRevision.is_live ? "default" : "secondary"}
-                    className="shrink-0"
-                  >
-                    {viewingRevision.is_live ? "Live Version" : "Obsolete Revision"}
-                  </Badge>
-                  <span className="font-semibold text-foreground text-sm truncate">
-                    Slot {viewingRevision.slot_id}: {viewingRevision.title} (v{viewingRevision.version})
-                  </span>
-                  <span className="text-muted-foreground text-xs font-mono shrink-0 hidden sm:inline">
-                    Uploaded {new Date(viewingRevision.upload_date).toLocaleDateString()}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {!viewingRevision.is_live && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs gap-1 border-emerald-500/40 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer"
-                      onClick={() => handleReinstate(viewingRevision.id)}
-                      disabled={reinstatingId === viewingRevision.id}
-                      title="Reinstate this version as the live document"
-                    >
-                      <RotateCcw
-                        className={cn(
-                          "h-3.5 w-3.5",
-                          reinstatingId === viewingRevision.id && "animate-spin"
-                        )}
-                      />
-                      <span>
-                        {reinstatingId === viewingRevision.id
-                          ? "Reinstating..."
-                          : "Reinstate as Live"}
-                      </span>
-                    </Button>
-                  )}
-
-                  <a
-                    href={viewingRevision.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={cn(
-                      buttonVariants({
-                        variant: "outline",
-                        size: "icon-sm",
-                      }),
-                      "h-7 w-7 p-0"
-                    )}
-                    title="Download this revision"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </a>
-
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="h-7 w-7 p-0 cursor-pointer"
-                    onClick={() => setViewingRevision(null)}
-                    title="Close revision viewer"
-                    aria-label="Close revision viewer"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Revision Fullscreen Viewer using PdfiumViewer + SlotViewerVariant */}
-              <div className="flex-1 min-h-0 relative w-full h-full overflow-hidden">
-                <SlotViewerVariant
-                  slotId={viewingRevision.slot_id}
-                  document={viewingRevision}
-                  onFeedbackSubmitted={() => {
-                    loadSlots();
-                    if (historySlotId !== null) {
-                      openHistory(viewingRevision.slot_id);
-                    }
-                  }}
-                />
-              </div>
-            </>
-          )}
         </DialogContent>
       </Dialog>
 

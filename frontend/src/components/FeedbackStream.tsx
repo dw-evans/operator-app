@@ -2,17 +2,25 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FC } from 'react';
 import { MessageSquare, Clock, User, Download, RefreshCw, X, MapPin, Pencil, Trash2, Check, ArrowLeft } from 'lucide-react';
 import type { FeedbackItem } from '../types';
-import { fetchSlotFeedback, updateFeedbackComment, deleteFeedbackDirect } from '../services/api';
+import { fetchSlotFeedback, updateFeedbackComment, deleteFeedbackDirect, updateFeedbackStatus } from '../services/api';
 import { isMediaCached, getMediaBlob, saveMediaBlob } from '../services/db';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { DeleteNoteDialog } from './DeleteNoteDialog';
 
 interface FeedbackStreamProps {
   slotId: number;
   documentId?: number;
+  isAdmin?: boolean;
   highlightedFeedbackId?: string | null;
   onSelectFeedback?: (feedbackId: string | null, item?: FeedbackItem) => void;
   onCommentUpdated?: (feedbackId: string, newComment: string) => void;
@@ -24,6 +32,7 @@ interface FeedbackStreamProps {
 export const FeedbackStream: FC<FeedbackStreamProps> = ({
   slotId,
   documentId,
+  isAdmin = false,
   highlightedFeedbackId,
   onSelectFeedback,
   onCommentUpdated,
@@ -59,6 +68,24 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       alert('Failed to delete note. Please try again.');
     } finally {
       setIsDeletingNote(false);
+    }
+  };
+
+  const handleStatusChange = async (
+    item: FeedbackItem,
+    newStatus: 'open' | 'reviewed' | 'resolved'
+  ) => {
+    // Optimistic UI update
+    setFeedbackList((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, status: newStatus } : i))
+    );
+    try {
+      await updateFeedbackStatus(item.id, newStatus);
+      onCommentUpdated?.(item.id, item.text_comment || '');
+    } catch (err) {
+      console.error('Failed to update note status:', err);
+      // Revert if API call fails
+      loadFeedback();
     }
   };
 
@@ -347,18 +374,70 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <Badge
-                      variant={
-                        item.status === 'resolved'
-                          ? 'default'
-                          : item.status === 'reviewed'
-                          ? 'secondary'
-                          : 'outline'
-                      }
-                      className="text-[10px] uppercase tracking-wider font-mono font-medium"
-                    >
-                      {item.status}
-                    </Badge>
+                    {isAdmin ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Select
+                          value={item.status}
+                          onValueChange={(val) => {
+                            if (val) {
+                              handleStatusChange(
+                                item,
+                                val as 'open' | 'reviewed' | 'resolved'
+                              );
+                            }
+                          }}
+                        >
+                          <SelectTrigger
+                            size="sm"
+                            className={cn(
+                              "h-6 px-2 text-[10px] uppercase font-mono font-semibold tracking-wider rounded-md border cursor-pointer",
+                              item.status === 'resolved' &&
+                                "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                              item.status === 'reviewed' &&
+                                "bg-blue-500/10 text-blue-400 border-blue-500/30",
+                              item.status === 'open' &&
+                                "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                            )}
+                            title="Change status"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent align="end" className="text-xs">
+                            <SelectItem value="open">
+                              <span className="flex items-center gap-1.5 text-amber-400 font-mono text-xs">
+                                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                Open
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="reviewed">
+                              <span className="flex items-center gap-1.5 text-blue-400 font-mono text-xs">
+                                <span className="w-2 h-2 rounded-full bg-blue-400" />
+                                Reviewed
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="resolved">
+                              <span className="flex items-center gap-1.5 text-emerald-400 font-mono text-xs">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                Resolved
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <Badge
+                        variant={
+                          item.status === 'resolved'
+                            ? 'default'
+                            : item.status === 'reviewed'
+                            ? 'secondary'
+                            : 'outline'
+                        }
+                        className="text-[10px] uppercase tracking-wider font-mono font-medium"
+                      >
+                        {item.status}
+                      </Badge>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon-xs"

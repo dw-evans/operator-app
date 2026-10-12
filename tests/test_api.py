@@ -527,3 +527,36 @@ def test_soft_delete_feedback():
         assert item.is_deleted is True
     finally:
         db.close()
+
+
+def test_get_document_revision():
+    # Upload a document to slot 6
+    up_resp = client.post(
+        "/api/v1/admin/upload/6",
+        files={"file": ("manual_slot6.pdf", io.BytesIO(b"%PDF-1.4 test slot 6"), "application/pdf")},
+    )
+    assert up_resp.status_code == 200
+
+    history = client.get("/api/v1/admin/history/6").json()
+    assert len(history) >= 1
+    doc_id = history[0]["id"]
+    version = history[0]["version"]
+
+    # Test GET /api/v1/documents/{doc_id}
+    resp = client.get(f"/api/v1/documents/{doc_id}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == doc_id
+    assert data["slot_id"] == 6
+
+    # Test GET /api/v1/slots/6/revisions/{version}
+    resp_v = client.get(f"/api/v1/slots/6/revisions/{version}")
+    assert resp_v.status_code == 200
+    assert resp_v.json()["id"] == doc_id
+    assert resp_v.json()["version"] == version
+
+    # Test 404 for non-existent document
+    resp_404 = client.get("/api/v1/documents/999999")
+    assert resp_404.status_code == 404
+
+

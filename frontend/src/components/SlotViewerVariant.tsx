@@ -17,6 +17,7 @@ import {
   EyeOff,
   ArrowLeft,
   PanelRightClose,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DocumentRevision, FeedbackItem, PdfPin } from "../types";
@@ -27,14 +28,18 @@ interface SlotViewerVariantProps {
   slotId: number;
   document: DocumentRevision | null;
   totalFeedbackCount?: number;
+  isAdmin?: boolean;
   onFeedbackSubmitted?: () => void;
+  onReinstateDocument?: (docId: number) => void;
 }
 
 export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   slotId,
   document,
   totalFeedbackCount = 0,
+  isAdmin = false,
   onFeedbackSubmitted,
+  onReinstateDocument,
 }) => {
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"submit" | "stream">("submit");
@@ -409,6 +414,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           <FeedbackStream
             slotId={slotId}
             documentId={document?.id}
+            isAdmin={isAdmin}
             highlightedFeedbackId={highlightedFeedbackId}
             onSelectFeedback={handleSelectFeedback}
             onViewPhoto={openPhoto}
@@ -455,6 +461,28 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           >
             Page {activePage}
           </Badge>
+          {document && !document.is_live && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Badge
+                variant="secondary"
+                className="font-mono text-[10px] px-1.5 py-0 h-5 text-amber-400 bg-amber-500/10 border-amber-500/30"
+              >
+                Obsolete Revision (v{document.version})
+              </Badge>
+              {isAdmin && onReinstateDocument && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => onReinstateDocument(document.id)}
+                  className="h-5 px-2 text-[10px] text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer"
+                  title="Reinstate this version as the live document"
+                >
+                  <RotateCcw className="w-2.5 h-2.5 mr-1" />
+                  Reinstate as Live
+                </Button>
+              )}
+            </div>
+          )}
           {pins.length > 0 && (
             <div className="flex items-center gap-1 shrink-0">
               <Badge
