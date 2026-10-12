@@ -509,74 +509,49 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-30">
         {positionedPins
           .filter((pin) => !(isPlacingPin && pin.isDraft))
-          .map((pin) => (
-            <div
-              key={pin.id}
-              style={{
-                position: 'absolute',
-                left: `${pin.screenX}px`,
-                top: `${pin.screenY}px`,
-                transform: 'translate(-50%, -50%)',
-                pointerEvents: 'auto',
-                cursor: 'pointer',
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!pin.isDraft) {
-                  setActivePinId((prev) => (prev === pin.id ? null : pin.id));
+          .map((pin) => {
+            const isSelected = activePinId === pin.id || selectedPinId === pin.id;
+
+            return (
+              <div
+                key={pin.id}
+                style={{
+                  position: 'absolute',
+                  left: `${pin.screenX}px`,
+                  top: `${pin.screenY}px`,
+                  transform: isSelected
+                    ? 'translate(-50%, -50%) scale(1.2)'
+                    : 'translate(-50%, -50%) scale(1)',
+                  opacity: isSelected ? 0.7 : 0.4,
+                  pointerEvents: 'auto',
+                  cursor: 'pointer',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!pin.isDraft) {
+                    setActivePinId((prev) => (prev === pin.id ? null : pin.id));
+                  }
+                  onPinClick?.(pin);
+                }}
+                title={
+                  pin.author
+                    ? `${pin.author}${pin.sectionRef ? ` (Sec ${pin.sectionRef})` : ''}: ${pin.comment || 'Note'}`
+                    : `Note on Page ${pin.pageNumber}`
                 }
-                onPinClick?.(pin);
-              }}
-              title={
-                pin.author
-                  ? `${pin.author}${pin.sectionRef ? ` (Sec ${pin.sectionRef})` : ''}: ${pin.comment || 'Note'}`
-                  : `Note on Page ${pin.pageNumber}`
-              }
-              className={cn(
-                "group transition-all hover:scale-110 active:scale-95 assembly-pdf-pin select-none",
-                (activePinId === pin.id || selectedPinId === pin.id) && "scale-110 z-40"
-              )}
-            >
-              {pin.isDraft ? (
-                // Draft Pin: Transparent circle with pulsating radar ring
-                <div className="relative flex items-center justify-center">
-                  <span className="absolute w-10 h-10 rounded-full bg-red-500/25 animate-ping pointer-events-none" />
-                  <div className="w-8 h-8 rounded-full border-2 border-red-500 bg-red-500/20 shadow-[0_0_0_1px_rgba(255,255,255,0.8),0_2px_8px_rgba(239,68,68,0.4)] flex items-center justify-center">
-                    <span className="w-2 h-2 rounded-full bg-red-600 shadow-xs" />
-                  </div>
-                </div>
-              ) : (
-                // Saved Note Pin: Transparent circle centered on coordinate
-                <div className="relative flex items-center justify-center">
-                  {(activePinId === pin.id || selectedPinId === pin.id) && (
-                    <span
-                      className={cn(
-                        "absolute w-10 h-10 rounded-full animate-ping pointer-events-none opacity-75",
-                        pin.status === 'resolved' ? "bg-emerald-500/25" : "bg-primary/25"
-                      )}
-                    />
-                  )}
-                  <div
-                    className={cn(
-                      "w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all flex items-center justify-center",
-                      pin.status === 'resolved'
-                        ? "border-emerald-500 bg-emerald-500/20 shadow-[0_0_0_1px_rgba(255,255,255,0.7),0_2px_6px_rgba(16,185,129,0.3)] hover:bg-emerald-500/35"
-                        : "border-primary bg-primary/20 shadow-[0_0_0_1px_rgba(255,255,255,0.7),0_2px_6px_rgba(2,132,199,0.3)] hover:bg-primary/35",
-                      (activePinId === pin.id || selectedPinId === pin.id) &&
-                        "ring-2 ring-primary ring-offset-1 ring-offset-background bg-primary/30 scale-110"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "w-1.5 h-1.5 rounded-full shadow-xs",
-                        pin.status === 'resolved' ? "bg-emerald-600" : "bg-primary"
-                      )}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+                className={cn(
+                  "assembly-pdf-pin rounded-full transition-all duration-200 ease-out select-none flex items-center justify-center",
+                  "w-7 h-7 sm:w-8 sm:h-8",
+                  "bg-red-500 border border-red-600 shadow-sm",
+                  "hover:opacity-60",
+                  isSelected && "z-40 shadow-md ring-2 ring-red-400/60"
+                )}
+              >
+                {pin.isDraft && (
+                  <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-60 pointer-events-none" />
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {/* Popover Comment Card offset from Pin */}
@@ -836,7 +811,8 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
             position: 'absolute',
             left: `${candidateScreenPos.screenX}px`,
             top: `${candidateScreenPos.screenY}px`,
-            transform: 'translate(-50%, -50%)',
+            transform: 'translate(-50%, -50%) scale(1.2)',
+            opacity: 0.7,
             pointerEvents: 'none',
           }}
           className="z-50 select-none animate-in fade-in zoom-in-75 duration-150"
@@ -846,16 +822,10 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
             Page {candidatePin.pageNumber} · {candidatePin.x}%, {candidatePin.y}%
           </div>
 
-          {/* Circle Pin Graphic */}
+          {/* Simple Transparent Red Circle with subtle pulse */}
           <div className="relative flex items-center justify-center">
-            {/* Pulsating Radar Rings */}
-            <span className="absolute w-12 h-12 rounded-full bg-red-500/25 animate-ping" />
-            <span className="absolute w-9 h-9 rounded-full bg-red-500/30" />
-
-            {/* Transparent Circle with Center Dot */}
-            <div className="w-8 h-8 rounded-full border-2 border-dashed border-red-500 bg-red-500/20 shadow-[0_0_0_1px_rgba(255,255,255,0.8),0_4px_10px_rgba(239,68,68,0.5)] flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-red-600 shadow-sm" />
-            </div>
+            <span className="absolute w-12 h-12 rounded-full bg-red-500 animate-ping opacity-40 pointer-events-none" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-red-500 border border-red-600 shadow-md ring-2 ring-red-400/60" />
           </div>
         </div>
       )}
