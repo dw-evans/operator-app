@@ -27,35 +27,164 @@ export interface PdfPinOverlayProps {
   onCommentUpdated?: (pinId: string, newComment: string) => void;
   onEditPin?: (pin: PdfPin) => void;
   onDeletePin?: (pin: PdfPin) => void;
+  scrollPlugin?: any;
+}
+
+export interface RenderedPageInfo {
+  pageNumber: number;
+  element: HTMLElement;
+  rect: DOMRect;
 }
 
 /**
- * Pure read-only helper to locate page elements inside EmbedPDF's shadow root.
- * Never mutates or alters any elements inside the shadow root.
+ * Maps currently rendered DOM page elements to their true 1-based page numbers in EmbedPDF's virtualized scroller.
+ * Resolves virtual scroller offsets so pins and click/tap placements accurately lock to true document pages.
  */
-export function getPageContainers(shadow: ShadowRoot): HTMLElement[] {
-  // Method 1: Query white-background page containers created by EmbedPDF (zs component)
+export function getRenderedPages(
+  shadow: ShadowRoot,
+  scrollPlugin?: any
+): Map<number, RenderedPageInfo> {
+  const result = new Map<number, RenderedPageInfo>();
+
+  // 1. Locate the page container DOM elements currently mounted in the shadow DOM
   const whiteBgElements = Array.from(
     shadow.querySelectorAll<HTMLElement>(
       'div[style*="background-color: #fff"], div[style*="background-color: rgb(255, 255, 255)"], div[style*="backgroundColor: #fff"]'
     )
   );
 
+  let pageElements: HTMLElement[] = [];
   if (whiteBgElements.length > 0) {
-    return whiteBgElements.map((el) => {
+    pageElements = whiteBgElements.map((el) => {
       const parent = el.parentElement;
       return parent && parent.style.position === 'relative' ? parent : el;
     });
+  } else {
+    pageElements = Array.from(
+      shadow.querySelectorAll<HTMLElement>('.bg-bg-app div[style*="position: relative"]')
+    ).filter((el) => {
+      const rect = el.getBoundingClientRect();
+      return rect.width > 50 && rect.height > 50;
+    });
   }
 
-  // Method 2: Query candidate page containers in .bg-bg-app
-  const candidateDivs = Array.from(
-    shadow.querySelectorAll<HTMLElement>('.bg-bg-app div[style*="position: relative"]')
-  );
-  return candidateDivs.filter((el) => {
+  if (pageElements.length === 0) {
+    return result;
+  }
+
+  // 2. Resolve true 1-based page numbers for each mounted page element
+  let pageNumbers: number[] | null = null;
+
+  // Tier 1: EmbedPDF ScrollPlugin internal state (renderedPageIndexes / getScrollerLayout)
+  if (scrollPlugin) {
+    try {
+      // Method A: docState.renderedPageIndexes (0-based indices)
+      const docState = typeof scrollPlugin.getDocumentState === 'function' ? scrollPlugin.getDocumentState() : null;
+      if (
+        Array.isArray(docState?.renderedPageIndexes) &&
+        docState.renderedPageIndexes.length === pageElements.length
+      ) {
+        pageNumbers = docState.renderedPageIndexes.map((idx: number) => idx + 1);
+      }
+
+      // Method B: getScrollerLayout().items
+      if (!pageNumbers && typeof scrollPlugin.getScrollerLayout === 'function') {
+        const layout = scrollPlugin.getScrollerLayout();
+        if (Array.isArray(layout?.items) && layout.items.length === pageElements.length) {
+          const resolved = layout.items
+            .map((item: any) => item.pageLayouts?.[0]?.pageNumber)
+            .filter((n: any): n is number => typeof n === 'number' && n > 0);
+          if (resolved.length === pageElements.length) {
+            pageNumbers = resolved;
+          }
+        }
+      }
+    } catch {
+      // fallback to DOM spacer analysis
+    }
+  }
+
+  // Tier 2: Inspect top spacer in virtual scroller container against layout offsets
+  if (!pageNumbers) {
+    try {
+      const firstEl = pageElements[0];
+      let topSpacer: HTMLElement | null = null;
+      let curr: HTMLElement | null = firstEl;
+      while (curr && curr.parentElement && (curr as any) !== shadow) {
+        const parentNode: HTMLElement | null = curr.parentElement;
+        if (parentNode && parentNode.children.length === 3 && parentNode.children[1].contains(curr)) {
+          topSpacer = parentNode.children[0] as HTMLElement;
+          break;
+        }
+        curr = parentNode;
+      }
+
+      if (topSpacer) {
+        const startSpacing = parseFloat(topSpacer.style.height || topSpacer.style.width || '') || 0;
+        if (startSpacing <= 5) {
+          // Top of document: pages start at 1
+          pageNumbers = pageElements.map((_, i) => i + 1);
+        } else {
+          // Check virtualItems offsets via scrollPlugin layout
+          const layout = typeof scrollPlugin?.getLayout === 'function' ? scrollPlugin.getLayout() : null;
+          const virtualItems = layout?.virtualItems;
+          if (Array.isArray(virtualItems) && virtualItems.length > 0) {
+            const firstRect = firstEl.getBoundingClientRect();
+            const firstItem = virtualItems[0];
+            const scale = firstItem && firstItem.width > 0 ? firstRect.width / firstItem.width : 1;
+            const matchIndex = virtualItems.findIndex((item: any) => {
+              const expectedOffset = (item.offset ?? 0) * scale;
+              return Math.abs(expectedOffset - startSpacing) < 8;
+            });
+            if (matchIndex >= 0) {
+              const startPageNum = matchIndex + 1;
+              pageNumbers = pageElements.map((_, i) => startPageNum + i);
+            }
+          }
+
+          // Tier 3: Uniform height fallback based on page height
+          if (!pageNumbers) {
+            const pageHeight = firstEl.getBoundingClientRect().height;
+            if (pageHeight > 50) {
+              const pagesAbove = Math.round(startSpacing / (pageHeight + 20));
+              const startPageNum = Math.max(1, pagesAbove + 1);
+              pageNumbers = pageElements.map((_, i) => startPageNum + i);
+            }
+          }
+        }
+      }
+    } catch {
+      // fallback to 1:1
+    }
+  }
+
+  // Tier 4: Total fallback (assume 1:1 if virtualization offsets cannot be determined)
+  if (!pageNumbers || pageNumbers.length !== pageElements.length) {
+    pageNumbers = pageElements.map((_, i) => i + 1);
+  }
+
+  // 3. Assemble result map
+  for (let i = 0; i < pageElements.length; i++) {
+    const el = pageElements[i];
+    const pageNumber = pageNumbers[i];
     const rect = el.getBoundingClientRect();
-    return rect.width > 50 && rect.height > 50;
-  });
+    result.set(pageNumber, {
+      pageNumber,
+      element: el,
+      rect,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Pure read-only helper to locate page elements inside EmbedPDF's shadow root.
+ * Preserved for backwards compatibility with external consumers.
+ */
+export function getPageContainers(shadow: ShadowRoot): HTMLElement[] {
+  const rendered = getRenderedPages(shadow);
+  return Array.from(rendered.values()).map((p) => p.element);
 }
 
 export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
@@ -72,6 +201,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
   onCommentUpdated,
   onEditPin,
   onDeletePin,
+  scrollPlugin,
 }) => {
   const [positionedPins, setPositionedPins] = useState<PositionedPin[]>([]);
   const [candidatePin, setCandidatePin] = useState<{
@@ -242,27 +372,23 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     if (!shadow) return;
 
     const viewerRect = viewerContainer.getBoundingClientRect();
-    const pages = getPageContainers(shadow);
-    if (pages.length === 0) return;
+    const renderedPages = getRenderedPages(shadow, scrollPlugin);
+    if (renderedPages.size === 0) return;
 
     const updated: PositionedPin[] = [];
 
     pins.forEach((pin) => {
-      const pageIdx = pin.pageNumber - 1;
-      if (pageIdx >= 0 && pageIdx < pages.length) {
-        const pageEl = pages[pageIdx];
-        const pageRect = pageEl.getBoundingClientRect();
+      const page = renderedPages.get(pin.pageNumber);
+      if (page && page.rect.width > 0 && page.rect.height > 0) {
+        const pageRect = page.rect;
+        const screenX = pageRect.left - viewerRect.left + (pageRect.width * pin.x) / 100;
+        const screenY = pageRect.top - viewerRect.top + (pageRect.height * pin.y) / 100;
 
-        if (pageRect.width > 0 && pageRect.height > 0) {
-          const screenX = pageRect.left - viewerRect.left + (pageRect.width * pin.x) / 100;
-          const screenY = pageRect.top - viewerRect.top + (pageRect.height * pin.y) / 100;
-
-          updated.push({
-            ...pin,
-            screenX,
-            screenY,
-          });
-        }
+        updated.push({
+          ...pin,
+          screenX,
+          screenY,
+        });
       }
     });
 
@@ -270,20 +396,19 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
 
     // Update candidate pin position if active
     if (candidatePin) {
-      const pageIdx = candidatePin.pageNumber - 1;
-      if (pageIdx >= 0 && pageIdx < pages.length) {
-        const pageEl = pages[pageIdx];
-        const pageRect = pageEl.getBoundingClientRect();
-        if (pageRect.width > 0 && pageRect.height > 0) {
-          const screenX = pageRect.left - viewerRect.left + (pageRect.width * candidatePin.x) / 100;
-          const screenY = pageRect.top - viewerRect.top + (pageRect.height * candidatePin.y) / 100;
-          setCandidateScreenPos({ screenX, screenY });
-        }
+      const page = renderedPages.get(candidatePin.pageNumber);
+      if (page && page.rect.width > 0 && page.rect.height > 0) {
+        const pageRect = page.rect;
+        const screenX = pageRect.left - viewerRect.left + (pageRect.width * candidatePin.x) / 100;
+        const screenY = pageRect.top - viewerRect.top + (pageRect.height * candidatePin.y) / 100;
+        setCandidateScreenPos({ screenX, screenY });
+      } else {
+        setCandidateScreenPos(null);
       }
     } else {
       setCandidateScreenPos(null);
     }
-  }, [viewerContainer, pins, candidatePin]);
+  }, [viewerContainer, pins, candidatePin, scrollPlugin]);
 
   // Hook into scroller scroll events, resize, and initial page mounting
   useEffect(() => {
@@ -293,11 +418,22 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     let animId: number;
     let scrollerEl: HTMLElement | null = null;
     let observer: MutationObserver | null = null;
+    let scrollerLayoutUnsub: (() => void) | null = null;
 
     const onScrollOrResize = () => {
       cancelAnimationFrame(animId);
       animId = requestAnimationFrame(updatePinPositions);
     };
+
+    if (scrollPlugin && typeof scrollPlugin.onScrollerData === 'function') {
+      try {
+        scrollerLayoutUnsub = scrollPlugin.onScrollerData(undefined, () => {
+          onScrollOrResize();
+        });
+      } catch {
+        // fallback
+      }
+    }
 
     const attachScroller = () => {
       if (!active || scrollerEl) return;
@@ -362,13 +498,16 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
       cancelAnimationFrame(animId);
       clearInterval(interval);
       clearTimeout(stopPolling);
+      if (typeof scrollerLayoutUnsub === 'function') {
+        scrollerLayoutUnsub();
+      }
       scrollerEl?.removeEventListener('scroll', onScrollOrResize);
       scrollerElRef.current = null;
       window.removeEventListener('resize', onScrollOrResize);
       observer?.disconnect();
       ro.disconnect();
     };
-  }, [viewerContainer, pins, updatePinPositions]);
+  }, [viewerContainer, pins, updatePinPositions, scrollPlugin]);
 
   // Place or adjust the candidate pin at specific viewport coordinates
   const placeCandidateAt = useCallback(
@@ -378,15 +517,14 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
       const shadow = embedEl?.shadowRoot;
       if (!shadow) return;
 
-      const pages = getPageContainers(shadow);
-      if (pages.length === 0) return;
+      const renderedPages = getRenderedPages(shadow, scrollPlugin);
+      if (renderedPages.size === 0) return;
 
       const viewerRect = viewerContainer.getBoundingClientRect();
 
       // 1. Direct hit check
-      for (let i = 0; i < pages.length; i++) {
-        const pageEl = pages[i];
-        const rect = pageEl.getBoundingClientRect();
+      for (const page of renderedPages.values()) {
+        const rect = page.rect;
         if (
           clientX >= rect.left &&
           clientX <= rect.right &&
@@ -396,7 +534,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
           const rawX = ((clientX - rect.left) / rect.width) * 100;
           const rawY = ((clientY - rect.top) / rect.height) * 100;
           const coords = {
-            pageNumber: i + 1,
+            pageNumber: page.pageNumber,
             x: Number(Math.max(0, Math.min(100, rawX)).toFixed(1)),
             y: Number(Math.max(0, Math.min(100, rawY)).toFixed(1)),
           };
@@ -410,36 +548,36 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
       }
 
       // 2. Proximity check (if user tapped slightly into margin)
-      let closestIdx = 0;
+      let closestPage: RenderedPageInfo | null = null;
       let minDistance = Infinity;
-      for (let i = 0; i < pages.length; i++) {
-        const pageEl = pages[i];
-        const rect = pageEl.getBoundingClientRect();
+      for (const page of renderedPages.values()) {
+        const rect = page.rect;
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
         const dist = Math.hypot(clientX - centerX, clientY - centerY);
         if (dist < minDistance) {
           minDistance = dist;
-          closestIdx = i;
+          closestPage = page;
         }
       }
 
-      const pageEl = pages[closestIdx];
-      const rect = pageEl.getBoundingClientRect();
-      const rawX = ((clientX - rect.left) / rect.width) * 100;
-      const rawY = ((clientY - rect.top) / rect.height) * 100;
-      const coords = {
-        pageNumber: closestIdx + 1,
-        x: Number(Math.max(0, Math.min(100, rawX)).toFixed(1)),
-        y: Number(Math.max(0, Math.min(100, rawY)).toFixed(1)),
-      };
-      setCandidatePin(coords);
-      setCandidateScreenPos({
-        screenX: rect.left - viewerRect.left + (rect.width * coords.x) / 100,
-        screenY: rect.top - viewerRect.top + (rect.height * coords.y) / 100,
-      });
+      if (closestPage) {
+        const rect = closestPage.rect;
+        const rawX = ((clientX - rect.left) / rect.width) * 100;
+        const rawY = ((clientY - rect.top) / rect.height) * 100;
+        const coords = {
+          pageNumber: closestPage.pageNumber,
+          x: Number(Math.max(0, Math.min(100, rawX)).toFixed(1)),
+          y: Number(Math.max(0, Math.min(100, rawY)).toFixed(1)),
+        };
+        setCandidatePin(coords);
+        setCandidateScreenPos({
+          screenX: rect.left - viewerRect.left + (rect.width * coords.x) / 100,
+          screenY: rect.top - viewerRect.top + (rect.height * coords.y) / 100,
+        });
+      }
     },
-    [viewerContainer]
+    [viewerContainer, scrollPlugin]
   );
 
   // Touch event handlers for seamless mobile panning and tap placement

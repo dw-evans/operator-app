@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import { PDFViewer } from '@embedpdf/react-pdf-viewer';
 import type { PluginRegistry } from '@embedpdf/snippet';
 import type { PdfPin } from '../types';
-import { PdfPinOverlay, getPageContainers } from './PdfPinOverlay';
+import { PdfPinOverlay, getRenderedPages } from './PdfPinOverlay';
 import { getPdfBlob } from '../services/db';
 
 export interface PdfiumViewerProps {
@@ -55,6 +55,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   onDeletePin,
 }) => {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const [scrollPluginInstance, setScrollPluginInstance] = useState<any>(null);
   const scrollCapabilityRef = useRef<any>(null);
   const pendingPageRef = useRef<number | null>(null);
 
@@ -115,8 +116,8 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         const embedEl = containerEl.querySelector('embedpdf-container');
         const shadow = embedEl?.shadowRoot;
         if (shadow) {
-          const pages = getPageContainers(shadow);
-          const targetEl = pages[page - 1];
+          const renderedPages = getRenderedPages(shadow, scrollCapabilityRef.current);
+          const targetEl = renderedPages.get(page)?.element;
           if (targetEl) {
             targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
@@ -157,6 +158,8 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         registry.getCapabilityProvider?.('scroll')) as any;
 
       if (!scrollPlugin) return;
+
+      setScrollPluginInstance(scrollPlugin);
 
       const capability = scrollPlugin.buildCapability ? scrollPlugin.buildCapability() : scrollPlugin;
       scrollCapabilityRef.current = capability;
@@ -247,6 +250,7 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         onCommentUpdated={onCommentUpdated}
         onEditPin={onEditPin}
         onDeletePin={onDeletePin}
+        scrollPlugin={scrollPluginInstance}
       />
     </div>
   );
