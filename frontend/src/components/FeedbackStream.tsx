@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { FC } from 'react';
 import { MessageSquare, Clock, User, Download, RefreshCw, Pencil, Trash2, Check } from 'lucide-react';
 import type { FeedbackItem } from '../types';
@@ -269,15 +269,43 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
     }
   };
 
-  const filteredItems = feedbackList.filter((item) => {
-    if (filter === 'all') return true;
-    if (filter === 'open') return item.status === 'open';
-    if (filter === 'resolved') return item.status === 'resolved';
-    return true;
-  });
+  const filteredItems = useMemo(() => {
+    return feedbackList
+      .filter((item) => {
+        if (filter === 'all') return true;
+        if (filter === 'open') return item.status === 'open';
+        if (filter === 'resolved') return item.status === 'resolved';
+        return true;
+      })
+      .sort((a, b) => {
+        // 1. Sort by page_ref ascending (Page 1, Page 2, Page 3...)
+        const pageA = a.page_ref > 0 ? a.page_ref : 999999;
+        const pageB = b.page_ref > 0 ? b.page_ref : 999999;
+        if (pageA !== pageB) {
+          return pageA - pageB;
+        }
+
+        // 2. Sort by pin_y ascending (top of the page first, lower down after)
+        const yA = typeof a.pin_y === 'number' && a.pin_y >= 0 ? a.pin_y : 0;
+        const yB = typeof b.pin_y === 'number' && b.pin_y >= 0 ? b.pin_y : 0;
+        if (yA !== yB) {
+          return yA - yB;
+        }
+
+        // 3. Sort by pin_x ascending (left to right, natural reading order)
+        const xA = typeof a.pin_x === 'number' && a.pin_x >= 0 ? a.pin_x : 0;
+        const xB = typeof b.pin_x === 'number' && b.pin_x >= 0 ? b.pin_x : 0;
+        if (xA !== xB) {
+          return xA - xB;
+        }
+
+        // 4. Stable tie-breaker: timestamp ascending
+        return (a.timestamp || '').localeCompare(b.timestamp || '');
+      });
+  }, [feedbackList, filter]);
 
   return (
-    <Card className="p-4 md:p-5 flex flex-col h-[75vh] md:h-[82vh] shadow-sm">
+    <Card className="p-4 md:p-5 flex flex-col h-full min-h-0 shadow-sm">
       {/* Header & Filters */}
       <div className="flex items-center justify-between pb-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
