@@ -1,25 +1,40 @@
-import { useState, useRef, useEffect } from 'react';
-import type { FC, FormEvent, ChangeEvent } from 'react';
-import { Camera, Video, Send, AlertTriangle, X, CheckCircle2, MapPin, Trash2 } from 'lucide-react';
-import { enqueueFeedback, updateCachedFeedbackItemFull } from '../services/db';
-import { submitFeedbackDirect, updateFeedbackDirect, deleteFeedbackDirect } from '../services/api';
-import { syncManager } from '../services/sync';
-import { useOperatorName } from '../services/settings';
-import type { QueuedFeedback, FeedbackItem } from '../types';
-import { Card } from '@/components/ui/card';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { cn } from '@/lib/utils';
-import { DeleteNoteDialog } from './DeleteNoteDialog';
+import { useState, useRef, useEffect } from "react";
+import type { FC, FormEvent, ChangeEvent } from "react";
+import {
+  Camera,
+  Video,
+  Send,
+  AlertTriangle,
+  X,
+  CheckCircle2,
+  MapPin,
+  Trash2,
+} from "lucide-react";
+import { enqueueFeedback, updateCachedFeedbackItemFull } from "../services/db";
+import {
+  submitFeedbackDirect,
+  updateFeedbackDirect,
+  deleteFeedbackDirect,
+} from "../services/api";
+import { syncManager } from "../services/sync";
+import { useOperatorName } from "../services/settings";
+import type { QueuedFeedback, FeedbackItem } from "../types";
+import { Card } from "@/components/ui/card";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
+import { DeleteNoteDialog } from "./DeleteNoteDialog";
 
 interface FeedbackEngineProps {
   slotId: number;
   documentId?: number;
   initialPageRef?: number;
   draftPin?: { pageNumber: number; x: number; y: number } | null;
-  onStartPinPlacement?: (pin?: { pageNumber: number; x: number; y: number } | null) => void;
+  onStartPinPlacement?: (
+    pin?: { pageNumber: number; x: number; y: number } | null,
+  ) => void;
   onClearDraftPin?: () => void;
   onFeedbackSubmitted: () => void;
   editingFeedback?: FeedbackItem | null;
@@ -40,15 +55,20 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   onDeleteNote,
 }) => {
   const [globalOperatorName] = useOperatorName();
-  const authorName = globalOperatorName.trim() || (editingFeedback?.author ?? '');
+  const authorName =
+    globalOperatorName.trim() || (editingFeedback?.author ?? "");
   const [pageRef, setPageRef] = useState<number>(initialPageRef || 1);
-  const [sectionRef, setSectionRef] = useState('');
+  const [sectionRef, setSectionRef] = useState("");
   const [pinCoords, setPinCoords] = useState<{ x: number; y: number } | null>(
-    draftPin ? { x: draftPin.x, y: draftPin.y } : null
+    draftPin ? { x: draftPin.x, y: draftPin.y } : null,
   );
 
   useEffect(() => {
-    if (initialPageRef !== undefined && initialPageRef > 0 && !editingFeedback) {
+    if (
+      initialPageRef !== undefined &&
+      initialPageRef > 0 &&
+      !editingFeedback
+    ) {
       setPageRef(initialPageRef);
     }
   }, [initialPageRef, editingFeedback]);
@@ -61,10 +81,12 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       }
     }
   }, [draftPin]);
-  const [textComment, setTextComment] = useState('');
+  const [textComment, setTextComment] = useState("");
 
   // Media state
-  const [selectedPhotos, setSelectedPhotos] = useState<{ file: File; preview: string }[]>([]);
+  const [selectedPhotos, setSelectedPhotos] = useState<
+    { file: File; preview: string }[]
+  >([]);
   const [selectedVideo, setSelectedVideo] = useState<{
     file: File;
     preview: string;
@@ -72,7 +94,9 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   } | null>(null);
 
   // Existing media state for edit mode
-  const [existingPhotos, setExistingPhotos] = useState<{ filename: string; url: string }[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<
+    { filename: string; url: string }[]
+  >([]);
   const [existingVideo, setExistingVideo] = useState<{
     filename?: string;
     url: string;
@@ -91,19 +115,26 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       if (editingFeedback.id !== prevEditingIdRef.current) {
         prevEditingIdRef.current = editingFeedback.id;
         setPageRef(editingFeedback.page_ref || 1);
-        setSectionRef(editingFeedback.section_ref || '');
-        if ((editingFeedback.pin_x ?? 0) > 0 || (editingFeedback.pin_y ?? 0) > 0) {
-          setPinCoords({ x: editingFeedback.pin_x ?? 0, y: editingFeedback.pin_y ?? 0 });
+        setSectionRef(editingFeedback.section_ref || "");
+        if (
+          (editingFeedback.pin_x ?? 0) > 0 ||
+          (editingFeedback.pin_y ?? 0) > 0
+        ) {
+          setPinCoords({
+            x: editingFeedback.pin_x ?? 0,
+            y: editingFeedback.pin_y ?? 0,
+          });
         } else {
           setPinCoords(null);
         }
-        setTextComment(editingFeedback.text_comment || '');
+        setTextComment(editingFeedback.text_comment || "");
 
         const photos: { filename: string; url: string }[] = [];
         const urls = editingFeedback.photo_urls || [];
         const filenames = editingFeedback.photo_filenames || [];
         urls.forEach((url, i) => {
-          const filename = filenames[i] || url.split('/').pop() || `photo_${i}.jpg`;
+          const filename =
+            filenames[i] || url.split("/").pop() || `photo_${i}.jpg`;
           photos.push({ filename, url });
         });
         setExistingPhotos(photos);
@@ -111,7 +142,11 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         if (editingFeedback.video_url || editingFeedback.video_filename) {
           setExistingVideo({
             filename: editingFeedback.video_filename || undefined,
-            url: editingFeedback.video_url || (editingFeedback.video_filename ? `/media/${editingFeedback.video_filename}` : ''),
+            url:
+              editingFeedback.video_url ||
+              (editingFeedback.video_filename
+                ? `/media/${editingFeedback.video_filename}`
+                : ""),
           });
         } else {
           setExistingVideo(null);
@@ -132,7 +167,10 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   // Warnings & status
   const [videoWarning, setVideoWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState<{ text: string; type: 'success' | 'queued' | 'error' } | null>(null);
+  const [submitMessage, setSubmitMessage] = useState<{
+    text: string;
+    type: "success" | "queued" | "error";
+  } | null>(null);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -147,7 +185,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     }));
     setSelectedPhotos((prev) => [...prev, ...newItems]);
     // Reset input
-    if (photoInputRef.current) photoInputRef.current.value = '';
+    if (photoInputRef.current) photoInputRef.current.value = "";
   };
 
   const removePhoto = (index: number) => {
@@ -179,8 +217,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     }
 
     // Inspect video duration via temporary element
-    const tempVideo = document.createElement('video');
-    tempVideo.preload = 'metadata';
+    const tempVideo = document.createElement("video");
+    tempVideo.preload = "metadata";
     tempVideo.src = previewUrl;
     tempVideo.onloadedmetadata = () => {
       const duration = tempVideo.duration;
@@ -198,7 +236,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       setVideoWarning(warning);
     };
 
-    if (videoInputRef.current) videoInputRef.current.value = '';
+    if (videoInputRef.current) videoInputRef.current.value = "";
   };
 
   const removeVideo = () => {
@@ -212,12 +250,21 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!authorName.trim()) {
-      alert('Please configure your Operator Name in Settings (top-right ⚙ menu) before submitting.');
+      alert(
+        "Please configure your Operator Name in Settings (top-right ⚙ menu) before submitting.",
+      );
       return;
     }
-    const hasExistingMedia = existingPhotos.length > 0 || (existingVideo !== null && !removeExistingVideo);
-    if (!textComment.trim() && selectedPhotos.length === 0 && !selectedVideo && !hasExistingMedia) {
-      alert('Please enter a comment or attach a photo/video.');
+    const hasExistingMedia =
+      existingPhotos.length > 0 ||
+      (existingVideo !== null && !removeExistingVideo);
+    if (
+      !textComment.trim() &&
+      selectedPhotos.length === 0 &&
+      !selectedVideo &&
+      !hasExistingMedia
+    ) {
+      alert("Please enter a comment or attach a photo/video.");
       return;
     }
 
@@ -231,44 +278,51 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       if (isOnline) {
         try {
           const formData = new FormData();
-          formData.append('slot_id', slotId.toString());
+          formData.append("slot_id", slotId.toString());
           if (documentId !== undefined) {
-            formData.append('document_id', documentId.toString());
+            formData.append("document_id", documentId.toString());
           }
-          formData.append('page_ref', pageRef.toString());
-          formData.append('section_ref', sectionRef.trim());
-          formData.append('pin_x', (pinCoords?.x ?? 0.0).toString());
-          formData.append('pin_y', (pinCoords?.y ?? 0.0).toString());
-          formData.append('author', authorName.trim());
-          formData.append('text_comment', textComment.trim());
+          formData.append("page_ref", pageRef.toString());
+          formData.append("section_ref", sectionRef.trim());
+          formData.append("pin_x", (pinCoords?.x ?? 0.0).toString());
+          formData.append("pin_y", (pinCoords?.y ?? 0.0).toString());
+          formData.append("author", authorName.trim());
+          formData.append("text_comment", textComment.trim());
 
           // Send retained existing photos as JSON array of filenames
           const retainedFilenames = existingPhotos.map((p) => p.filename);
-          formData.append('existing_photos', JSON.stringify(retainedFilenames));
+          formData.append("existing_photos", JSON.stringify(retainedFilenames));
 
           // Append any newly added photos
           for (const photo of selectedPhotos) {
-            formData.append('photos', photo.file, photo.file.name);
+            formData.append("photos", photo.file, photo.file.name);
           }
 
           // Handle new video or removal of video
           if (selectedVideo) {
-            formData.append('video', selectedVideo.file, selectedVideo.file.name);
+            formData.append(
+              "video",
+              selectedVideo.file,
+              selectedVideo.file.name,
+            );
           } else if (removeExistingVideo) {
-            formData.append('remove_video', 'true');
+            formData.append("remove_video", "true");
           }
 
           await updateFeedbackDirect(editingFeedback.id, formData);
           syncManager.recordSuccessfulSync();
           setSubmitMessage({
-            text: 'Note updated successfully!',
-            type: 'success',
+            text: "Note updated successfully!",
+            type: "success",
           });
           resetForm();
           onFeedbackSubmitted();
           return;
         } catch (err) {
-          console.warn('Direct update failed, falling back to offline update:', err);
+          console.warn(
+            "Direct update failed, falling back to offline update:",
+            err,
+          );
         }
       }
 
@@ -284,22 +338,32 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           text_comment: textComment.trim() || undefined,
           photo_filenames: existingPhotos.map((p) => p.filename),
           photo_urls: existingPhotos.map((p) => p.url),
-          video_filename: removeExistingVideo && !selectedVideo ? null : (selectedVideo ? selectedVideo.file.name : editingFeedback.video_filename),
-          video_url: removeExistingVideo && !selectedVideo ? null : (selectedVideo ? selectedVideo.preview : editingFeedback.video_url),
+          video_filename:
+            removeExistingVideo && !selectedVideo
+              ? null
+              : selectedVideo
+                ? selectedVideo.file.name
+                : editingFeedback.video_filename,
+          video_url:
+            removeExistingVideo && !selectedVideo
+              ? null
+              : selectedVideo
+                ? selectedVideo.preview
+                : editingFeedback.video_url,
         };
 
         await updateCachedFeedbackItemFull(slotId, updatedItem);
         setSubmitMessage({
-          text: 'Note updated locally! Queued for auto-sync once connected.',
-          type: 'queued',
+          text: "Note updated locally! Queued for auto-sync once connected.",
+          type: "queued",
         });
         resetForm();
         onFeedbackSubmitted();
       } catch (queueErr) {
-        console.error('Failed to update feedback locally:', queueErr);
+        console.error("Failed to update feedback locally:", queueErr);
         setSubmitMessage({
-          text: 'Failed to update note. Please try again.',
-          type: 'error',
+          text: "Failed to update note. Please try again.",
+          type: "error",
         });
       } finally {
         setIsSubmitting(false);
@@ -308,46 +372,50 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
     }
 
     // Creating a new feedback note
-    const feedbackId = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `fb_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const feedbackId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `fb_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     if (isOnline) {
       try {
         const formData = new FormData();
-        formData.append('id', feedbackId);
-        formData.append('slot_id', slotId.toString());
+        formData.append("id", feedbackId);
+        formData.append("slot_id", slotId.toString());
         if (documentId !== undefined) {
-          formData.append('document_id', documentId.toString());
+          formData.append("document_id", documentId.toString());
         }
-        formData.append('page_ref', pageRef.toString());
+        formData.append("page_ref", pageRef.toString());
         if (sectionRef.trim()) {
-          formData.append('section_ref', sectionRef.trim());
+          formData.append("section_ref", sectionRef.trim());
         }
-        formData.append('pin_x', (pinCoords?.x ?? 0.0).toString());
-        formData.append('pin_y', (pinCoords?.y ?? 0.0).toString());
-        formData.append('author', authorName.trim());
+        formData.append("pin_x", (pinCoords?.x ?? 0.0).toString());
+        formData.append("pin_y", (pinCoords?.y ?? 0.0).toString());
+        formData.append("author", authorName.trim());
         if (textComment.trim()) {
-          formData.append('text_comment', textComment.trim());
+          formData.append("text_comment", textComment.trim());
         }
         if (selectedVideo) {
-          formData.append('video', selectedVideo.file, selectedVideo.file.name);
+          formData.append("video", selectedVideo.file, selectedVideo.file.name);
         }
         for (const photo of selectedPhotos) {
-          formData.append('photos', photo.file, photo.file.name);
+          formData.append("photos", photo.file, photo.file.name);
         }
 
         await submitFeedbackDirect(formData);
         syncManager.recordSuccessfulSync();
         setSubmitMessage({
-          text: 'Feedback submitted successfully!',
-          type: 'success',
+          text: "Feedback submitted successfully!",
+          type: "success",
         });
         resetForm();
         onFeedbackSubmitted();
         return;
       } catch (err) {
-        console.warn('Direct upload failed, falling back to offline queue:', err);
+        console.warn(
+          "Direct upload failed, falling back to offline queue:",
+          err,
+        );
       }
     }
 
@@ -370,23 +438,23 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           name: p.file.name,
         })),
         timestamp: new Date().toISOString(),
-        status: 'pending',
+        status: "pending",
       };
 
       await enqueueFeedback(queuedItem);
       await syncManager.refreshCount();
 
       setSubmitMessage({
-        text: 'Saved offline! Queued for auto-sync once connected.',
-        type: 'queued',
+        text: "Saved offline! Queued for auto-sync once connected.",
+        type: "queued",
       });
       resetForm();
       onFeedbackSubmitted();
     } catch (queueErr) {
-      console.error('Failed to queue feedback in IndexedDB:', queueErr);
+      console.error("Failed to queue feedback in IndexedDB:", queueErr);
       setSubmitMessage({
-        text: 'Failed to record feedback. Please check tablet storage.',
-        type: 'error',
+        text: "Failed to record feedback. Please check tablet storage.",
+        type: "error",
       });
     } finally {
       setIsSubmitting(false);
@@ -395,8 +463,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
 
   const resetForm = () => {
     prevEditingIdRef.current = null;
-    setTextComment('');
-    setSectionRef('');
+    setTextComment("");
+    setSectionRef("");
     setPinCoords(null);
     onClearDraftPin?.();
     setSelectedPhotos([]);
@@ -421,8 +489,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
       resetForm();
       onFeedbackSubmitted();
     } catch (err) {
-      console.error('Failed to delete note from engine:', err);
-      alert('Failed to delete note. Please try again.');
+      console.error("Failed to delete note from engine:", err);
+      alert("Failed to delete note. Please try again.");
     } finally {
       setIsDeleting(false);
     }
@@ -434,13 +502,16 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-card-foreground text-sm md:text-base">
-              {editingFeedback ? 'Edit Station Note' : 'Submit Station Note'}
+              {editingFeedback ? "Edit Comment" : "Submit Comment"}
             </h3>
             <Badge variant="outline" className="text-xs font-mono font-medium">
               Slot {slotId}
             </Badge>
             {editingFeedback && (
-              <Badge variant="secondary" className="text-xs font-mono font-medium text-primary">
+              <Badge
+                variant="secondary"
+                className="text-xs font-mono font-medium text-primary"
+              >
                 Editing
               </Badge>
             )}
@@ -458,18 +529,20 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 Cancel Edit
               </button>
             ) : (
-              'Offline sync active'
+              "Offline sync active"
             )}
           </div>
         </div>
 
         {submitMessage && (
           <Alert
-            variant={submitMessage.type === 'error' ? 'destructive' : 'default'}
+            variant={submitMessage.type === "error" ? "destructive" : "default"}
             className={cn(
-              'mb-4',
-              submitMessage.type === 'success' && 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10',
-              submitMessage.type === 'queued' && 'border-amber-500/40 text-amber-400 bg-amber-500/10'
+              "mb-4",
+              submitMessage.type === "success" &&
+                "border-emerald-500/40 text-emerald-400 bg-emerald-500/10",
+              submitMessage.type === "queued" &&
+                "border-amber-500/40 text-amber-400 bg-amber-500/10",
             )}
           >
             <CheckCircle2 className="h-4 w-4" />
@@ -516,7 +589,9 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
             <div>
               <label className="block text-[11px] font-medium text-muted-foreground mb-1 flex items-center justify-between">
                 <span>Page Reference & Pin *</span>
-                <span className="text-[10px] text-primary font-mono font-semibold">Synced</span>
+                <span className="text-[10px] text-primary font-mono font-semibold">
+                  Synced
+                </span>
               </label>
               <div className="flex items-center gap-2">
                 <Input
@@ -524,7 +599,9 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                   min="1"
                   required
                   value={pageRef}
-                  onChange={(e) => setPageRef(parseInt(e.target.value, 10) || 1)}
+                  onChange={(e) =>
+                    setPageRef(parseInt(e.target.value, 10) || 1)
+                  }
                   className="font-mono bg-muted/20 w-28 shrink-0"
                 />
                 <Button
@@ -545,8 +622,17 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                   }
                   className="h-9 px-3 gap-1.5 text-xs flex-1 cursor-pointer font-medium"
                 >
-                  <MapPin className={cn("w-3.5 h-3.5", pinCoords ? "text-primary" : "text-muted-foreground")} />
-                  <span>{pinCoords ? `Move Pin (${pinCoords.x}%, ${pinCoords.y}%)` : 'Drop Pin on Page'}</span>
+                  <MapPin
+                    className={cn(
+                      "w-3.5 h-3.5",
+                      pinCoords ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <span>
+                    {pinCoords
+                      ? `Move Pin (${pinCoords.x}%, ${pinCoords.y}%)`
+                      : "Drop Pin on Page"}
+                  </span>
                 </Button>
                 {pinCoords && (
                   <Button
@@ -598,8 +684,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
               <label
                 htmlFor="photo-upload"
                 className={cn(
-                  buttonVariants({ variant: 'outline', size: 'sm' }),
-                  'cursor-pointer gap-1.5'
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "cursor-pointer gap-1.5",
                 )}
               >
                 <Camera className="w-3.5 h-3.5 text-muted-foreground" />
@@ -619,8 +705,8 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
               <label
                 htmlFor="video-upload"
                 className={cn(
-                  buttonVariants({ variant: 'outline', size: 'sm' }),
-                  'cursor-pointer gap-1.5'
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "cursor-pointer gap-1.5",
                 )}
               >
                 <Video className="w-3.5 h-3.5 text-muted-foreground" />
@@ -637,7 +723,10 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
             )}
 
             {/* Previews: Existing and New Media */}
-            {(existingPhotos.length > 0 || (existingVideo && !removeExistingVideo) || selectedPhotos.length > 0 || selectedVideo) && (
+            {(existingPhotos.length > 0 ||
+              (existingVideo && !removeExistingVideo) ||
+              selectedPhotos.length > 0 ||
+              selectedVideo) && (
               <div className="mt-3 flex flex-wrap gap-2.5">
                 {/* Existing Photos */}
                 {existingPhotos.map((photo, idx) => (
@@ -692,7 +781,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                     <Video className="w-4 h-4 text-primary shrink-0" />
                     <div className="text-xs">
                       <div className="font-medium text-foreground truncate max-w-[140px]">
-                        {existingVideo.filename || 'Attached Video'}
+                        {existingVideo.filename || "Attached Video"}
                       </div>
                       <div className="text-muted-foreground text-[10px]">
                         Saved video attachment
@@ -718,8 +807,10 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                         {selectedVideo.file.name}
                       </div>
                       <div className="text-muted-foreground text-[10px]">
-                        {(selectedVideo.file.size / (1024 * 1024)).toFixed(1)} MB
-                        {selectedVideo.duration && ` • ${Math.round(selectedVideo.duration)}s`}
+                        {(selectedVideo.file.size / (1024 * 1024)).toFixed(1)}{" "}
+                        MB
+                        {selectedVideo.duration &&
+                          ` • ${Math.round(selectedVideo.duration)}s`}
                       </div>
                     </div>
                     <button
@@ -772,8 +863,12 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
               <Send className="w-3.5 h-3.5" />
               <span>
                 {isSubmitting
-                  ? (editingFeedback ? 'Saving Changes...' : 'Recording Note...')
-                  : (editingFeedback ? 'Save Changes' : 'Submit Note')}
+                  ? editingFeedback
+                    ? "Saving Changes..."
+                    : "Recording Comment..."
+                  : editingFeedback
+                    ? "Save Changes"
+                    : "Submit Comment"}
               </span>
             </Button>
           </div>

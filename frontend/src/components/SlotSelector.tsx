@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react';
-import type { FC } from 'react';
-import { ChevronRight, MessageSquare, AlertCircle, Clock, RefreshCw } from 'lucide-react';
-import type { SlotSummary } from '../types';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { pdfCacheManager } from '../services/pdfCache';
+import { useState, useEffect } from "react";
+import type { FC } from "react";
+import {
+  ChevronRight,
+  MessageSquare,
+  AlertCircle,
+  Clock,
+  RefreshCw,
+} from "lucide-react";
+import type { SlotSummary } from "../types";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { pdfCacheManager } from "../services/pdfCache";
 
 interface SlotSelectorProps {
   slots: SlotSummary[];
@@ -31,7 +37,8 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
           Assembly Manuals
         </h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Select any of the 10 document slots to view instructions and submit station notes.
+          Select any of the 10 document slots to view instructions and submit
+          comments.
         </p>
       </div>
 
@@ -49,7 +56,10 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
           {slots.map((slot) => {
             const hasDoc = Boolean(slot.live_document);
             const doc = slot.live_document;
-            const isCached = hasDoc && doc?.url ? Boolean(cacheStatus.cachedUrls[doc.url]) : false;
+            const isCached =
+              hasDoc && doc?.url
+                ? Boolean(cacheStatus.cachedUrls[doc.url])
+                : false;
 
             return (
               <Card
@@ -58,19 +68,20 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
                   if (hasDoc) onSelectSlot(slot.slot_id);
                 }}
                 className={cn(
-                  'group relative flex flex-col justify-between text-left p-4 transition-all duration-150',
+                  "group relative flex flex-col justify-between text-left p-4 transition-all duration-150",
                   hasDoc
-                    ? 'cursor-pointer hover:border-ring/50 hover:bg-accent/40 active:scale-[0.99] shadow-sm'
-                    : 'opacity-50 cursor-not-allowed bg-muted/20 border-dashed'
+                    ? "cursor-pointer hover:border-ring/50 hover:bg-accent/40 active:scale-[0.99] shadow-sm"
+                    : "opacity-50 cursor-not-allowed bg-muted/20 border-dashed",
                 )}
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <Badge
-                      variant={hasDoc ? 'outline' : 'secondary'}
+                      variant={hasDoc ? "outline" : "secondary"}
                       className="text-xs font-mono font-medium"
                     >
-                      SLOT {slot.slot_id < 10 ? `0${slot.slot_id}` : slot.slot_id}
+                      SLOT{" "}
+                      {slot.slot_id < 10 ? `0${slot.slot_id}` : slot.slot_id}
                     </Badge>
 
                     <div className="flex items-center gap-1.5">
@@ -95,7 +106,10 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
                         </Badge>
                       )}
                       {hasDoc && doc?.version && (
-                        <Badge variant="secondary" className="text-[11px] font-mono font-medium">
+                        <Badge
+                          variant="secondary"
+                          className="text-[11px] font-mono font-medium"
+                        >
                           v{doc.version}
                         </Badge>
                       )}
@@ -103,13 +117,15 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
                   </div>
 
                   <h3 className="font-medium text-sm text-card-foreground line-clamp-2 leading-snug">
-                    {hasDoc ? doc?.title : 'No Manual Uploaded'}
+                    {hasDoc ? doc?.title : "No Manual Uploaded"}
                   </h3>
 
                   {hasDoc && doc?.upload_date && (
                     <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-2">
                       <Clock className="w-3 h-3 text-muted-foreground" />
-                      <span>{new Date(doc.upload_date).toLocaleDateString()}</span>
+                      <span>
+                        {new Date(doc.upload_date).toLocaleDateString()}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -124,7 +140,9 @@ export const SlotSelector: FC<SlotSelectorProps> = ({
                             <span>{slot.total_feedback}</span>
                           </div>
                         ) : (
-                          <span className="text-[11px] text-muted-foreground">Ready</span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Ready
+                          </span>
                         )}
                       </div>
                       <div className="flex items-center text-xs font-medium text-muted-foreground group-hover:text-foreground">

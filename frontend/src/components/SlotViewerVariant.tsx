@@ -178,11 +178,14 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
 
   useEffect(() => {
     if (isNotesOpen) {
-      if (!isNotesInHistoryRef.current && window.history.state?.panel !== "notes") {
+      if (
+        !isNotesInHistoryRef.current &&
+        window.history.state?.panel !== "notes"
+      ) {
         window.history.pushState(
           { ...window.history.state, panel: "notes" },
           "",
-          window.location.href
+          window.location.href,
         );
         isNotesInHistoryRef.current = true;
       }
@@ -230,7 +233,10 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   // Cleanup on unmount if notes panel entry was still active in history
   useEffect(() => {
     return () => {
-      if (isNotesInHistoryRef.current && window.history.state?.panel === "notes") {
+      if (
+        isNotesInHistoryRef.current &&
+        window.history.state?.panel === "notes"
+      ) {
         isNotesInHistoryRef.current = false;
         window.history.back();
       }
@@ -280,7 +286,13 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
     } finally {
       setIsDeletingNote(false);
     }
-  }, [noteToDelete, slotId, editingFeedback, loadFeedback, onFeedbackSubmitted]);
+  }, [
+    noteToDelete,
+    slotId,
+    editingFeedback,
+    loadFeedback,
+    onFeedbackSubmitted,
+  ]);
 
   // Notes specifically relevant to this document revision
   const relevantFeedback = useMemo(() => {
@@ -349,7 +361,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-foreground">
-                Station Notes & Discrepancies
+                Comments
               </h2>
               <Badge variant="outline" className="font-mono text-[11px]">
                 Slot {slotId}
@@ -386,7 +398,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             )}
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>{editingFeedback ? "Edit Note" : "Submit Note"}</span>
+            <span>{editingFeedback ? "Edit Comment" : "Submit Comment"}</span>
           </button>
 
           <button
@@ -399,7 +411,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             )}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Notes</span>
+            <span>Comments</span>
             {noteCount > 0 && (
               <Badge
                 variant="secondary"
@@ -421,14 +433,22 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             initialPageRef={activePage}
             draftPin={draftPin}
             onStartPinPlacement={(currentPin) => {
-              const pinToPlace = currentPin || draftPin || (editingFeedback ? {
-                pageNumber: editingFeedback.page_ref,
-                x: editingFeedback.pin_x ?? 50,
-                y: editingFeedback.pin_y ?? 50,
-              } : null);
+              const pinToPlace =
+                currentPin ||
+                draftPin ||
+                (editingFeedback
+                  ? {
+                      pageNumber: editingFeedback.page_ref,
+                      x: editingFeedback.pin_x ?? 50,
+                      y: editingFeedback.pin_y ?? 50,
+                    }
+                  : null);
               if (pinToPlace) {
                 setDraftPin(pinToPlace);
-                setTargetPage({ pageNumber: pinToPlace.pageNumber, seq: Date.now() });
+                setTargetPage({
+                  pageNumber: pinToPlace.pageNumber,
+                  seq: Date.now(),
+                });
               }
               setShowPins(true);
               setIsPlacingPin(true);
@@ -493,15 +513,6 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       {/* Custom Station Toolbar directly above the PDF component */}
       <div className="shrink-0 bg-muted/30 border-b border-border px-3 py-1.5 flex items-center justify-between gap-2 z-10">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-            <FileText className="w-3.5 h-3.5 text-primary" />
-          </span>
-          <Badge
-            variant="outline"
-            className="font-mono text-[11px] px-2 py-0.5 h-5 bg-background"
-          >
-            Page {activePage}
-          </Badge>
           {document && !document.is_live && (
             <div className="flex items-center gap-1.5 shrink-0">
               <Badge
@@ -564,7 +575,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Quick Submit Note Button */}
+          {/* Quick Submit Comment Button */}
           <Button
             variant="outline"
             size="sm"
@@ -577,7 +588,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             className="h-7 px-2.5 gap-1.5 text-xs font-medium cursor-pointer"
           >
             <PlusCircle className="w-3.5 h-3.5 text-primary" />
-            <span>Add Note</span>
+            <span>Add Comment</span>
           </Button>
 
           {/* Notes / Comments Button */}
@@ -608,7 +619,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             ) : (
               <MessageSquare className="w-3.5 h-3.5" />
             )}
-            <span>Notes</span>
+            <span>Comments</span>
             {noteCount > 0 && (
               <Badge
                 variant={isWideScreen && isNotesOpen ? "default" : "secondary"}
@@ -686,7 +697,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
               style={{ width: `${dockWidth}px` }}
               className="shrink-0 h-full bg-card border-l border-border flex flex-col shadow-lg z-10 overflow-hidden"
               role="region"
-              aria-label="Station Notes and Comments Dock"
+              aria-label="Comments Dock"
             >
               {renderNotesContent(true)}
             </aside>
@@ -699,14 +710,14 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
         <div
           className={cn(
             "fixed inset-0 z-50 flex justify-end transition-all duration-200",
-            !isNotesOpen && "pointer-events-none opacity-0 invisible"
+            !isNotesOpen && "pointer-events-none opacity-0 invisible",
           )}
         >
           {/* Backdrop */}
           <div
             className={cn(
               "fixed inset-0 bg-black/40 transition-opacity duration-200",
-              !isNotesOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+              !isNotesOpen ? "opacity-0 pointer-events-none" : "opacity-100",
             )}
             onClick={handleCloseNotes}
           />
@@ -715,10 +726,10 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
           <aside
             role="dialog"
             aria-modal="true"
-            aria-label="Station Notes and Comments"
+            aria-label="Comments"
             className={cn(
               "relative z-50 flex flex-col bg-card border-border shadow-2xl transition-transform duration-200 overflow-hidden inset-0 w-full h-full md:inset-y-0 md:right-0 md:left-auto md:w-full md:max-w-lg md:border-l md:rounded-l-2xl",
-              !isNotesOpen && "translate-x-full"
+              !isNotesOpen && "translate-x-full",
             )}
           >
             {renderNotesContent(false)}
@@ -732,10 +743,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
       )}
 
       {/* Unified Zoomable Photo Lightbox Modal */}
-      <PhotoLightboxModal
-        photoUrl={activePhoto}
-        onClose={handleClosePhoto}
-      />
+      <PhotoLightboxModal photoUrl={activePhoto} onClose={handleClosePhoto} />
 
       {/* Delete Confirmation Warning Dialog */}
       <DeleteNoteDialog

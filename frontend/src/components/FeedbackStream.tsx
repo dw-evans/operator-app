@@ -1,22 +1,36 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { FC } from 'react';
-import { MessageSquare, Clock, User, Download, RefreshCw, Pencil, Trash2, Check } from 'lucide-react';
-import type { FeedbackItem } from '../types';
-import { fetchSlotFeedback, updateFeedbackComment, deleteFeedbackDirect, updateFeedbackStatus } from '../services/api';
-import { isMediaCached, getMediaBlob, saveMediaBlob } from '../services/db';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import type { FC } from "react";
+import {
+  MessageSquare,
+  Clock,
+  User,
+  Download,
+  RefreshCw,
+  Pencil,
+  Trash2,
+  Check,
+} from "lucide-react";
+import type { FeedbackItem } from "../types";
+import {
+  fetchSlotFeedback,
+  updateFeedbackComment,
+  deleteFeedbackDirect,
+  updateFeedbackStatus,
+} from "../services/api";
+import { isMediaCached, getMediaBlob, saveMediaBlob } from "../services/db";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { cn, formatNoteDateTime } from '@/lib/utils';
-import { DeleteNoteDialog } from './DeleteNoteDialog';
-import { PhotoLightboxModal } from './PhotoLightboxModal';
+} from "@/components/ui/select";
+import { cn, formatNoteDateTime } from "@/lib/utils";
+import { DeleteNoteDialog } from "./DeleteNoteDialog";
+import { PhotoLightboxModal } from "./PhotoLightboxModal";
 
 interface FeedbackStreamProps {
   slotId: number;
@@ -43,13 +57,15 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 }) => {
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
-  const [selectedId, setSelectedId] = useState<string | null>(highlightedFeedbackId ?? null);
+  const [filter, setFilter] = useState<"all" | "open" | "resolved">("all");
+  const [selectedId, setSelectedId] = useState<string | null>(
+    highlightedFeedbackId ?? null,
+  );
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Inline comment edit state
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
+  const [editText, setEditText] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Note deletion state
@@ -65,8 +81,8 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       onNoteDeleted?.(noteToDelete.id);
       setNoteToDelete(null);
     } catch (err) {
-      console.error('Failed to delete note:', err);
-      alert('Failed to delete note. Please try again.');
+      console.error("Failed to delete note:", err);
+      alert("Failed to delete note. Please try again.");
     } finally {
       setIsDeletingNote(false);
     }
@@ -74,17 +90,17 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 
   const handleStatusChange = async (
     item: FeedbackItem,
-    newStatus: 'open' | 'reviewed' | 'resolved'
+    newStatus: "open" | "reviewed" | "resolved",
   ) => {
     // Optimistic UI update
     setFeedbackList((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, status: newStatus } : i))
+      prev.map((i) => (i.id === item.id ? { ...i, status: newStatus } : i)),
     );
     try {
       await updateFeedbackStatus(item.id, newStatus);
-      onCommentUpdated?.(item.id, item.text_comment || '');
+      onCommentUpdated?.(item.id, item.text_comment || "");
     } catch (err) {
-      console.error('Failed to update note status:', err);
+      console.error("Failed to update note status:", err);
       // Revert if API call fails
       loadFeedback();
     }
@@ -102,8 +118,8 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
     if (highlightedFeedbackId && itemRefs.current[highlightedFeedbackId]) {
       const timer = setTimeout(() => {
         itemRefs.current[highlightedFeedbackId]?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
+          behavior: "smooth",
+          block: "center",
         });
       }, 100);
       return () => clearTimeout(timer);
@@ -117,7 +133,15 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 
   // Video state per item: item.id -> { isLoaded: boolean; videoSrc?: string; isCached: boolean; isDownloading: boolean }
   const [videoStates, setVideoStates] = useState<
-    Record<string, { isLoaded: boolean; videoSrc?: string; isCached: boolean; isDownloading: boolean }>
+    Record<
+      string,
+      {
+        isLoaded: boolean;
+        videoSrc?: string;
+        isCached: boolean;
+        isDownloading: boolean;
+      }
+    >
   >({});
 
   // Lightbox state for photos
@@ -125,12 +149,12 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 
   const startEditing = (item: FeedbackItem) => {
     setEditingId(item.id);
-    setEditText(item.text_comment || '');
+    setEditText(item.text_comment || "");
   };
 
   const cancelEditing = () => {
     setEditingId(null);
-    setEditText('');
+    setEditText("");
   };
 
   const handleSaveEdit = async (feedbackId: string) => {
@@ -138,13 +162,15 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
     try {
       await updateFeedbackComment(feedbackId, editText, slotId);
       setFeedbackList((prev) =>
-        prev.map((i) => (i.id === feedbackId ? { ...i, text_comment: editText } : i))
+        prev.map((i) =>
+          i.id === feedbackId ? { ...i, text_comment: editText } : i,
+        ),
       );
       onCommentUpdated?.(feedbackId, editText);
       setEditingId(null);
     } catch (err) {
-      console.error('Failed to update comment:', err);
-      alert('Failed to save comment edit');
+      console.error("Failed to update comment:", err);
+      alert("Failed to save comment edit");
     } finally {
       setIsSavingEdit(false);
     }
@@ -155,13 +181,13 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       onViewPhoto(url);
       return;
     }
-    window.history.pushState({ modal: 'photo', photoUrl: url }, '');
+    window.history.pushState({ modal: "photo", photoUrl: url }, "");
     setActivePhoto(url);
   };
 
   const handleClosePhoto = useCallback(() => {
     if (activePhoto) {
-      if (window.history.state?.modal === 'photo') {
+      if (window.history.state?.modal === "photo") {
         window.history.back();
       } else {
         setActivePhoto(null);
@@ -176,15 +202,15 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && activePhoto) {
+      if (e.key === "Escape" && activePhoto) {
         handleClosePhoto();
       }
     };
-    window.addEventListener('popstate', handlePopState);
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener('popstate', handlePopState);
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [activePhoto, handleClosePhoto]);
 
@@ -223,7 +249,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       }
       setVideoStates(initialStates);
     } catch (err) {
-      console.warn('Failed to fetch slot feedback (may be offline):', err);
+      console.warn("Failed to fetch slot feedback (may be offline):", err);
     } finally {
       setIsLoading(false);
     }
@@ -232,7 +258,6 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
   useEffect(() => {
     loadFeedback();
   }, [slotId, documentId]);
-
 
   // Download video into IndexedDB cache for offline replay
   const handleSaveVideoOffline = async (item: FeedbackItem) => {
@@ -246,7 +271,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
     try {
       const videoUrl = item.video_url || `/media/${item.video_filename}`;
       const res = await fetch(videoUrl);
-      if (!res.ok) throw new Error('Video download failed');
+      if (!res.ok) throw new Error("Video download failed");
       const blob = await res.blob();
       await saveMediaBlob(item.video_filename, blob);
 
@@ -261,7 +286,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
         },
       }));
     } catch (err) {
-      console.error('Failed to download video offline:', err);
+      console.error("Failed to download video offline:", err);
       setVideoStates((prev) => ({
         ...prev,
         [item.id]: { ...prev[item.id], isDownloading: false },
@@ -272,9 +297,9 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
   const filteredItems = useMemo(() => {
     return feedbackList
       .filter((item) => {
-        if (filter === 'all') return true;
-        if (filter === 'open') return item.status === 'open';
-        if (filter === 'resolved') return item.status === 'resolved';
+        if (filter === "all") return true;
+        if (filter === "open") return item.status === "open";
+        if (filter === "resolved") return item.status === "resolved";
         return true;
       })
       .sort((a, b) => {
@@ -286,21 +311,21 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
         }
 
         // 2. Sort by pin_y ascending (top of the page first, lower down after)
-        const yA = typeof a.pin_y === 'number' && a.pin_y >= 0 ? a.pin_y : 0;
-        const yB = typeof b.pin_y === 'number' && b.pin_y >= 0 ? b.pin_y : 0;
+        const yA = typeof a.pin_y === "number" && a.pin_y >= 0 ? a.pin_y : 0;
+        const yB = typeof b.pin_y === "number" && b.pin_y >= 0 ? b.pin_y : 0;
         if (yA !== yB) {
           return yA - yB;
         }
 
         // 3. Sort by pin_x ascending (left to right, natural reading order)
-        const xA = typeof a.pin_x === 'number' && a.pin_x >= 0 ? a.pin_x : 0;
-        const xB = typeof b.pin_x === 'number' && b.pin_x >= 0 ? b.pin_x : 0;
+        const xA = typeof a.pin_x === "number" && a.pin_x >= 0 ? a.pin_x : 0;
+        const xB = typeof b.pin_x === "number" && b.pin_x >= 0 ? b.pin_x : 0;
         if (xA !== xB) {
           return xA - xB;
         }
 
         // 4. Stable tie-breaker: timestamp ascending
-        return (a.timestamp || '').localeCompare(b.timestamp || '');
+        return (a.timestamp || "").localeCompare(b.timestamp || "");
       });
   }, [feedbackList, filter]);
 
@@ -311,7 +336,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
         <div className="flex items-center gap-2">
           <MessageSquare className="w-4 h-4 text-muted-foreground" />
           <h3 className="font-semibold text-card-foreground text-sm md:text-base">
-            Station Notes
+            Comments
           </h3>
           <Badge variant="secondary" className="text-xs">
             {feedbackList.length}
@@ -320,15 +345,15 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 
         <div className="flex items-center gap-2">
           <div className="flex bg-muted/60 rounded-lg p-0.5 text-xs border border-border">
-            {(['all', 'open', 'resolved'] as const).map((tab) => (
+            {(["all", "open", "resolved"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
                 className={cn(
-                  'px-2 py-1 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer',
+                  "px-2 py-1 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer",
                   filter === tab
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {tab}
@@ -342,7 +367,9 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
             onClick={loadFeedback}
             title="Refresh comments"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`}
+            />
           </Button>
         </div>
       </div>
@@ -371,12 +398,16 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                   itemRefs.current[item.id] = el;
                 }}
                 onClick={() => handleCardClick(item)}
-                title={item.page_ref > 0 ? `Jump to Page ${item.page_ref} in PDF` : undefined}
+                title={
+                  item.page_ref > 0
+                    ? `Jump to Page ${item.page_ref} in PDF`
+                    : undefined
+                }
                 className={cn(
                   "border rounded-xl p-3.5 transition-all text-xs md:text-sm cursor-pointer",
                   isSelected
                     ? "bg-primary/5 border-primary ring-2 ring-primary/40 shadow-sm"
-                    : "bg-muted/20 border-border hover:border-border/80 hover:bg-muted/30"
+                    : "bg-muted/20 border-border hover:border-border/80 hover:bg-muted/30",
                 )}
               >
                 {/* Meta Header */}
@@ -386,11 +417,17 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                       <User className="w-3.5 h-3.5 text-muted-foreground" />
                       {item.author}
                     </span>
-                    <Badge variant="secondary" className="font-mono text-[11px]">
+                    <Badge
+                      variant="secondary"
+                      className="font-mono text-[11px]"
+                    >
                       Page {item.page_ref}
                     </Badge>
                     {item.section_ref && (
-                      <Badge variant="outline" className="font-mono text-[11px] border-primary/40 text-primary">
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-[11px] border-primary/40 text-primary"
+                      >
                         Sec {item.section_ref}
                       </Badge>
                     )}
@@ -411,7 +448,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                             if (val) {
                               handleStatusChange(
                                 item,
-                                val as 'open' | 'reviewed' | 'resolved'
+                                val as "open" | "reviewed" | "resolved",
                               );
                             }
                           }}
@@ -420,12 +457,12 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                             size="sm"
                             className={cn(
                               "h-6 px-2 text-[10px] uppercase font-mono font-semibold tracking-wider rounded-md border cursor-pointer",
-                              item.status === 'resolved' &&
+                              item.status === "resolved" &&
                                 "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-                              item.status === 'reviewed' &&
+                              item.status === "reviewed" &&
                                 "bg-blue-500/10 text-blue-400 border-blue-500/30",
-                              item.status === 'open' &&
-                                "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                              item.status === "open" &&
+                                "bg-amber-500/10 text-amber-400 border-amber-500/30",
                             )}
                             title="Change status"
                           >
@@ -456,11 +493,11 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                     ) : (
                       <Badge
                         variant={
-                          item.status === 'resolved'
-                            ? 'default'
-                            : item.status === 'reviewed'
-                            ? 'secondary'
-                            : 'outline'
+                          item.status === "resolved"
+                            ? "default"
+                            : item.status === "reviewed"
+                              ? "secondary"
+                              : "outline"
                         }
                         className="text-[10px] uppercase tracking-wider font-mono font-medium"
                       >
@@ -500,7 +537,10 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
 
                 {/* Text comment or inline edit form */}
                 {editingId === item.id ? (
-                  <div className="mb-2.5 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="mb-2.5 space-y-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <textarea
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
@@ -584,15 +624,21 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                       src={
                         vState.videoSrc ||
                         item.video_url ||
-                        (item.video_filename ? `/media/${item.video_filename}` : undefined)
+                        (item.video_filename
+                          ? `/media/${item.video_filename}`
+                          : undefined)
                       }
                       className="w-full rounded-md bg-black max-h-56 object-contain"
                     />
                     <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-                      <span className="truncate max-w-[200px]">{item.video_filename || 'Video note'}</span>
+                      <span className="truncate max-w-[200px]">
+                        {item.video_filename || "Video note"}
+                      </span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {vState.isCached ? (
-                          <span className="text-emerald-400 font-medium text-[10px]">Cached Offline</span>
+                          <span className="text-emerald-400 font-medium text-[10px]">
+                            Cached Offline
+                          </span>
                         ) : item.video_filename ? (
                           <Button
                             variant="outline"
@@ -605,7 +651,9 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
                             className="h-5 px-1.5 text-[10px] gap-1 cursor-pointer"
                             title="Cache video locally for offline viewing"
                           >
-                            <Download className={`w-3 h-3 ${vState.isDownloading ? 'animate-bounce' : ''}`} />
+                            <Download
+                              className={`w-3 h-3 ${vState.isDownloading ? "animate-bounce" : ""}`}
+                            />
                             <span>Cache Offline</span>
                           </Button>
                         ) : null}
@@ -620,10 +668,7 @@ export const FeedbackStream: FC<FeedbackStreamProps> = ({
       </div>
 
       {/* Lightbox Modal */}
-      <PhotoLightboxModal
-        photoUrl={activePhoto}
-        onClose={handleClosePhoto}
-      />
+      <PhotoLightboxModal photoUrl={activePhoto} onClose={handleClosePhoto} />
 
       {/* Delete Confirmation Warning Dialog */}
       <DeleteNoteDialog
