@@ -11,6 +11,8 @@ export interface PdfiumViewerProps {
   onPageChange?: (pageNumber: number) => void;
   targetPage?: number | { pageNumber: number; timestamp?: number; seq?: number } | null;
   selectedPinId?: string | null;
+  selectedPinSeq?: number;
+  onActivePinChange?: (pinId: string | null) => void;
   pins?: PdfPin[];
   isPlacingPin?: boolean;
   initialPin?: { pageNumber: number; x: number; y: number } | null;
@@ -42,6 +44,8 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
   onPageChange,
   targetPage,
   selectedPinId,
+  selectedPinSeq,
+  onActivePinChange,
   pins = [],
   isPlacingPin = false,
   initialPin,
@@ -240,6 +244,8 @@ export const PdfiumViewer: FC<PdfiumViewerProps> = ({
         viewerContainer={containerEl}
         pins={pins}
         selectedPinId={selectedPinId}
+        selectedPinSeq={selectedPinSeq}
+        onActivePinChange={onActivePinChange}
         isPlacingPin={isPlacingPin}
         initialPin={initialPin}
         onPinPlaced={onPinPlaced}

@@ -17,6 +17,8 @@ export interface PdfPinOverlayProps {
   viewerContainer: HTMLDivElement | null;
   pins: PdfPin[];
   selectedPinId?: string | null;
+  selectedPinSeq?: number;
+  onActivePinChange?: (pinId: string | null) => void;
   isPlacingPin: boolean;
   initialPin?: { pageNumber: number; x: number; y: number } | null;
   onPinPlaced?: (coords: { pageNumber: number; x: number; y: number }) => void;
@@ -191,6 +193,8 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
   viewerContainer,
   pins,
   selectedPinId,
+  selectedPinSeq,
+  onActivePinChange,
   isPlacingPin,
   initialPin,
   onPinPlaced,
@@ -214,6 +218,20 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
     screenY: number;
   } | null>(null);
   const [activePinId, setActivePinId] = useState<string | null>(null);
+
+  const handleSetActivePinId = useCallback(
+    (newId: string | null | ((prev: string | null) => string | null)) => {
+      setActivePinId((prev) => {
+        const next = typeof newId === 'function' ? newId(prev) : newId;
+        if (next !== prev) {
+          onActivePinChange?.(next);
+        }
+        return next;
+      });
+    },
+    [onActivePinChange]
+  );
+
   const [isDraggingPin, setIsDraggingPin] = useState(false);
 
   // Pin comment inline editing state
@@ -240,13 +258,13 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
   useEffect(() => {
     if (isPlacingPin) {
       setCandidatePin(initialPin ?? null);
-      setActivePinId(null);
+      handleSetActivePinId(null);
     } else {
       setCandidatePin(null);
       setCandidateScreenPos(null);
       setIsDraggingPin(false);
     }
-  }, [isPlacingPin, initialPin]);
+  }, [isPlacingPin, initialPin, handleSetActivePinId]);
 
   // Active pin with latest screen coordinates from positionedPins
   const activePin = useMemo(() => {
@@ -304,14 +322,19 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
 
     const handleWindowClick = (e: MouseEvent | globalThis.MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && !target.closest('.pin-comment-popup') && !target.closest('.assembly-pdf-pin')) {
-        setActivePinId(null);
+      if (
+        target &&
+        !target.closest('.pin-comment-popup') &&
+        !target.closest('.assembly-pdf-pin') &&
+        !target.closest('aside')
+      ) {
+        handleSetActivePinId(null);
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setActivePinId(null);
+        handleSetActivePinId(null);
       }
     };
 
@@ -321,7 +344,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
       window.removeEventListener('click', handleWindowClick, { capture: true });
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activePinId]);
+  }, [activePinId, handleSetActivePinId]);
 
   // Compute adaptive popup position offset from the pin
   const popupPosition = useMemo(() => {
@@ -409,6 +432,40 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
       setCandidateScreenPos(null);
     }
   }, [viewerContainer, pins, candidatePin, scrollPlugin]);
+
+  // Synchronize externally selected pin (e.g. clicked in comment list) with active pin popup
+  useEffect(() => {
+    if (selectedPinId) {
+      setActivePinId(selectedPinId);
+      updatePinPositions();
+      const t1 = setTimeout(updatePinPositions, 100);
+      const t2 = setTimeout(updatePinPositions, 300);
+      const t3 = setTimeout(updatePinPositions, 600);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    } else {
+      setActivePinId(null);
+    }
+  }, [selectedPinId, selectedPinSeq, updatePinPositions]);
+
+  // When an active pin is selected, if its position lands off-screen, gently scroll into view
+  useEffect(() => {
+    if (!activePinId) return;
+    const centerTimer = setTimeout(() => {
+      if (!scrollerElRef.current || !viewerContainer) return;
+      const currentActive = positionedPins.find((p) => p.id === activePinId);
+      if (!currentActive) return;
+      const vHeight = viewerContainer.clientHeight;
+      if (currentActive.screenY < 80 || currentActive.screenY > vHeight - 80) {
+        const deltaY = currentActive.screenY - vHeight / 2;
+        scrollerElRef.current.scrollBy({ top: deltaY, behavior: 'smooth' });
+      }
+    }, 350);
+    return () => clearTimeout(centerTimer);
+  }, [activePinId, positionedPins, viewerContainer]);
 
   // Hook into scroller scroll events, resize, and initial page mounting
   useEffect(() => {
@@ -694,7 +751,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!pin.isDraft) {
-                    setActivePinId((prev) => (prev === pin.id ? null : pin.id));
+                    handleSetActivePinId((prev) => (prev === pin.id ? null : pin.id));
                   }
                   onPinClick?.(pin);
                 }}
@@ -776,7 +833,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                onClick={() => setActivePinId(null)}
+                onClick={() => handleSetActivePinId(null)}
                 className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground cursor-pointer rounded-full"
                 title="Close"
               >
@@ -856,7 +913,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                       e.stopPropagation();
                       if (onEditPin) {
                         const pin = activePin;
-                        setActivePinId(null);
+                        handleSetActivePinId(null);
                         onEditPin(pin);
                       } else {
                         setEditCommentText(activePin.comment || '');
@@ -876,7 +933,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
                       e.stopPropagation();
                       if (onDeletePin) {
                         const pin = activePin;
-                        setActivePinId(null);
+                        handleSetActivePinId(null);
                         onDeletePin(pin);
                       }
                     }}
@@ -954,7 +1011,7 @@ export const PdfPinOverlay: FC<PdfPinOverlayProps> = ({
               size="sm"
               onClick={() => {
                 const pin = activePin;
-                setActivePinId(null);
+                handleSetActivePinId(null);
                 onOpenDrawer?.(pin);
               }}
               className="h-6 px-2.5 text-[11px] gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm cursor-pointer font-medium rounded-lg transition-all active:scale-95"

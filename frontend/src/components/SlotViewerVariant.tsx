@@ -56,6 +56,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const [highlightedFeedbackId, setHighlightedFeedbackId] = useState<
     string | null
   >(null);
+  const [highlightedFeedbackSeq, setHighlightedFeedbackSeq] = useState<number>(0);
   const [editingFeedback, setEditingFeedback] = useState<FeedbackItem | null>(
     null,
   );
@@ -67,6 +68,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
   const handleSelectFeedback = useCallback(
     (id: string | null, item?: FeedbackItem) => {
       setHighlightedFeedbackId(id);
+      setHighlightedFeedbackSeq(Date.now());
       if (!id) return;
       const target = item || feedbackList.find((f) => f.id === id);
       if (target && target.page_ref > 0) {
@@ -641,6 +643,12 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             onPageChange={setActivePage}
             targetPage={targetPage}
             selectedPinId={highlightedFeedbackId}
+            selectedPinSeq={highlightedFeedbackSeq}
+            onActivePinChange={(pinId) => setHighlightedFeedbackId(pinId)}
+            onPinClick={(pin) => {
+              setHighlightedFeedbackId(pin.id);
+              setHighlightedFeedbackSeq(Date.now());
+            }}
             pins={visiblePins}
             isPlacingPin={isPlacingPin}
             initialPin={draftPin}
@@ -655,6 +663,7 @@ export const SlotViewerVariant: FC<SlotViewerVariantProps> = ({
             }}
             onOpenDrawer={(pin) => {
               setHighlightedFeedbackId(pin.id);
+              setHighlightedFeedbackSeq(Date.now());
               setActiveTab("stream");
               setIsNotesOpen(true);
             }}
