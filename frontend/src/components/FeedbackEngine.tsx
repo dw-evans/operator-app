@@ -670,12 +670,11 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
           {/* Media Capture Controls */}
           <div>
             <div className="flex items-center gap-2">
-              {/* Photo Input (Camera capture) */}
+              {/* Photo Input (Gallery or Camera) */}
               <input
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 multiple
                 onChange={handlePhotoSelect}
                 className="hidden"
@@ -692,12 +691,11 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 <span>Add Photo</span>
               </label>
 
-              {/* Video Input (Camera capture) */}
+              {/* Video Input (Gallery or Camera) */}
               <input
                 ref={videoInputRef}
                 type="file"
                 accept="video/*"
-                capture="environment"
                 onChange={handleVideoSelect}
                 className="hidden"
                 id="video-upload"
@@ -710,7 +708,7 @@ export const FeedbackEngine: FC<FeedbackEngineProps> = ({
                 )}
               >
                 <Video className="w-3.5 h-3.5 text-muted-foreground" />
-                <span>Record Video</span>
+                <span>Add Video</span>
               </label>
             </div>
 
