@@ -30,6 +30,9 @@ class QualityIssue(Base):
         nullable=True,
     )
     description = Column(Text, nullable=False)
+    status = Column(
+        String, nullable=False, default="open", index=True
+    )  # open | resolved | obsolete
     photo_filenames = Column(Text, nullable=True)  # JSON-encoded list of relative paths under MEDIA_DIR
     operator = Column(String, nullable=False, default="Operator")
     created_at = Column(DateTime, default=_utcnow, index=True)

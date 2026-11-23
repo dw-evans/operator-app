@@ -22,14 +22,21 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type { QualityIssue } from '../types';
+import type { QualityIssue, QualityIssueStatus } from '../types';
 
 interface QualityIssueTableProps {
   issues: QualityIssue[];
   isLoading: boolean;
   onViewPhotos: (urls: string[], index: number) => void;
   onOpenDetail: (issue: QualityIssue) => void;
+  onChangeStatus: (issue: QualityIssue, status: QualityIssueStatus) => void;
 }
+
+const STATUS_SELECT_STYLES: Record<QualityIssueStatus, string> = {
+  open: 'border-amber-500/40 bg-amber-500/15 text-amber-400',
+  resolved: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-400',
+  obsolete: 'border-border bg-muted/60 text-muted-foreground',
+};
 
 const columnHelper = createColumnHelper<QualityIssue>();
 
@@ -62,6 +69,7 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
   isLoading,
   onViewPhotos,
   onOpenDetail,
+  onChangeStatus,
 }) => {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
@@ -265,13 +273,56 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
           </span>
         ),
       }),
+      columnHelper.accessor('status', {
+        size: 108,
+        minSize: 90,
+        header: ({ column }) => (
+          <button
+            type="button"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <span>Status</span>
+            <ArrowUpDown className="w-3 h-3" />
+          </button>
+        ),
+        cell: ({ row }) => {
+          const issue = row.original;
+          const currentStatus: QualityIssueStatus = issue.status || 'open';
+          return (
+            <select
+              value={currentStatus}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                e.stopPropagation();
+                onChangeStatus(issue, e.target.value as QualityIssueStatus);
+              }}
+              aria-label={`Status for issue #${issue.id}`}
+              className={cn(
+                'h-6 w-full rounded-md border px-1.5 text-[11px] font-medium capitalize focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer',
+                STATUS_SELECT_STYLES[currentStatus]
+              )}
+            >
+              <option value="open" className="bg-background text-foreground">
+                Open
+              </option>
+              <option value="resolved" className="bg-background text-foreground">
+                Resolved
+              </option>
+              <option value="obsolete" className="bg-background text-foreground">
+                Obsolete
+              </option>
+            </select>
+          );
+        },
+      }),
       columnHelper.display({
-        id: 'details',
-        size: 300,
-        minSize: 180,
+        id: 'photos',
+        size: 145,
+        minSize: 90,
         header: () => (
           <span className="text-xs font-medium text-muted-foreground">
-            Quality Issue Details
+            Photos
           </span>
         ),
         cell: ({ row }) => {
@@ -280,53 +331,66 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
           const visiblePhotos = photos.slice(0, 3);
           const extraCount = photos.length - visiblePhotos.length;
 
-          return (
-            <div className="flex items-center gap-2.5 min-w-0">
-              {/* Photos sub-area (up to 3 inline thumbs + ...) */}
-              {photos.length > 0 && (
-                <div className="flex items-center gap-1 shrink-0">
-                  {visiblePhotos.map((url, idx) => (
-                    <button
-                      key={url}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onViewPhotos(photos, idx);
-                      }}
-                      className="w-8 h-8 rounded border border-border overflow-hidden bg-muted hover:ring-2 hover:ring-primary/60 transition-all cursor-pointer shrink-0"
-                      title={`View photo ${idx + 1} of ${photos.length}`}
-                    >
-                      <img
-                        src={url}
-                        alt={`Issue #${issue.id} photo ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
-                  {extraCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onViewPhotos(photos, 3);
-                      }}
-                      className="h-8 px-1.5 rounded border border-border bg-muted/70 hover:bg-muted text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
-                      title={`View all ${photos.length} photos`}
-                    >
-                      +{extraCount}…
-                    </button>
-                  )}
-                </div>
-              )}
+          if (photos.length === 0) {
+            return <span className="text-xs text-muted-foreground/50">—</span>;
+          }
 
-              {/* Text description preview */}
-              <div
-                className="text-xs text-foreground/90 truncate min-w-0 flex-1"
-                title={issue.description}
-              >
-                {issue.description}
-              </div>
+          return (
+            <div className="flex items-center gap-1">
+              {visiblePhotos.map((url, idx) => (
+                <button
+                  key={url}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewPhotos(photos, idx);
+                  }}
+                  className="w-8 h-8 rounded border border-border overflow-hidden bg-muted hover:ring-2 hover:ring-primary/60 transition-all cursor-pointer shrink-0"
+                  title={`View photo ${idx + 1} of ${photos.length}`}
+                >
+                  <img
+                    src={url}
+                    alt={`Issue #${issue.id} photo ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+              {extraCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewPhotos(photos, 3);
+                  }}
+                  className="h-8 px-1.5 rounded border border-border bg-muted/70 hover:bg-muted text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                  title={`View all ${photos.length} photos`}
+                >
+                  +{extraCount}…
+                </button>
+              )}
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor('description', {
+        size: 260,
+        minSize: 140,
+        header: ({ column }) => (
+          <button
+            type="button"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <span>Issue Description</span>
+            <ArrowUpDown className="w-3 h-3" />
+          </button>
+        ),
+        cell: ({ getValue }) => {
+          const val = getValue();
+          return (
+            <div className="text-xs text-foreground/90 truncate" title={val}>
+              {val}
             </div>
           );
         },
@@ -343,7 +407,10 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
               type="button"
               variant="ghost"
               size="icon-xs"
-              onClick={() => onOpenDetail(row.original)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDetail(row.original);
+              }}
               className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
               title="View quality report details"
             >
@@ -353,7 +420,7 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
         ),
       }),
     ],
-    [onViewPhotos, onOpenDetail]
+    [onViewPhotos, onOpenDetail, onChangeStatus]
   );
 
   const table = useReactTable({
@@ -471,7 +538,8 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
                   key={row.id}
                   data-index={virtualRow.index}
                   ref={rowVirtualizer.measureElement}
-                  className="hover:bg-muted/30 border-b border-border/60"
+                  onClick={() => onOpenDetail(row.original)}
+                  className="hover:bg-muted/30 border-b border-border/60 cursor-pointer"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

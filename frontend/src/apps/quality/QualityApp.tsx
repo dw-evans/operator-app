@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { PhotoLightboxModal } from '@/components/PhotoLightboxModal';
 import { fetchParts } from '@/apps/inventory/api';
 import type { InventoryPart } from '@/apps/inventory/types';
-import { fetchQualityIssues } from './api';
-import type { QualityIssue } from './types';
+import { fetchQualityIssues, updateQualityIssue } from './api';
+import type { QualityIssue, QualityIssueStatus } from './types';
 import { QualityIssueTable } from './components/QualityIssueTable';
 import { SubmitQualityIssueDialog } from './components/SubmitQualityIssueDialog';
 import { QualityIssueDetailDialog } from './components/QualityIssueDetailDialog';
@@ -22,6 +22,7 @@ export const QualityApp: FC = () => {
 
   // Filters
   const [search, setSearch] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedSubassembly, setSelectedSubassembly] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBatchNumber, setSelectedBatchNumber] = useState('');
@@ -109,6 +110,9 @@ export const QualityApp: FC = () => {
   const filteredIssues = useMemo(() => {
     const q = search.trim().toLowerCase();
     return issues.filter((issue) => {
+      if (selectedStatus && (issue.status || 'open') !== selectedStatus) {
+        return false;
+      }
       if (selectedSubassembly && issue.subassembly !== selectedSubassembly) {
         return false;
       }
@@ -119,12 +123,12 @@ export const QualityApp: FC = () => {
         return false;
       }
       if (q) {
-        const hay = `${issue.part_name} ${issue.common_name || ''} ${issue.part_number} ${issue.batch_number} ${issue.batch_code || ''} ${issue.subassembly || ''} ${issue.category || ''} ${issue.description} ${issue.operator}`.toLowerCase();
+        const hay = `${issue.part_name} ${issue.common_name || ''} ${issue.part_number} ${issue.batch_number} ${issue.batch_code || ''} ${issue.subassembly || ''} ${issue.category || ''} ${issue.description} ${issue.operator} ${issue.status}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [issues, search, selectedSubassembly, selectedCategory, selectedBatchNumber]);
+  }, [issues, search, selectedStatus, selectedSubassembly, selectedCategory, selectedBatchNumber]);
 
   const activeDetailIssue = useMemo(
     () => issues.find((i) => i.id === detailIssueId) || null,
@@ -141,6 +145,26 @@ export const QualityApp: FC = () => {
 
   const handleIssueDeleted = (issueId: number) => {
     setIssues((prev) => prev.filter((i) => i.id !== issueId));
+  };
+
+  const handleStatusChange = async (
+    issue: QualityIssue,
+    nextStatus: QualityIssueStatus
+  ) => {
+    // Optimistic update
+    setIssues((prev) =>
+      prev.map((i) => (i.id === issue.id ? { ...i, status: nextStatus } : i))
+    );
+    try {
+      const updated = await updateQualityIssue(issue.id, { status: nextStatus });
+      handleIssueUpdated(updated);
+    } catch (err: any) {
+      // Revert on failure
+      setIssues((prev) =>
+        prev.map((i) => (i.id === issue.id ? issue : i))
+      );
+      setErrorMsg(err?.message || 'Failed to update issue status.');
+    }
   };
 
   return (
@@ -230,6 +254,18 @@ export const QualityApp: FC = () => {
           </div>
 
           <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            aria-label="Filter by status"
+            className="h-8 rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">All Statuses</option>
+            <option value="open">Open</option>
+            <option value="resolved">Resolved</option>
+            <option value="obsolete">Obsolete</option>
+          </select>
+
+          <select
             value={selectedSubassembly}
             onChange={(e) => setSelectedSubassembly(e.target.value)}
             aria-label="Filter by subassembly"
@@ -278,6 +314,7 @@ export const QualityApp: FC = () => {
           isLoading={isLoading}
           onViewPhotos={(urls, index) => setLightboxState({ urls, index })}
           onOpenDetail={(issue) => setDetailIssueId(issue.id)}
+          onChangeStatus={handleStatusChange}
         />
       </div>
 

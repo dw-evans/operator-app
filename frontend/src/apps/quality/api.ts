@@ -1,4 +1,4 @@
-import type { QualityIssue } from './types';
+import type { QualityIssue, QualityIssueStatus } from './types';
 
 const API_BASE = '/api/v1/quality';
 
@@ -41,6 +41,7 @@ export async function updateQualityIssue(
   issueId: number,
   payload: {
     description?: string;
+    status?: QualityIssueStatus;
     part_batch_id?: number | null;
     clear_batch?: boolean;
   }

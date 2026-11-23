@@ -1,3 +1,5 @@
+export type QualityIssueStatus = 'open' | 'resolved' | 'obsolete';
+
 export interface QualityIssue {
   id: number;
   part_id: number;
@@ -12,6 +14,7 @@ export interface QualityIssue {
   subassembly: string | null;
   category: string | null;
   description: string;
+  status: QualityIssueStatus;
   photo_filenames: string[];
   photo_urls: string[];
   operator: string;

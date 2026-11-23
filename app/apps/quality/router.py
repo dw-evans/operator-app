@@ -35,6 +35,7 @@ def _issue_to_schema(issue: models.QualityIssue) -> schemas.QualityIssueResponse
         subassembly=part.subassembly_rel.name if part and part.subassembly_rel else None,
         category=part.category if part else None,
         description=issue.description,
+        status=issue.status or "open",
         photo_filenames=p_names,
         photo_urls=[f"/media/{p}" for p in p_names],
         operator=issue.operator,
@@ -115,6 +116,7 @@ def create_quality_issue(
         part_id=part.id,
         part_batch_id=batch_id,
         description=description,
+        status=payload.status or "open",
         photo_filenames=json.dumps([]),
         operator=payload.operator.strip() or "Operator",
         created_at=now,
@@ -145,6 +147,9 @@ def update_quality_issue(
         if not cleaned:
             raise HTTPException(status_code=400, detail="Description cannot be empty.")
         issue.description = cleaned
+
+    if payload.status is not None:
+        issue.status = payload.status
 
     if payload.clear_batch:
         issue.part_batch_id = None

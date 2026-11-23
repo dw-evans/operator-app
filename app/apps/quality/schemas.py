@@ -7,6 +7,7 @@ class QualityIssueCreate(BaseModel):
     part_id: int
     part_batch_id: Optional[int] = None
     description: str = Field(..., min_length=1)
+    status: str = Field(default="open", pattern="^(open|resolved|obsolete)$")
     operator: str = Field(default="Operator")
 
 
@@ -14,6 +15,7 @@ class QualityIssueUpdate(BaseModel):
     part_batch_id: Optional[int] = None
     clear_batch: bool = False
     description: Optional[str] = None
+    status: Optional[str] = Field(None, pattern="^(open|resolved|obsolete)$")
 
 
 class QualityIssueResponse(BaseModel):
@@ -30,6 +32,7 @@ class QualityIssueResponse(BaseModel):
     subassembly: Optional[str] = None
     category: Optional[str] = None
     description: str
+    status: str = "open"
     photo_filenames: List[str] = Field(default_factory=list)
     photo_urls: List[str] = Field(default_factory=list)
     operator: str

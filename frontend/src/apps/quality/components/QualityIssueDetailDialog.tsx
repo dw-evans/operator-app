@@ -27,7 +27,7 @@ import {
   uploadQualityIssuePhotos,
   deleteQualityIssuePhoto,
 } from '../api';
-import type { QualityIssue } from '../types';
+import type { QualityIssue, QualityIssueStatus } from '../types';
 
 interface QualityIssueDetailDialogProps {
   issue: QualityIssue | null;
@@ -59,6 +59,19 @@ export const QualityIssueDetailDialog: FC<QualityIssueDetailDialogProps> = ({
   }, [issue?.id]);
 
   if (!issue) return null;
+
+  const handleStatusChange = async (nextStatus: QualityIssueStatus) => {
+    setIsBusy(true);
+    setError(null);
+    try {
+      const updated = await updateQualityIssue(issue.id, { status: nextStatus });
+      onUpdated(updated);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update status.');
+    } finally {
+      setIsBusy(false);
+    }
+  };
 
   const handleSaveDesc = async () => {
     const trimmed = descDraft.trim();
@@ -190,6 +203,21 @@ export const QualityIssueDetailDialog: FC<QualityIssueDetailDialogProps> = ({
             <div>
               <div className="text-[11px] text-muted-foreground">Category</div>
               <div className="text-foreground truncate">{issue.category || '—'}</div>
+            </div>
+            <div>
+              <div className="text-[11px] text-muted-foreground mb-0.5">Status</div>
+              <select
+                value={issue.status || 'open'}
+                onChange={(e) =>
+                  handleStatusChange(e.target.value as QualityIssueStatus)
+                }
+                disabled={isBusy}
+                className="h-7 rounded-md border border-input bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+              >
+                <option value="open">Open</option>
+                <option value="resolved">Resolved</option>
+                <option value="obsolete">Obsolete</option>
+              </select>
             </div>
           </div>
 

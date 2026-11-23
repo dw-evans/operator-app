@@ -64,6 +64,22 @@ def init_inventory_db():
                 text("ALTER TABLE part_batches ADD COLUMN photo_filenames TEXT")
             )
 
+        qi_cols = [
+            r[1]
+            for r in conn.execute(text("PRAGMA table_info(quality_issues)")).fetchall()
+        ]
+        if qi_cols and "status" not in qi_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE quality_issues ADD COLUMN status VARCHAR NOT NULL DEFAULT 'open'"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_quality_issues_status ON quality_issues (status)"
+                )
+            )
+
         # Make inventory_transactions.batch_id nullable so part-level adjustments don't need a batch
         tx_cols = {
             r[1]: r
