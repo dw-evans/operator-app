@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CreatableCombobox } from '@/components/ui/creatable-combobox';
 import { cn } from '@/lib/utils';
 import { useOperatorName } from '@/services/settings';
 import { createPart, updatePart } from '../api';
@@ -241,35 +242,25 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Common Name (Shop-Floor)</label>
-              <Input
-                list="inventory-common-names"
+              <CreatableCombobox
                 value={commonName}
-                onChange={(e) => setCommonName(e.target.value)}
-                placeholder="Pick existing or type new..."
-                className="h-8 text-xs"
+                onChange={setCommonName}
+                options={commonNames.map((cn) => cn.name)}
+                placeholder="Select or type common name..."
+                emptyLabel="No common names yet — type to create"
               />
-              <datalist id="inventory-common-names">
-                {commonNames.map((cn) => (
-                  <option key={cn.id} value={cn.name} />
-                ))}
-              </datalist>
             </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-xs font-medium">Subassembly</label>
-            <Input
-              list="inventory-subassemblies"
+            <CreatableCombobox
               value={subassembly}
-              onChange={(e) => setSubassembly(e.target.value)}
-              placeholder="Pick existing or type new subassembly..."
-              className="h-8 text-xs"
+              onChange={setSubassembly}
+              options={subassemblies.map((s) => s.name)}
+              placeholder="Select or type subassembly..."
+              emptyLabel="No subassemblies yet — type to create"
             />
-            <datalist id="inventory-subassemblies">
-              {subassemblies.map((s) => (
-                <option key={s.id} value={s.name} />
-              ))}
-            </datalist>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">

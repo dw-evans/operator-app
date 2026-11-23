@@ -169,6 +169,28 @@ def list_categories(db: Session = Depends(get_db)):
     return [r[0] for r in rows if r[0]]
 
 
+@router.get("/batch-numbers", response_model=List[str])
+def list_batch_numbers(db: Session = Depends(get_db)):
+    """List all distinct non-empty part-level batch numbers (naturally sorted)."""
+    rows = (
+        db.query(models.InventoryPart.batch_number)
+        .filter(
+            models.InventoryPart.batch_number.isnot(None),
+            models.InventoryPart.batch_number != "",
+        )
+        .distinct()
+        .all()
+    )
+    values = [r[0] for r in rows if r[0]]
+    values.sort(
+        key=lambda s: [
+            int(tok) if tok.isdigit() else tok.lower()
+            for tok in re.split(r"(\d+)", s)
+        ]
+    )
+    return values
+
+
 def _is_subsequence(needle: str, haystack: str) -> bool:
     """Return True if all characters of needle appear in order inside haystack."""
     it = iter(haystack)
@@ -236,6 +258,7 @@ def list_parts(
     search: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     subassembly: Optional[str] = Query(None),
+    batch_number: Optional[str] = Query(None),
     include_obsolete: bool = Query(True),
     db: Session = Depends(get_db),
 ):
@@ -253,6 +276,11 @@ def list_parts(
     if subassembly and subassembly.strip():
         query = query.join(models.InventoryPart.subassembly_rel).filter(
             func.lower(models.Subassembly.name) == subassembly.strip().lower()
+        )
+    if batch_number and batch_number.strip():
+        query = query.filter(
+            func.lower(models.InventoryPart.batch_number)
+            == batch_number.strip().lower()
         )
 
     parts = query.order_by(

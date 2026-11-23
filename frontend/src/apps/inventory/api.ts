@@ -43,16 +43,23 @@ export async function fetchCategories(): Promise<string[]> {
   return handleResponse<string[]>(res);
 }
 
+export async function fetchBatchNumbers(): Promise<string[]> {
+  const res = await fetch(`${BASE}/batch-numbers`);
+  return handleResponse<string[]>(res);
+}
+
 export async function fetchParts(params?: {
   search?: string;
   category?: string;
   subassembly?: string;
+  batchNumber?: string;
   includeObsolete?: boolean;
 }): Promise<InventoryPart[]> {
   const qs = new URLSearchParams();
   if (params?.search?.trim()) qs.set('search', params.search.trim());
   if (params?.category?.trim()) qs.set('category', params.category.trim());
   if (params?.subassembly?.trim()) qs.set('subassembly', params.subassembly.trim());
+  if (params?.batchNumber?.trim()) qs.set('batch_number', params.batchNumber.trim());
   if (params?.includeObsolete !== undefined) {
     qs.set('include_obsolete', String(params.includeObsolete));
   }
