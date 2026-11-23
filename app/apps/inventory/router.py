@@ -152,6 +152,22 @@ def list_subassemblies(db: Session = Depends(get_db)):
     return [schemas.SubassemblyItem(id=s.id, name=s.name) for s in items]
 
 
+@router.get("/categories", response_model=List[str])
+def list_categories(db: Session = Depends(get_db)):
+    """List all distinct non-empty categories across inventory parts."""
+    rows = (
+        db.query(models.InventoryPart.category)
+        .filter(
+            models.InventoryPart.category.isnot(None),
+            models.InventoryPart.category != "",
+        )
+        .distinct()
+        .order_by(func.lower(models.InventoryPart.category))
+        .all()
+    )
+    return [r[0] for r in rows if r[0]]
+
+
 def _is_subsequence(needle: str, haystack: str) -> bool:
     """Return True if all characters of needle appear in order inside haystack."""
     it = iter(haystack)

@@ -38,6 +38,11 @@ export async function fetchSubassemblies(): Promise<SubassemblyItem[]> {
   return handleResponse<SubassemblyItem[]>(res);
 }
 
+export async function fetchCategories(): Promise<string[]> {
+  const res = await fetch(`${BASE}/categories`);
+  return handleResponse<string[]>(res);
+}
+
 export async function fetchParts(params?: {
   search?: string;
   category?: string;

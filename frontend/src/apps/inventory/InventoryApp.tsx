@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
 import {
   Plus,
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import {
   fetchCommonNames,
   fetchSubassemblies,
+  fetchCategories,
   fetchParts,
   fetchTransactions,
   getExportCsvUrl,
@@ -39,6 +40,7 @@ export const InventoryApp: FC = () => {
   const [parts, setParts] = useState<InventoryPart[]>([]);
   const [commonNames, setCommonNames] = useState<CommonNameItem[]>([]);
   const [subassemblies, setSubassemblies] = useState<SubassemblyItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [transactions, setTransactions] = useState<InventoryTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -64,7 +66,7 @@ export const InventoryApp: FC = () => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const [partsData, cnData, subData, txData] = await Promise.all([
+      const [partsData, cnData, subData, catData, txData] = await Promise.all([
         fetchParts({
           search: search || undefined,
           category: selectedCategory || undefined,
@@ -73,11 +75,13 @@ export const InventoryApp: FC = () => {
         }),
         fetchCommonNames(),
         fetchSubassemblies(),
+        fetchCategories(),
         fetchTransactions({ limit: 150 }),
       ]);
       setParts(partsData);
       setCommonNames(cnData);
       setSubassemblies(subData);
+      setCategories(catData);
       setTransactions(txData);
       setIsOffline(false);
     } catch (err: any) {
@@ -117,14 +121,6 @@ export const InventoryApp: FC = () => {
       window.removeEventListener('focus', handleFocus);
     };
   }, [loadData]);
-
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    parts.forEach((p) => {
-      if (p.category) set.add(p.category);
-    });
-    return Array.from(set).sort();
-  }, [parts]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-background">
@@ -242,7 +238,7 @@ export const InventoryApp: FC = () => {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Filter by name..."
+                placeholder="Filter by name or part #..."
                 className="pl-8 h-8 text-xs"
               />
             </div>
@@ -262,20 +258,19 @@ export const InventoryApp: FC = () => {
                 ))}
               </select>
 
-              {categories.length > 0 && (
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
-                >
-                  <option value="">All Categories</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                aria-label="Filter by category"
+              >
+                <option value="">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
 
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none px-1.5">
                 <input
