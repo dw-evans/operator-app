@@ -121,8 +121,8 @@ export const InventoryApp: FC = () => {
   }, [parts]);
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto bg-background">
-      <div className="max-w-5xl mx-auto p-3 sm:p-5 space-y-4">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-background">
+      <div className="flex-1 min-h-0 w-full max-w-6xl mx-auto p-3 sm:p-5 flex flex-col gap-3 overflow-hidden">
         {/* Offline Warning Banner */}
         {isOffline && (
           <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center justify-between gap-2">
@@ -230,13 +230,13 @@ export const InventoryApp: FC = () => {
 
         {/* Search & Filter Bar (Parts Tab) */}
         {activeTab === 'parts' && (
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center justify-between bg-card border border-border rounded-xl p-2.5">
+          <div className="shrink-0 flex flex-col sm:flex-row gap-2 sm:items-center justify-between bg-card border border-border rounded-xl p-2.5">
             <div className="relative flex-1 min-w-0">
               <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search common name, part #, rev, batch #, location..."
+                placeholder="Filter by name..."
                 className="pl-8 h-8 text-xs"
               />
             </div>
@@ -286,12 +286,14 @@ export const InventoryApp: FC = () => {
             }}
           />
         ) : (
-          <TransactionHistory
-            transactions={transactions}
-            isLoading={isLoading}
-            isOffline={isOffline}
-            onUndone={loadData}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <TransactionHistory
+              transactions={transactions}
+              isLoading={isLoading}
+              isOffline={isOffline}
+              onUndone={loadData}
+            />
+          </div>
         )}
       </div>
 
