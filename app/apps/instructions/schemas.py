@@ -66,12 +66,3 @@ class FeedbackStatusUpdate(BaseModel):
 class FeedbackUpdate(BaseModel):
     text_comment: Optional[str] = None
     status: Optional[str] = Field(None, pattern="^(open|reviewed|resolved)$")
-
-
-class PinVerifyRequest(BaseModel):
-    pin: str
-
-
-class PinVerifyResponse(BaseModel):
-    valid: bool
-    pin_required: bool

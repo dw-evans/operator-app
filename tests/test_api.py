@@ -2,8 +2,10 @@ import io
 import json
 import pytest
 from fastapi.testclient import TestClient
-import main
-from database import Base, get_db
+from app import config
+from app.main import app
+from app.apps.instructions import models as instructions_models
+from app.apps.instructions.database import Base, get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -23,8 +25,8 @@ def override_get_db():
     finally:
         db.close()
 
-main.app.dependency_overrides[get_db] = override_get_db
-client = TestClient(main.app)
+app.dependency_overrides[get_db] = override_get_db
+client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
@@ -37,8 +39,8 @@ def setup_test_environment(monkeypatch, tmp_path):
     test_media = tmp_path / "media"
     test_manuals.mkdir(parents=True, exist_ok=True)
     test_media.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(main, "MANUALS_DIR", test_manuals)
-    monkeypatch.setattr(main, "MEDIA_DIR", test_media)
+    monkeypatch.setattr(config, "MANUALS_DIR", test_manuals)
+    monkeypatch.setattr(config, "MEDIA_DIR", test_media)
 
     yield
 
@@ -522,7 +524,7 @@ def test_soft_delete_feedback():
     # Verify in DB that row is still present with is_deleted == True (soft delete)
     db = TestingSessionLocal()
     try:
-        item = db.query(main.models.Feedback).filter(main.models.Feedback.id == "fb-soft-del-test").first()
+        item = db.query(instructions_models.Feedback).filter(instructions_models.Feedback.id == "fb-soft-del-test").first()
         assert item is not None
         assert item.is_deleted is True
     finally:
