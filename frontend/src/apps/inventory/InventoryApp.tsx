@@ -63,7 +63,10 @@ export const InventoryApp: FC = () => {
     part: InventoryPart;
     batch: InventoryBatch | null;
   } | null>(null);
-  const [activePhoto, setActivePhoto] = useState<string | null>(null);
+  const [lightboxState, setLightboxState] = useState<{
+    urls: string[];
+    index: number;
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -319,7 +322,7 @@ export const InventoryApp: FC = () => {
               setEditingPart(part);
               setPartModalOpen(true);
             }}
-            onViewPhoto={(url) => setActivePhoto(url)}
+            onViewPhotos={(urls, index) => setLightboxState({ urls, index })}
           />
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto">
@@ -363,8 +366,10 @@ export const InventoryApp: FC = () => {
       />
 
       <PhotoLightboxModal
-        photoUrl={activePhoto}
-        onClose={() => setActivePhoto(null)}
+        photoUrl={lightboxState ? lightboxState.urls[lightboxState.index] : null}
+        photoUrls={lightboxState?.urls}
+        initialIndex={lightboxState?.index ?? 0}
+        onClose={() => setLightboxState(null)}
       />
     </div>
   );

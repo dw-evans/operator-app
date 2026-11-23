@@ -21,8 +21,6 @@ import {
   Calendar,
   MapPin,
   ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import {
   TableHeader,
@@ -46,7 +44,7 @@ interface PartListProps {
   onAddBatch: (part: InventoryPart) => void;
   onEditBatch: (part: InventoryPart, batch: InventoryBatch) => void;
   onEditPart: (part: InventoryPart) => void;
-  onViewPhoto: (url: string) => void;
+  onViewPhotos: (urls: string[], index: number) => void;
 }
 
 type VirtualEntry =
@@ -54,80 +52,6 @@ type VirtualEntry =
   | { kind: 'details'; part: InventoryPart; key: string };
 
 const columnHelper = createColumnHelper<InventoryPart>();
-
-const ShipmentPhotoCarousel: FC<{
-  urls: string[];
-  onViewPhoto: (url: string) => void;
-}> = ({ urls, onViewPhoto }) => {
-  const [index, setIndex] = useState(0);
-  const safeIndex = index < urls.length ? index : 0;
-  const currentUrl = urls[safeIndex];
-  const hasMultiple = urls.length > 1;
-
-  const goPrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIndex((prev) => (prev - 1 + urls.length) % urls.length);
-  };
-
-  const goNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIndex((prev) => (prev + 1) % urls.length);
-  };
-
-  return (
-    <div className="flex items-center gap-2 pt-1">
-      {hasMultiple && (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-xs"
-          onClick={goPrev}
-          className="h-7 w-7 shrink-0 cursor-pointer"
-          title="Previous photo"
-          aria-label="Previous photo"
-        >
-          <ChevronLeft className="w-3.5 h-3.5" />
-        </Button>
-      )}
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onViewPhoto(currentUrl);
-        }}
-        className="relative h-24 w-36 rounded-lg overflow-hidden border border-border hover:border-foreground/40 transition-colors cursor-pointer bg-muted/30 shrink-0"
-        title="Click to enlarge photo"
-      >
-        <img
-          src={currentUrl}
-          alt={`Shipment photo ${safeIndex + 1} of ${urls.length}`}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-        {hasMultiple && (
-          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/75 text-white text-[10px] font-mono leading-none">
-            {safeIndex + 1} / {urls.length}
-          </span>
-        )}
-      </button>
-
-      {hasMultiple && (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-xs"
-          onClick={goNext}
-          className="h-7 w-7 shrink-0 cursor-pointer"
-          title="Next photo"
-          aria-label="Next photo"
-        >
-          <ChevronRight className="w-3.5 h-3.5" />
-        </Button>
-      )}
-    </div>
-  );
-};
 
 export const PartList: FC<PartListProps> = ({
   parts,
@@ -138,7 +62,7 @@ export const PartList: FC<PartListProps> = ({
   onAddBatch,
   onEditBatch,
   onEditPart,
-  onViewPhoto,
+  onViewPhotos,
 }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [expanded, setExpanded] = useState<ExpandedState>({});
@@ -654,10 +578,27 @@ export const PartList: FC<PartListProps> = ({
                               </div>
 
                               {batch.photo_urls && batch.photo_urls.length > 0 && (
-                                <ShipmentPhotoCarousel
-                                  urls={batch.photo_urls}
-                                  onViewPhoto={onViewPhoto}
-                                />
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {batch.photo_urls.map((url, pIdx) => (
+                                    <button
+                                      key={pIdx}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onViewPhotos(batch.photo_urls, pIdx);
+                                      }}
+                                      className="w-12 h-12 rounded-md overflow-hidden border border-border hover:border-foreground/40 transition-colors cursor-pointer bg-muted/30 shrink-0"
+                                      title="View shipment photo"
+                                    >
+                                      <img
+                                        src={url}
+                                        alt={`Shipment photo ${pIdx + 1}`}
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           ))}

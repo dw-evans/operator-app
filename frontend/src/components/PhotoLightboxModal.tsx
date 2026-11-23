@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { FC, PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { ArrowLeft, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { ArrowLeft, X, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface PhotoLightboxModalProps {
   photoUrl: string | null;
+  photoUrls?: string[];
+  initialIndex?: number;
   onClose: () => void;
 }
 
@@ -13,10 +15,27 @@ const MIN_SCALE = 1;
 const MAX_SCALE = 5;
 const SCALE_STEP = 0.5;
 
-export const PhotoLightboxModal: FC<PhotoLightboxModalProps> = ({ photoUrl, onClose }) => {
+export const PhotoLightboxModal: FC<PhotoLightboxModalProps> = ({
+  photoUrl,
+  photoUrls,
+  initialIndex = 0,
+  onClose,
+}) => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  const images = photoUrls && photoUrls.length > 0 ? photoUrls : photoUrl ? [photoUrl] : [];
+  const isOpen = images.length > 0 && (photoUrl !== null || (photoUrls !== undefined && photoUrls.length > 0));
+  const safeIndex = currentIndex >= 0 && currentIndex < images.length ? currentIndex : 0;
+  const activeUrl = isOpen ? images[safeIndex] : null;
+  const hasCarousel = images.length > 1;
+
+  // Sync starting index whenever modal opens / changes target
+  useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [photoUrl, photoUrls, initialIndex]);
 
   // References for drag and pinch tracking
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -26,20 +45,36 @@ export const PhotoLightboxModal: FC<PhotoLightboxModalProps> = ({ photoUrl, onCl
   const lastTapRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset transform when photo changes or modal closes
+  // Reset transform when displayed photo changes or modal closes
   useEffect(() => {
     setScale(1);
     setPosition({ x: 0, y: 0 });
     setIsDragging(false);
-  }, [photoUrl]);
+  }, [activeUrl]);
 
-  // Keyboard navigation: Escape to close, + / - to zoom, 0 to reset
+  const goPrev = useCallback(() => {
+    if (images.length <= 1) return;
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  }, [images.length]);
+
+  const goNext = useCallback(() => {
+    if (images.length <= 1) return;
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  }, [images.length]);
+
+  // Keyboard navigation: Escape to close, Left/Right for carousel, + / - to zoom, 0 to reset
   useEffect(() => {
-    if (!photoUrl) return;
+    if (!activeUrl) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
+      } else if (e.key === 'ArrowLeft' && hasCarousel) {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === 'ArrowRight' && hasCarousel) {
+        e.preventDefault();
+        goNext();
       } else if (e.key === '+' || e.key === '=') {
         e.preventDefault();
         setScale((prev) => Math.min(MAX_SCALE, Math.round((prev + SCALE_STEP) * 10) / 10));
@@ -59,7 +94,7 @@ export const PhotoLightboxModal: FC<PhotoLightboxModalProps> = ({ photoUrl, onCl
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [photoUrl, onClose]);
+  }, [activeUrl, hasCarousel, goPrev, goNext, onClose]);
 
   // Adjust zoom level helper
   const handleZoom = useCallback((direction: 'in' | 'out') => {
@@ -176,7 +211,7 @@ export const PhotoLightboxModal: FC<PhotoLightboxModalProps> = ({ photoUrl, onCl
     }
   };
 
-  if (!photoUrl) return null;
+  if (!activeUrl) return null;
 
   return (
     <div
@@ -203,6 +238,16 @@ export const PhotoLightboxModal: FC<PhotoLightboxModalProps> = ({ photoUrl, onCl
         <span>Back</span>
       </Button>
 
+      {/* Photo Counter in Top-Center when multiple photos */}
+      {hasCarousel && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-[110] px-3 py-1 rounded-full bg-background/85 backdrop-blur-md border border-border shadow-xl text-foreground text-xs font-mono"
+        >
+          {safeIndex + 1} / {images.length}
+        </div>
+      )}
+
       {/* Close Button in Top-Right */}
       <Button
         type="button"
@@ -217,6 +262,40 @@ export const PhotoLightboxModal: FC<PhotoLightboxModalProps> = ({ photoUrl, onCl
       >
         <X className="w-4 h-4" />
       </Button>
+
+      {/* Previous / Next Carousel Buttons */}
+      {hasCarousel && (
+        <>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              goPrev();
+            }}
+            className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-[110] bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer h-10 w-10 rounded-full"
+            title="Previous photo (←)"
+            aria-label="Previous photo"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              goNext();
+            }}
+            className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-[110] bg-background/85 hover:bg-background text-foreground backdrop-blur-md shadow-xl border border-border cursor-pointer h-10 w-10 rounded-full"
+            title="Next photo (→)"
+            aria-label="Next photo"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
+        </>
+      )}
 
       {/* Floating Zoom Controls Pill in Bottom-Center */}
       <div
@@ -285,7 +364,7 @@ export const PhotoLightboxModal: FC<PhotoLightboxModalProps> = ({ photoUrl, onCl
         }}
       >
         <img
-          src={photoUrl}
+          src={activeUrl}
           alt="Preview"
           draggable={false}
           onClick={(e) => e.stopPropagation()}
