@@ -12,6 +12,7 @@ import {
   Home,
   BookOpen,
   Boxes,
+  ScanLine,
 } from "lucide-react";
 import { syncManager, type SyncState } from "../services/sync";
 import { useOperatorName } from "../services/settings";
@@ -20,7 +21,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export type ActiveApp = "home" | "instructions" | "inventory";
+export type ActiveApp = "home" | "instructions" | "inventory" | "scanner";
 
 interface NavbarProps {
   activeApp: ActiveApp;
@@ -138,6 +139,20 @@ export const Navbar: FC<NavbarProps> = ({
           >
             <Boxes className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Inventory</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("/scanner")}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors",
+              activeApp === "scanner"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Leg Serial Number Scanner"
+          >
+            <ScanLine className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Scanner</span>
           </button>
         </nav>
       </div>

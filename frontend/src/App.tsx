@@ -6,6 +6,7 @@ import { SlotViewerVariant } from './components/SlotViewerVariant';
 import { AdminPortal } from './components/AdminPortal';
 import { AdminPinGate } from './components/AdminPinGate';
 import { InventoryApp } from './apps/inventory/InventoryApp';
+import { LegScannerApp } from './apps/scanner/LegScannerApp';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Bug, Trash2, CheckCircle2 } from 'lucide-react';
@@ -65,6 +66,16 @@ export function App() {
     // 2. Inventory sub-app
     if (pathname === '/inventory' || pathname.startsWith('/inventory/')) {
       setActiveApp('inventory');
+      setIsAdmin(false);
+      setSelectedSlotId(null);
+      setSelectedVersion(null);
+      setSpecificRevision(null);
+      return;
+    }
+
+    // 3. Leg Serial Number Scanner sub-app
+    if (pathname === '/scanner' || pathname.startsWith('/scanner/')) {
+      setActiveApp('scanner');
       setIsAdmin(false);
       setSelectedSlotId(null);
       setSelectedVersion(null);
@@ -181,6 +192,8 @@ export function App() {
     let currentPath = '/';
     if (activeApp === 'inventory') {
       currentPath = '/inventory';
+    } else if (activeApp === 'scanner') {
+      currentPath = '/scanner';
     } else if (activeApp === 'instructions') {
       if (isAdmin) {
         if (selectedSlotId !== null) {
@@ -474,6 +487,8 @@ export function App() {
           <AppLauncher onSelectApp={navigateTo} />
         ) : activeApp === 'inventory' ? (
           <InventoryApp />
+        ) : activeApp === 'scanner' ? (
+          <LegScannerApp />
         ) : isPinLocked ? (
           <AdminPinGate
             onUnlock={() => {
