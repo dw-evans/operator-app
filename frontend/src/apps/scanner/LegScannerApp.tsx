@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import type { FC } from 'react';
-import { ScanLine, Trash2, Copy, Check } from 'lucide-react';
+import type { FC, KeyboardEvent } from 'react';
+import { ScanLine, Trash2, Copy, Check, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ScanSessionView } from './components/ScanSessionView';
 import { loadScannedLegs, saveScannedLegs } from './storage';
 import { SLOT_NUMBERS, type ScannedLeg, type SlotNumber } from './types';
@@ -11,6 +12,11 @@ export const LegScannerApp: FC = () => {
   const [legs, setLegs] = useState<ScannedLeg[]>(loadScannedLegs);
   const [isScanning, setIsScanning] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editingRow, setEditingRow] = useState<{
+    legId: string;
+    slot: SlotNumber;
+  } | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
     saveScannedLegs(legs);
@@ -33,6 +39,45 @@ export const LegScannerApp: FC = () => {
 
   const handleDeleteLeg = (id: string) => {
     setLegs((prev) => prev.filter((l) => l.id !== id));
+    if (editingRow?.legId === id) {
+      setEditingRow(null);
+      setEditValue('');
+    }
+  };
+
+  const handleStartEdit = (leg: ScannedLeg, slot: SlotNumber) => {
+    setEditingRow({ legId: leg.id, slot });
+    setEditValue(leg.serials[slot] || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRow(null);
+    setEditValue('');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingRow) return;
+    const { legId, slot } = editingRow;
+    const trimmed = editValue.trim();
+    setLegs((prev) =>
+      prev.map((leg) =>
+        leg.id === legId
+          ? { ...leg, serials: { ...leg.serials, [slot]: trimmed } }
+          : leg,
+      ),
+    );
+    setEditingRow(null);
+    setEditValue('');
+  };
+
+  const handleEditKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+    }
   };
 
   const handleClearAll = () => {
@@ -156,29 +201,88 @@ export const LegScannerApp: FC = () => {
                     </div>
                   </div>
 
-                  {/* 2-Column Table: # (1/2/3/4) | Serial ID */}
+                  {/* Table: # (1/2/3/4) | Serial ID | Edit */}
                   <div className="rounded-lg border border-border overflow-hidden text-xs">
-                    <div className="grid grid-cols-[2.5rem_1fr] bg-muted/40 border-b border-border font-medium text-muted-foreground">
+                    <div className="grid grid-cols-[2.5rem_1fr_3.75rem] bg-muted/40 border-b border-border font-medium text-muted-foreground">
                       <div className="px-2.5 py-1.5 border-r border-border text-center">
                         #
                       </div>
-                      <div className="px-3 py-1.5">Serial ID</div>
-                    </div>
-                    {SLOT_NUMBERS.map((slot) => (
-                      <div
-                        key={slot}
-                        className="grid grid-cols-[2.5rem_1fr] border-b last:border-b-0 border-border/60"
-                      >
-                        <div className="px-2.5 py-1.5 border-r border-border/60 text-center font-mono text-muted-foreground">
-                          {slot}
-                        </div>
-                        <div className="px-3 py-1.5 font-mono text-foreground truncate">
-                          {leg.serials[slot] || (
-                            <span className="text-muted-foreground/50">—</span>
-                          )}
-                        </div>
+                      <div className="px-3 py-1.5 border-r border-border">
+                        Serial ID
                       </div>
-                    ))}
+                      <div className="px-1.5 py-1.5 text-center">Edit</div>
+                    </div>
+                    {SLOT_NUMBERS.map((slot) => {
+                      const isEditing =
+                        editingRow?.legId === leg.id && editingRow.slot === slot;
+                      return (
+                        <div
+                          key={slot}
+                          className="grid grid-cols-[2.5rem_1fr_3.75rem] items-center border-b last:border-b-0 border-border/60"
+                        >
+                          <div className="px-2.5 py-1.5 border-r border-border/60 text-center font-mono text-muted-foreground self-stretch flex items-center justify-center">
+                            {slot}
+                          </div>
+                          <div className="px-2 py-1 border-r border-border/60 min-w-0">
+                            {isEditing ? (
+                              <Input
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={handleEditKeyDown}
+                                autoFocus
+                                placeholder="e.g. 123456-789"
+                                className="h-6 px-2 py-0 text-xs font-mono"
+                              />
+                            ) : (
+                              <div className="px-1 py-0.5 font-mono text-foreground truncate">
+                                {leg.serials[slot] || (
+                                  <span className="text-muted-foreground/50">
+                                    —
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="px-1 py-1 flex items-center justify-center gap-0.5">
+                            {isEditing ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  onClick={handleSaveEdit}
+                                  className="h-6 w-6 text-emerald-500 hover:text-emerald-400 cursor-pointer"
+                                  title="Save"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  onClick={handleCancelEdit}
+                                  className="h-6 w-6 text-muted-foreground hover:text-foreground cursor-pointer"
+                                  title="Cancel"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() => handleStartEdit(leg, slot)}
+                                className="h-6 w-6 text-muted-foreground hover:text-foreground cursor-pointer"
+                                title={`Edit #${slot}`}
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </Card>
               ))}
