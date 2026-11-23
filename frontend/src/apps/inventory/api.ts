@@ -3,6 +3,7 @@ import type {
   BatchCreatePayload,
   BatchUpdatePayload,
   CommonNameItem,
+  SubassemblyItem,
   InventoryBatch,
   InventoryPart,
   InventoryTransaction,
@@ -32,14 +33,21 @@ export async function fetchCommonNames(): Promise<CommonNameItem[]> {
   return handleResponse<CommonNameItem[]>(res);
 }
 
+export async function fetchSubassemblies(): Promise<SubassemblyItem[]> {
+  const res = await fetch(`${BASE}/subassemblies`);
+  return handleResponse<SubassemblyItem[]>(res);
+}
+
 export async function fetchParts(params?: {
   search?: string;
   category?: string;
+  subassembly?: string;
   includeObsolete?: boolean;
 }): Promise<InventoryPart[]> {
   const qs = new URLSearchParams();
   if (params?.search?.trim()) qs.set('search', params.search.trim());
   if (params?.category?.trim()) qs.set('category', params.category.trim());
+  if (params?.subassembly?.trim()) qs.set('subassembly', params.subassembly.trim());
   if (params?.includeObsolete !== undefined) {
     qs.set('include_obsolete', String(params.includeObsolete));
   }

@@ -202,12 +202,25 @@ def test_search_and_csv_export():
             "iteration": "2",
             "name": "Main Controller Board",
             "common_name": "Brain Board",
+            "subassembly": "Payload Bay",
             "category": "Electronics",
             "initial_batch_number": "SMD-44",
             "initial_quantity": 8,
             "operator": "Dana",
         },
     )
+
+    # Subassemblies list & filter
+    subs = client.get("/api/v1/inventory/subassemblies").json()
+    assert len(subs) == 1
+    assert subs[0]["name"] == "Payload Bay"
+
+    res_sub = client.get("/api/v1/inventory/parts?subassembly=Payload%20Bay").json()
+    assert len(res_sub) == 1
+    assert res_sub[0]["subassembly"] == "Payload Bay"
+
+    res_other = client.get("/api/v1/inventory/parts?subassembly=Leg%20Assembly").json()
+    assert len(res_other) == 0
 
     # Search by colloquial name (exact & typo fuzzy match)
     res_cn = client.get("/api/v1/inventory/parts?search=brain").json()

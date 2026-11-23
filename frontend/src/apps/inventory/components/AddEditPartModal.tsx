@@ -13,7 +13,12 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useOperatorName } from '@/services/settings';
 import { createPart, updatePart } from '../api';
-import type { CommonNameItem, InventoryPart, LifecycleStatus } from '../types';
+import type {
+  CommonNameItem,
+  SubassemblyItem,
+  InventoryPart,
+  LifecycleStatus,
+} from '../types';
 
 const CATEGORY_OPTIONS: { label: string; value: string; title?: string }[] = [
   { label: 'Bespoke', value: 'Bespoke' },
@@ -29,6 +34,7 @@ interface AddEditPartModalProps {
   onOpenChange: (open: boolean) => void;
   editingPart: InventoryPart | null;
   commonNames: CommonNameItem[];
+  subassemblies: SubassemblyItem[];
   onSuccess: () => void;
 }
 
@@ -37,6 +43,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
   onOpenChange,
   editingPart,
   commonNames,
+  subassemblies,
   onSuccess,
 }) => {
   const [operatorName] = useOperatorName();
@@ -45,6 +52,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
   const [iteration, setIteration] = useState('');
   const [name, setName] = useState('');
   const [commonName, setCommonName] = useState('');
+  const [subassembly, setSubassembly] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [lifecycleStatus, setLifecycleStatus] = useState<LifecycleStatus>('active');
@@ -69,6 +77,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
       setIteration(editingPart.iteration || '');
       setName(editingPart.name);
       setCommonName(editingPart.common_name || '');
+      setSubassembly(editingPart.subassembly || '');
       setCategory(editingPart.category || '');
       setDescription(editingPart.description || '');
       setLifecycleStatus(editingPart.lifecycle_status);
@@ -78,6 +87,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
       setIteration('');
       setName('');
       setCommonName('');
+      setSubassembly('');
       setCategory('');
       setDescription('');
       setLifecycleStatus('active');
@@ -106,6 +116,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
           iteration: iteration.trim(),
           name: name.trim(),
           common_name: commonName.trim(),
+          subassembly: subassembly.trim(),
           category: category.trim(),
           description: description.trim(),
           lifecycle_status: lifecycleStatus,
@@ -118,6 +129,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
           iteration: iteration.trim(),
           name: name.trim(),
           common_name: commonName.trim() || null,
+          subassembly: subassembly.trim() || null,
           category: category.trim() || null,
           description: description.trim() || null,
           unit: '',
@@ -206,6 +218,22 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
                 ))}
               </datalist>
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Subassembly</label>
+            <Input
+              list="inventory-subassemblies"
+              value={subassembly}
+              onChange={(e) => setSubassembly(e.target.value)}
+              placeholder="Pick existing or type new subassembly..."
+              className="h-8 text-xs"
+            />
+            <datalist id="inventory-subassemblies">
+              {subassemblies.map((s) => (
+                <option key={s.id} value={s.name} />
+              ))}
+            </datalist>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">

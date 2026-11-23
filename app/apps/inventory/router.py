@@ -37,6 +37,26 @@ def _resolve_common_name(db: Session, name: Optional[str]) -> Optional[int]:
     return cn.id
 
 
+def _resolve_subassembly(db: Session, name: Optional[str]) -> Optional[int]:
+    """Find or create a Subassembly record (case-insensitive match on trimmed text)."""
+    if name is None:
+        return None
+    cleaned = name.strip()
+    if not cleaned:
+        return None
+    existing = (
+        db.query(models.Subassembly)
+        .filter(func.lower(models.Subassembly.name) == cleaned.lower())
+        .first()
+    )
+    if existing:
+        return existing.id
+    sub = models.Subassembly(name=cleaned)
+    db.add(sub)
+    db.flush()
+    return sub.id
+
+
 def _batch_to_schema(batch: models.PartBatch) -> schemas.BatchResponse:
     return schemas.BatchResponse(
         id=batch.id,
@@ -62,6 +82,8 @@ def _part_to_schema(part: models.InventoryPart) -> schemas.PartResponse:
         name=part.name,
         common_name=part.common_name_rel.name if part.common_name_rel else None,
         common_name_id=part.common_name_id,
+        subassembly=part.subassembly_rel.name if part.subassembly_rel else None,
+        subassembly_id=part.subassembly_id,
         description=part.description,
         category=part.category,
         unit=part.unit,
@@ -114,6 +136,17 @@ def list_common_names(db: Session = Depends(get_db)):
     return [schemas.CommonNameItem(id=c.id, name=c.name) for c in items]
 
 
+@router.get("/subassemblies", response_model=List[schemas.SubassemblyItem])
+def list_subassemblies(db: Session = Depends(get_db)):
+    """List all subassemblies for combobox autocomplete and filtering."""
+    items = (
+        db.query(models.Subassembly)
+        .order_by(func.lower(models.Subassembly.name))
+        .all()
+    )
+    return [schemas.SubassemblyItem(id=s.id, name=s.name) for s in items]
+
+
 def _is_subsequence(needle: str, haystack: str) -> bool:
     """Return True if all characters of needle appear in order inside haystack."""
     it = iter(haystack)
@@ -154,6 +187,7 @@ def _part_fuzzy_score(part: models.InventoryPart, query: str) -> float:
         part.part_number.lower(),
         part.name.lower(),
         part.common_name_rel.name.lower() if part.common_name_rel else "",
+        part.subassembly_rel.name.lower() if part.subassembly_rel else "",
         (part.category or "").lower(),
         (part.description or "").lower(),
         f"rev {part.revision}".lower(),
@@ -177,12 +211,14 @@ def _part_fuzzy_score(part: models.InventoryPart, query: str) -> float:
 def list_parts(
     search: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    subassembly: Optional[str] = Query(None),
     include_obsolete: bool = Query(True),
     db: Session = Depends(get_db),
 ):
     """List inventory part versions with their nested batches (supports fuzzy search)."""
     query = db.query(models.InventoryPart).options(
         joinedload(models.InventoryPart.common_name_rel),
+        joinedload(models.InventoryPart.subassembly_rel),
         joinedload(models.InventoryPart.batches),
     )
 
@@ -190,6 +226,10 @@ def list_parts(
         query = query.filter(models.InventoryPart.lifecycle_status == "active")
     if category and category.strip():
         query = query.filter(models.InventoryPart.category == category.strip())
+    if subassembly and subassembly.strip():
+        query = query.join(models.InventoryPart.subassembly_rel).filter(
+            func.lower(models.Subassembly.name) == subassembly.strip().lower()
+        )
 
     parts = query.order_by(
         models.InventoryPart.part_number.asc(),
@@ -213,6 +253,7 @@ def list_parts(
 def create_part(payload: schemas.PartCreate, db: Session = Depends(get_db)):
     """Create a new Part Version (and optional initial batch + opening transaction)."""
     common_name_id = _resolve_common_name(db, payload.common_name)
+    subassembly_id = _resolve_subassembly(db, payload.subassembly)
 
     part = models.InventoryPart(
         part_number=payload.part_number.strip(),
@@ -220,6 +261,7 @@ def create_part(payload: schemas.PartCreate, db: Session = Depends(get_db)):
         iteration=(payload.iteration or "").strip(),
         name=payload.name.strip(),
         common_name_id=common_name_id,
+        subassembly_id=subassembly_id,
         description=payload.description.strip() if payload.description else None,
         category=payload.category.strip() if payload.category else None,
         unit=(payload.unit or "").strip(),
@@ -320,6 +362,8 @@ def update_part(
         part.name = payload.name.strip()
     if payload.common_name is not None:
         part.common_name_id = _resolve_common_name(db, payload.common_name)
+    if payload.subassembly is not None:
+        part.subassembly_id = _resolve_subassembly(db, payload.subassembly)
     if payload.description is not None:
         part.description = payload.description.strip() or None
     if payload.category is not None:

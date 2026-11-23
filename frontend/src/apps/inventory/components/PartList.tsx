@@ -124,6 +124,27 @@ export const PartList: FC<PartListProps> = ({
           );
         },
       }),
+      columnHelper.accessor((row) => row.subassembly || '', {
+        id: 'subassembly',
+        header: ({ column }) => (
+          <button
+            type="button"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <span>Subassembly</span>
+            <ArrowUpDown className="w-3 h-3" />
+          </button>
+        ),
+        cell: ({ getValue }) => {
+          const val = getValue();
+          return (
+            <span className={cn('text-sm font-normal', val ? 'text-muted-foreground' : 'text-muted-foreground/40')}>
+              {val || '—'}
+            </span>
+          );
+        },
+      }),
       columnHelper.accessor((row) => row.category || '', {
         id: 'category',
         header: ({ column }) => (

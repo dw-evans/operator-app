@@ -15,12 +15,14 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   fetchCommonNames,
+  fetchSubassemblies,
   fetchParts,
   fetchTransactions,
   getExportCsvUrl,
 } from './api';
 import type {
   CommonNameItem,
+  SubassemblyItem,
   InventoryBatch,
   InventoryPart,
   InventoryTransaction,
@@ -35,6 +37,7 @@ export const InventoryApp: FC = () => {
   const [activeTab, setActiveTab] = useState<'parts' | 'history'>('parts');
   const [parts, setParts] = useState<InventoryPart[]>([]);
   const [commonNames, setCommonNames] = useState<CommonNameItem[]>([]);
+  const [subassemblies, setSubassemblies] = useState<SubassemblyItem[]>([]);
   const [transactions, setTransactions] = useState<InventoryTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -43,6 +46,7 @@ export const InventoryApp: FC = () => {
   // Filters
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedSubassembly, setSelectedSubassembly] = useState('');
   const [includeObsolete, setIncludeObsolete] = useState(true);
 
   // Modals
@@ -58,17 +62,20 @@ export const InventoryApp: FC = () => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const [partsData, cnData, txData] = await Promise.all([
+      const [partsData, cnData, subData, txData] = await Promise.all([
         fetchParts({
           search: search || undefined,
           category: selectedCategory || undefined,
+          subassembly: selectedSubassembly || undefined,
           includeObsolete,
         }),
         fetchCommonNames(),
+        fetchSubassemblies(),
         fetchTransactions({ limit: 150 }),
       ]);
       setParts(partsData);
       setCommonNames(cnData);
+      setSubassemblies(subData);
       setTransactions(txData);
       setIsOffline(false);
     } catch (err: any) {
@@ -79,7 +86,7 @@ export const InventoryApp: FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [search, selectedCategory, includeObsolete]);
+  }, [search, selectedCategory, selectedSubassembly, includeObsolete]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -239,6 +246,20 @@ export const InventoryApp: FC = () => {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={selectedSubassembly}
+                onChange={(e) => setSelectedSubassembly(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                aria-label="Filter by subassembly"
+              >
+                <option value="">All Subassemblies</option>
+                {subassemblies.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+
               {categories.length > 0 && (
                 <select
                   value={selectedCategory}
@@ -309,6 +330,7 @@ export const InventoryApp: FC = () => {
         onOpenChange={setPartModalOpen}
         editingPart={editingPart}
         commonNames={commonNames}
+        subassemblies={subassemblies}
         onSuccess={loadData}
       />
 

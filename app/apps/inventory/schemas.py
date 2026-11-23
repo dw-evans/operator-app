@@ -8,6 +8,11 @@ class CommonNameItem(BaseModel):
     name: str
 
 
+class SubassemblyItem(BaseModel):
+    id: int
+    name: str
+
+
 class BatchCreate(BaseModel):
     batch_number: str = Field(..., min_length=1)
     received_date: Optional[str] = None
@@ -45,6 +50,7 @@ class PartCreate(BaseModel):
     iteration: str = Field(default="")
     name: str = Field(..., min_length=1)
     common_name: Optional[str] = None
+    subassembly: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
     unit: str = Field(default="")
@@ -63,6 +69,7 @@ class PartUpdate(BaseModel):
     iteration: Optional[str] = None
     name: Optional[str] = None
     common_name: Optional[str] = None
+    subassembly: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
     unit: Optional[str] = None
@@ -77,6 +84,8 @@ class PartResponse(BaseModel):
     name: str
     common_name: Optional[str] = None
     common_name_id: Optional[int] = None
+    subassembly: Optional[str] = None
+    subassembly_id: Optional[int] = None
     description: Optional[str] = None
     category: Optional[str] = None
     unit: str

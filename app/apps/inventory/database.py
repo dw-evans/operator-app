@@ -36,6 +36,17 @@ def init_inventory_db():
                     """
                 )
             )
+        if part_cols and "subassembly_id" not in part_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE parts ADD COLUMN subassembly_id INTEGER REFERENCES subassemblies(id) ON DELETE SET NULL"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_parts_subassembly_id ON parts (subassembly_id)"
+                )
+            )
 
         # Make inventory_transactions.batch_id nullable so part-level adjustments don't need a batch
         tx_cols = {

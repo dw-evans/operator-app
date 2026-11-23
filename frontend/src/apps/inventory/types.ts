@@ -3,6 +3,11 @@ export interface CommonNameItem {
   name: string;
 }
 
+export interface SubassemblyItem {
+  id: number;
+  name: string;
+}
+
 export type LifecycleStatus = 'active' | 'obsolete';
 export type BatchStatus = 'active' | 'depleted';
 
@@ -27,6 +32,8 @@ export interface InventoryPart {
   name: string;
   common_name?: string | null;
   common_name_id?: number | null;
+  subassembly?: string | null;
+  subassembly_id?: number | null;
   description?: string | null;
   category?: string | null;
   unit?: string;
@@ -65,6 +72,7 @@ export interface PartCreatePayload {
   iteration: string;
   name: string;
   common_name?: string | null;
+  subassembly?: string | null;
   description?: string | null;
   category?: string | null;
   unit?: string;
@@ -82,6 +90,7 @@ export interface PartUpdatePayload {
   iteration?: string;
   name?: string;
   common_name?: string | null;
+  subassembly?: string | null;
   description?: string | null;
   category?: string | null;
   unit?: string;

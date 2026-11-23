@@ -30,6 +30,18 @@ class CommonName(Base):
     parts = relationship("InventoryPart", back_populates="common_name_rel")
 
 
+class Subassembly(Base):
+    """Subassembly group that parts belong to."""
+
+    __tablename__ = "subassemblies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+    parts = relationship("InventoryPart", back_populates="subassembly_rel")
+
+
 class InventoryPart(Base):
     """A specific Part Number + Design Revision + Iteration."""
 
@@ -48,6 +60,12 @@ class InventoryPart(Base):
     common_name_id = Column(
         Integer, ForeignKey("common_names.id", ondelete="SET NULL"), nullable=True
     )
+    subassembly_id = Column(
+        Integer,
+        ForeignKey("subassemblies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     description = Column(Text, nullable=True)
     category = Column(String, index=True, nullable=True)
     unit = Column(String, nullable=False, default="")
@@ -59,6 +77,7 @@ class InventoryPart(Base):
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     common_name_rel = relationship("CommonName", back_populates="parts")
+    subassembly_rel = relationship("Subassembly", back_populates="parts")
     batches = relationship(
         "PartBatch",
         back_populates="part",
