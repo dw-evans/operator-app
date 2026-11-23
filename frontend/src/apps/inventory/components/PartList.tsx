@@ -136,10 +136,7 @@ export const PartList: FC<PartListProps> = ({
                         : 'text-foreground'
                     )}
                   >
-                    {part.total_active_quantity}{' '}
-                    <span className="text-[11px] font-normal text-muted-foreground">
-                      {part.unit}
-                    </span>
+                    {part.total_active_quantity}
                   </div>
                 </div>
 
@@ -224,14 +221,11 @@ export const PartList: FC<PartListProps> = ({
                       <div className="flex items-center gap-2 shrink-0">
                         <span
                           className={cn(
-                            'font-mono font-bold text-sm min-w-[3.5rem] text-right',
+                            'font-mono font-bold text-sm min-w-[2.5rem] text-right',
                             batch.quantity < 0 ? 'text-amber-400' : 'text-foreground'
                           )}
                         >
-                          {batch.quantity}{' '}
-                          <span className="text-[10px] font-normal text-muted-foreground">
-                            {part.unit}
-                          </span>
+                          {batch.quantity}
                         </span>
 
                         <Button

@@ -162,9 +162,7 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
 
           {!editingBatch && (
             <div className="space-y-1">
-              <label className="text-xs font-medium">
-                Initial Quantity ({part.unit})
-              </label>
+              <label className="text-xs font-medium">Initial Quantity</label>
               <Input
                 type="number"
                 step={1}

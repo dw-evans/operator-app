@@ -29,7 +29,7 @@ export interface InventoryPart {
   common_name_id?: number | null;
   description?: string | null;
   category?: string | null;
-  unit: string;
+  unit?: string;
   lifecycle_status: LifecycleStatus;
   total_active_quantity: number;
   total_all_quantity: number;
@@ -66,7 +66,7 @@ export interface PartCreatePayload {
   common_name?: string | null;
   description?: string | null;
   category?: string | null;
-  unit: string;
+  unit?: string;
   lifecycle_status: LifecycleStatus;
   initial_batch_number?: string | null;
   initial_received_date?: string | null;

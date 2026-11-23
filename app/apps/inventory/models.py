@@ -50,7 +50,7 @@ class InventoryPart(Base):
     )
     description = Column(Text, nullable=True)
     category = Column(String, index=True, nullable=True)
-    unit = Column(String, nullable=False, default="pcs")
+    unit = Column(String, nullable=False, default="")
     lifecycle_status = Column(
         String, nullable=False, default="active", index=True
     )  # active | obsolete

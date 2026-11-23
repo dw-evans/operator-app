@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FC, FormEvent } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,9 +10,19 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { useOperatorName } from '@/services/settings';
 import { createPart, updatePart } from '../api';
 import type { CommonNameItem, InventoryPart, LifecycleStatus } from '../types';
+
+const CATEGORY_OPTIONS: { label: string; value: string; title?: string }[] = [
+  { label: 'Bespoke', value: 'Bespoke' },
+  { label: 'Fasteners', value: 'Fasteners' },
+  { label: 'PCB', value: 'PCB' },
+  { label: 'Cabling', value: 'Cabling' },
+  { label: 'Consumables', value: 'Consumables' },
+  { label: 'Std', value: 'Std', title: 'Standard parts' },
+];
 
 interface AddEditPartModalProps {
   open: boolean;
@@ -36,10 +47,10 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
   const [commonName, setCommonName] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [unit, setUnit] = useState('pcs');
   const [lifecycleStatus, setLifecycleStatus] = useState<LifecycleStatus>('active');
 
-  // Optional initial batch fields when creating a new part
+  // Optional initial batch collapsible dropdown when creating a new part
+  const [showInitialBatch, setShowInitialBatch] = useState(false);
   const [initialBatchNumber, setInitialBatchNumber] = useState('');
   const [initialReceivedDate, setInitialReceivedDate] = useState('');
   const [initialLocation, setInitialLocation] = useState('');
@@ -51,6 +62,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setShowInitialBatch(false);
     if (editingPart) {
       setPartNumber(editingPart.part_number);
       setRevision(editingPart.revision);
@@ -59,7 +71,6 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
       setCommonName(editingPart.common_name || '');
       setCategory(editingPart.category || '');
       setDescription(editingPart.description || '');
-      setUnit(editingPart.unit || 'pcs');
       setLifecycleStatus(editingPart.lifecycle_status);
     } else {
       setPartNumber('');
@@ -69,7 +80,6 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
       setCommonName('');
       setCategory('');
       setDescription('');
-      setUnit('pcs');
       setLifecycleStatus('active');
       setInitialBatchNumber('');
       setInitialReceivedDate(new Date().toISOString().slice(0, 10));
@@ -98,7 +108,6 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
           common_name: commonName.trim(),
           category: category.trim(),
           description: description.trim(),
-          unit: unit.trim() || 'pcs',
           lifecycle_status: lifecycleStatus,
         });
       } else {
@@ -111,12 +120,12 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
           common_name: commonName.trim() || null,
           category: category.trim() || null,
           description: description.trim() || null,
-          unit: unit.trim() || 'pcs',
+          unit: '',
           lifecycle_status: lifecycleStatus,
-          initial_batch_number: initialBatchNumber.trim() || null,
-          initial_received_date: initialReceivedDate || null,
-          initial_location: initialLocation.trim() || null,
-          initial_quantity: Number.isNaN(qty) ? 0 : qty,
+          initial_batch_number: showInitialBatch ? initialBatchNumber.trim() || null : null,
+          initial_received_date: showInitialBatch ? initialReceivedDate || null : null,
+          initial_location: showInitialBatch ? initialLocation.trim() || null : null,
+          initial_quantity: showInitialBatch && !Number.isNaN(qty) ? qty : 0,
           operator: operatorName.trim() || 'Operator',
         });
       }
@@ -199,24 +208,36 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="space-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="sm:col-span-2 space-y-1.5">
               <label className="text-xs font-medium">Category</label>
               <Input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="Fasteners, PCB..."
+                placeholder="Select below or type..."
                 className="h-8 text-xs"
               />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Unit</label>
-              <Input
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                placeholder="pcs"
-                className="h-8 text-xs font-mono"
-              />
+              <div className="flex flex-wrap gap-1">
+                {CATEGORY_OPTIONS.map((opt) => {
+                  const isSelected = category.trim().toLowerCase() === opt.value.toLowerCase();
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      title={opt.title}
+                      onClick={() => setCategory(opt.value)}
+                      className={cn(
+                        'text-[11px] px-2 py-0.5 rounded-full border cursor-pointer transition-colors',
+                        isSelected
+                          ? 'bg-primary text-primary-foreground border-primary font-medium'
+                          : 'bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground border-border/60'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Version Status</label>
@@ -243,51 +264,65 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
           </div>
 
           {!editingPart && (
-            <div className="pt-2 border-t border-border space-y-2.5">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Initial Batch (Optional)
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Batch #</label>
-                  <Input
-                    value={initialBatchNumber}
-                    onChange={(e) => setInitialBatchNumber(e.target.value)}
-                    placeholder="e.g. LOT-2026-01"
-                    className="h-8 text-xs font-mono"
-                  />
+            <div className="border border-border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowInitialBatch((prev) => !prev)}
+                className="w-full flex items-center justify-between px-3 py-2 bg-muted/40 hover:bg-muted/60 text-xs font-medium text-foreground cursor-pointer transition-colors"
+              >
+                <span>Initial Batch (Optional)</span>
+                {showInitialBatch ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </button>
+
+              {showInitialBatch && (
+                <div className="p-3 space-y-2.5 border-t border-border bg-background/50">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Batch #</label>
+                      <Input
+                        value={initialBatchNumber}
+                        onChange={(e) => setInitialBatchNumber(e.target.value)}
+                        placeholder="e.g. LOT-2026-01"
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Received Date</label>
+                      <Input
+                        type="date"
+                        value={initialReceivedDate}
+                        onChange={(e) => setInitialReceivedDate(e.target.value)}
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Location / Bin</label>
+                      <Input
+                        value={initialLocation}
+                        onChange={(e) => setInitialLocation(e.target.value)}
+                        placeholder="e.g. Shelf B-4"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Opening Count</label>
+                      <Input
+                        type="number"
+                        step={1}
+                        value={initialQuantity}
+                        onChange={(e) => setInitialQuantity(e.target.value)}
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Received Date</label>
-                  <Input
-                    type="date"
-                    value={initialReceivedDate}
-                    onChange={(e) => setInitialReceivedDate(e.target.value)}
-                    className="h-8 text-xs font-mono"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Location / Bin</label>
-                  <Input
-                    value={initialLocation}
-                    onChange={(e) => setInitialLocation(e.target.value)}
-                    placeholder="e.g. Shelf B-4"
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Opening Count</label>
-                  <Input
-                    type="number"
-                    step={1}
-                    value={initialQuantity}
-                    onChange={(e) => setInitialQuantity(e.target.value)}
-                    className="h-8 text-xs font-mono"
-                  />
-                </div>
-              </div>
+              )}
             </div>
           )}
 

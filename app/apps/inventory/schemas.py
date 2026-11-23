@@ -47,7 +47,7 @@ class PartCreate(BaseModel):
     common_name: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
-    unit: str = Field(default="pcs")
+    unit: str = Field(default="")
     lifecycle_status: str = Field(default="active", pattern="^(active|obsolete)$")
     # Optional initial batch created atomically alongside the part
     initial_batch_number: Optional[str] = None

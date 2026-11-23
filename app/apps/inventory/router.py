@@ -223,20 +223,25 @@ def create_part(payload: schemas.PartCreate, db: Session = Depends(get_db)):
         common_name_id=common_name_id,
         description=payload.description.strip() if payload.description else None,
         category=payload.category.strip() if payload.category else None,
-        unit=(payload.unit or "pcs").strip(),
+        unit=(payload.unit or "").strip(),
         lifecycle_status=payload.lifecycle_status,
     )
     db.add(part)
     try:
         db.flush()
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
+        if "UNIQUE" in str(exc).upper():
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Part '{payload.part_number}' Rev '{payload.revision}'"
+                    f"{f' Iter {payload.iteration}' if payload.iteration else ''} already exists."
+                ),
+            )
         raise HTTPException(
-            status_code=409,
-            detail=(
-                f"Part '{payload.part_number}' Rev '{payload.revision}'"
-                f"{f' Iter {payload.iteration}' if payload.iteration else ''} already exists."
-            ),
+            status_code=500,
+            detail=f"Database integrity error while creating part: {exc.orig}",
         )
 
     # Create initial batch if batch number or non-zero quantity was supplied
@@ -320,18 +325,23 @@ def update_part(
     if payload.category is not None:
         part.category = payload.category.strip() or None
     if payload.unit is not None:
-        part.unit = payload.unit.strip() or "pcs"
+        part.unit = payload.unit.strip()
     if payload.lifecycle_status is not None:
         part.lifecycle_status = payload.lifecycle_status
 
     part.updated_at = datetime.now(timezone.utc)
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
+        if "UNIQUE" in str(exc).upper():
+            raise HTTPException(
+                status_code=409,
+                detail="A part with that Part Number, Revision, and Iteration already exists.",
+            )
         raise HTTPException(
-            status_code=409,
-            detail="A part with that Part Number, Revision, and Iteration already exists.",
+            status_code=500,
+            detail=f"Database integrity error while updating part: {exc.orig}",
         )
     db.refresh(part)
     return _part_to_schema(part)

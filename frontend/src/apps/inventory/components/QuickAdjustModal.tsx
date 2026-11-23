@@ -184,10 +184,10 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
           <div className="space-y-2">
             <label className="text-xs font-medium text-foreground block">
               {mode === 'take'
-                ? `Quantity to take (${part.unit})`
+                ? 'Quantity to take'
                 : mode === 'restock'
-                  ? `Quantity to add (${part.unit})`
-                  : `New exact count (${part.unit})`}
+                  ? 'Quantity to add'
+                  : 'New exact count'}
             </label>
             <Input
               type="number"
@@ -227,7 +227,7 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
           >
             <span>
               Current: <strong>{batch.quantity}</strong> → New:{' '}
-              <strong>{previewAfter}</strong> {part.unit}
+              <strong>{previewAfter}</strong>
             </span>
             <Badge
               variant="outline"
