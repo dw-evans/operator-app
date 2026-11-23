@@ -7,6 +7,7 @@ import { AdminPortal } from './components/AdminPortal';
 import { AdminPinGate } from './components/AdminPinGate';
 import { InventoryApp } from './apps/inventory/InventoryApp';
 import { LegScannerApp } from './apps/scanner/LegScannerApp';
+import { QualityApp } from './apps/quality/QualityApp';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Bug, Trash2, CheckCircle2 } from 'lucide-react';
@@ -76,6 +77,16 @@ export function App() {
     // 3. Leg Serial Number Scanner sub-app
     if (pathname === '/scanner' || pathname.startsWith('/scanner/')) {
       setActiveApp('scanner');
+      setIsAdmin(false);
+      setSelectedSlotId(null);
+      setSelectedVersion(null);
+      setSpecificRevision(null);
+      return;
+    }
+
+    // 4. Quality Issues sub-app
+    if (pathname === '/quality' || pathname.startsWith('/quality/')) {
+      setActiveApp('quality');
       setIsAdmin(false);
       setSelectedSlotId(null);
       setSelectedVersion(null);
@@ -489,6 +500,8 @@ export function App() {
           <InventoryApp />
         ) : activeApp === 'scanner' ? (
           <LegScannerApp />
+        ) : activeApp === 'quality' ? (
+          <QualityApp />
         ) : isPinLocked ? (
           <AdminPinGate
             onUnlock={() => {

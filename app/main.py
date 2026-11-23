@@ -10,6 +10,7 @@ from app.apps.instructions.database import init_instructions_db
 from app.apps.instructions.router import router as instructions_router
 from app.apps.inventory.database import init_inventory_db
 from app.apps.inventory.router import router as inventory_router
+from app.apps.quality.router import router as quality_router
 
 # Initialize independent sub-app SQLite databases
 init_instructions_db()
@@ -89,6 +90,7 @@ def download_ca_cert():
 
 app.include_router(instructions_router)
 app.include_router(inventory_router)
+app.include_router(quality_router)
 
 # Mount storage directories
 app.mount("/manuals", StaticFiles(directory=str(config.MANUALS_DIR)), name="manuals")

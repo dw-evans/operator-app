@@ -13,6 +13,7 @@ import {
   BookOpen,
   Boxes,
   ScanLine,
+  AlertTriangle,
 } from "lucide-react";
 import { syncManager, type SyncState } from "../services/sync";
 import { useOperatorName } from "../services/settings";
@@ -21,7 +22,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export type ActiveApp = "home" | "instructions" | "inventory" | "scanner";
+export type ActiveApp = "home" | "instructions" | "inventory" | "scanner" | "quality";
 
 interface NavbarProps {
   activeApp: ActiveApp;
@@ -153,6 +154,20 @@ export const Navbar: FC<NavbarProps> = ({
           >
             <ScanLine className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Scanner</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("/quality")}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors",
+              activeApp === "quality"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Quality Issues"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Quality</span>
           </button>
         </nav>
       </div>

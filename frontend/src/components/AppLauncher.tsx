@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { BookOpen, Boxes, ScanLine } from 'lucide-react';
+import { BookOpen, Boxes, ScanLine, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 interface AppLauncherProps {
@@ -9,14 +9,14 @@ interface AppLauncherProps {
 export const AppLauncher: FC<AppLauncherProps> = ({ onSelectApp }) => {
   return (
     <div className="flex-1 min-h-0 overflow-y-auto bg-background flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-3xl space-y-6">
+      <div className="w-full max-w-4xl space-y-6">
         <div className="text-center">
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
             Applications
           </h1>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card
             onClick={() => onSelectApp('/instructions')}
             className="p-6 cursor-pointer border-border hover:border-foreground/30 hover:bg-muted/40 transition-colors flex flex-col items-start gap-3"
@@ -64,6 +64,23 @@ export const AppLauncher: FC<AppLauncherProps> = ({ onSelectApp }) => {
               </h2>
               <p className="text-xs text-muted-foreground">
                 Scan Data Matrix and Code 128 leg serials
+              </p>
+            </div>
+          </Card>
+
+          <Card
+            onClick={() => onSelectApp('/quality')}
+            className="p-6 cursor-pointer border-border hover:border-foreground/30 hover:bg-muted/40 transition-colors flex flex-col items-start gap-3"
+          >
+            <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center text-foreground">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold text-foreground">
+                Quality Issues
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Report and review part & batch quality issues
               </p>
             </div>
           </Card>
