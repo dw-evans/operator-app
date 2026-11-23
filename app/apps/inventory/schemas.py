@@ -40,6 +40,8 @@ class BatchResponse(BaseModel):
     quantity: int
     batch_status: str
     notes: Optional[str] = None
+    photo_filenames: List[str] = Field(default_factory=list)
+    photo_urls: List[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

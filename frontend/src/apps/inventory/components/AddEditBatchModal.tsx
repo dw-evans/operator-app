@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import type { FC, FormEvent } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { FC, FormEvent, ChangeEvent } from 'react';
+import { Camera, Image as ImageIcon, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -7,11 +8,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { useOperatorName } from '@/services/settings';
-import { createBatch, updateBatch } from '../api';
+import {
+  createBatch,
+  updateBatch,
+  uploadBatchPhotos,
+  deleteBatchPhoto,
+} from '../api';
 import type { BatchStatus, InventoryBatch, InventoryPart } from '../types';
 
 interface AddEditBatchModalProps {
@@ -36,18 +43,45 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
   const [initialQuantity, setInitialQuantity] = useState('0');
   const [batchStatus, setBatchStatus] = useState<BatchStatus>('active');
   const [notes, setNotes] = useState('');
+
+  // Saved photos (in edit mode) & removed filenames queued for deletion on Save
+  const [existingPhotos, setExistingPhotos] = useState<
+    { filename: string; url: string }[]
+  >([]);
+  const [removedFilenames, setRemovedFilenames] = useState<string[]>([]);
+
+  // Newly staged photos from Camera or Gallery
+  const [newPhotos, setNewPhotos] = useState<{ file: File; preview: string }[]>([]);
+
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setRemovedFilenames([]);
+    setNewPhotos((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.preview));
+      return [];
+    });
+
     if (editingBatch) {
       setBatchNumber(editingBatch.batch_number);
       setReceivedDate(editingBatch.received_date || '');
       setLocation(editingBatch.location || '');
       setBatchStatus(editingBatch.batch_status);
       setNotes(editingBatch.notes || '');
+      const saved = (editingBatch.photo_urls || []).map((url, idx) => ({
+        filename:
+          editingBatch.photo_filenames?.[idx] ||
+          url.split('/').pop() ||
+          `photo_${idx}.jpg`,
+        url,
+      }));
+      setExistingPhotos(saved);
     } else {
       setBatchNumber('');
       setReceivedDate(new Date().toISOString().slice(0, 10));
@@ -55,10 +89,44 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
       setInitialQuantity('0');
       setBatchStatus('active');
       setNotes('');
+      setExistingPhotos([]);
     }
   }, [open, editingBatch]);
 
+  // Revoke object URLs on unmount
+  useEffect(() => {
+    return () => {
+      newPhotos.forEach((p) => URL.revokeObjectURL(p.preview));
+    };
+  }, []);
+
   if (!part) return null;
+
+  const handleFilesAdded = (
+    e: ChangeEvent<HTMLInputElement>,
+    inputRef: React.RefObject<HTMLInputElement | null>
+  ) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files);
+    const items = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setNewPhotos((prev) => [...prev, ...items]);
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  const handleRemoveExistingPhoto = (filename: string) => {
+    setExistingPhotos((prev) => prev.filter((p) => p.filename !== filename));
+    setRemovedFilenames((prev) => [...prev, filename]);
+  };
+
+  const handleRemoveNewPhoto = (index: number) => {
+    setNewPhotos((prev) => {
+      URL.revokeObjectURL(prev[index].preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -71,8 +139,9 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
 
     setIsSaving(true);
     try {
+      let savedBatch: InventoryBatch;
       if (editingBatch) {
-        await updateBatch(editingBatch.id, {
+        savedBatch = await updateBatch(editingBatch.id, {
           batch_number: batchNumber.trim(),
           received_date: receivedDate || null,
           location: location.trim() || null,
@@ -81,7 +150,7 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
         });
       } else {
         const qty = parseInt(initialQuantity, 10);
-        await createBatch(part.id, {
+        savedBatch = await createBatch(part.id, {
           batch_number: batchNumber.trim(),
           received_date: receivedDate || null,
           location: location.trim() || null,
@@ -91,6 +160,20 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
           operator: operatorName.trim() || 'Operator',
         });
       }
+
+      // Delete any removed saved photos
+      for (const fname of removedFilenames) {
+        await deleteBatchPhoto(savedBatch.id, fname);
+      }
+
+      // Upload any newly added photos
+      if (newPhotos.length > 0) {
+        await uploadBatchPhotos(
+          savedBatch.id,
+          newPhotos.map((p) => p.file)
+        );
+      }
+
       onSuccess();
       onOpenChange(false);
     } catch (err: any) {
@@ -102,7 +185,7 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             <span>{editingBatch ? 'Edit Batch' : 'Add Received Batch'}</span>
@@ -162,7 +245,7 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
 
           {!editingBatch && (
             <div className="space-y-1">
-              <label className="text-xs font-medium">Initial Quantity</label>
+              <label className="text-xs font-medium">Received Quantity</label>
               <Input
                 type="number"
                 step={1}
@@ -178,10 +261,106 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Supplier cert #, quarantine reason..."
+              placeholder="e.g. Supplier cert #, delivery note..."
               rows={2}
               className="w-full rounded-md border border-input bg-background p-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
+          </div>
+
+          {/* Shipment Photos: Distinct Camera & Gallery Inputs for Android */}
+          <div className="space-y-2 pt-1">
+            <label className="text-xs font-medium block">Shipment Photos</label>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Direct Camera Capture (Android opens Camera app) */}
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => handleFilesAdded(e, cameraInputRef)}
+                className="hidden"
+                id="batch-photo-camera"
+              />
+              <label
+                htmlFor="batch-photo-camera"
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'cursor-pointer gap-1.5 text-xs h-8'
+                )}
+              >
+                <Camera className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>Take Photo</span>
+              </label>
+
+              {/* Multi-Select Gallery Picker (no capture attribute -> Android opens Gallery) */}
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => handleFilesAdded(e, galleryInputRef)}
+                className="hidden"
+                id="batch-photo-gallery"
+              />
+              <label
+                htmlFor="batch-photo-gallery"
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'cursor-pointer gap-1.5 text-xs h-8'
+                )}
+              >
+                <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>From Gallery</span>
+              </label>
+            </div>
+
+            {/* Thumbnails with Delete buttons */}
+            {(existingPhotos.length > 0 || newPhotos.length > 0) && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {existingPhotos.map((photo) => (
+                  <div
+                    key={photo.filename}
+                    className="relative w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted/40"
+                  >
+                    <img
+                      src={photo.url}
+                      alt="Saved shipment photo"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExistingPhoto(photo.filename)}
+                      className="absolute top-1 right-1 bg-black/80 hover:bg-destructive p-0.5 rounded text-white transition-colors cursor-pointer"
+                      title="Delete photo"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+
+                {newPhotos.map((photo, idx) => (
+                  <div
+                    key={`new-${idx}`}
+                    className="relative w-16 h-16 rounded-lg overflow-hidden border border-primary/50 bg-muted/40"
+                  >
+                    <img
+                      src={photo.preview}
+                      alt={`New photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveNewPhoto(idx)}
+                      className="absolute top-1 right-1 bg-black/80 hover:bg-destructive p-0.5 rounded text-white transition-colors cursor-pointer"
+                      title="Remove photo"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {error && (

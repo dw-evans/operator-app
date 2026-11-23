@@ -32,6 +32,7 @@ import { QuickAdjustModal } from './components/QuickAdjustModal';
 import { AddEditPartModal } from './components/AddEditPartModal';
 import { AddEditBatchModal } from './components/AddEditBatchModal';
 import { TransactionHistory } from './components/TransactionHistory';
+import { PhotoLightboxModal } from '@/components/PhotoLightboxModal';
 
 export const InventoryApp: FC = () => {
   const [activeTab, setActiveTab] = useState<'parts' | 'history'>('parts');
@@ -57,6 +58,7 @@ export const InventoryApp: FC = () => {
     part: InventoryPart;
     batch: InventoryBatch | null;
   } | null>(null);
+  const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -302,6 +304,7 @@ export const InventoryApp: FC = () => {
               setEditingPart(part);
               setPartModalOpen(true);
             }}
+            onViewPhoto={(url) => setActivePhoto(url)}
           />
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto">
@@ -342,6 +345,11 @@ export const InventoryApp: FC = () => {
         part={batchModalTarget?.part ?? null}
         editingBatch={batchModalTarget?.batch ?? null}
         onSuccess={loadData}
+      />
+
+      <PhotoLightboxModal
+        photoUrl={activePhoto}
+        onClose={() => setActivePhoto(null)}
       />
     </div>
   );

@@ -107,6 +107,7 @@ class PartBatch(Base):
         String, nullable=False, default="active", index=True
     )  # active | depleted
     notes = Column(Text, nullable=True)
+    photo_filenames = Column(Text, nullable=True)  # JSON-encoded list of photo filenames
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 

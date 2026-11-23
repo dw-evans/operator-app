@@ -101,6 +101,32 @@ export async function updateBatch(
   return handleResponse<InventoryBatch>(res);
 }
 
+export async function uploadBatchPhotos(
+  batchId: number,
+  files: File[]
+): Promise<InventoryBatch> {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append('photos', file, file.name);
+  }
+  const res = await fetch(`${BASE}/batches/${batchId}/photos`, {
+    method: 'POST',
+    body: formData,
+  });
+  return handleResponse<InventoryBatch>(res);
+}
+
+export async function deleteBatchPhoto(
+  batchId: number,
+  filename: string
+): Promise<InventoryBatch> {
+  const res = await fetch(
+    `${BASE}/batches/${batchId}/photos/${encodeURIComponent(filename)}`,
+    { method: 'DELETE' }
+  );
+  return handleResponse<InventoryBatch>(res);
+}
+
 export async function adjustPartStock(
   partId: number,
   payload: StockAdjustPayload

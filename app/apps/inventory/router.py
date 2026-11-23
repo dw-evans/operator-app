@@ -1,16 +1,18 @@
 import csv
 import difflib
 import io
+import json
 import re
 from datetime import datetime, timezone
 from typing import List, Optional, Set
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
+from app import config
 from app.apps.inventory import models, schemas
 from app.apps.inventory.database import get_db
 
@@ -58,6 +60,7 @@ def _resolve_subassembly(db: Session, name: Optional[str]) -> Optional[int]:
 
 
 def _batch_to_schema(batch: models.PartBatch) -> schemas.BatchResponse:
+    p_names = json.loads(batch.photo_filenames) if batch.photo_filenames else []
     return schemas.BatchResponse(
         id=batch.id,
         part_id=batch.part_id,
@@ -67,6 +70,8 @@ def _batch_to_schema(batch: models.PartBatch) -> schemas.BatchResponse:
         quantity=batch.quantity,
         batch_status=batch.batch_status,
         notes=batch.notes,
+        photo_filenames=p_names,
+        photo_urls=[f"/media/{p}" for p in p_names],
         created_at=batch.created_at,
         updated_at=batch.updated_at,
     )
@@ -527,6 +532,76 @@ def update_batch(
     batch.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(batch)
+    return _batch_to_schema(batch)
+
+
+@router.post("/batches/{batch_id}/photos", response_model=schemas.BatchResponse)
+async def upload_batch_photos(
+    batch_id: int,
+    photos: List[UploadFile] = File([]),
+    db: Session = Depends(get_db),
+):
+    """Upload one or more photos attached to a received shipment batch."""
+    batch = db.query(models.PartBatch).filter(models.PartBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    current_photos = json.loads(batch.photo_filenames) if batch.photo_filenames else []
+    ts = int(datetime.now(timezone.utc).timestamp() * 1000)
+
+    for idx, photo in enumerate(photos):
+        if photo and photo.filename:
+            ext = (
+                photo.filename.rsplit(".", 1)[-1].lower()
+                if "." in photo.filename
+                else "jpg"
+            )
+            safe_ext = re.sub(r"[^a-z0-9]", "", ext) or "jpg"
+            filename = f"inv_batch_{batch_id}_{ts}_{idx}.{safe_ext}"
+            dest = config.MEDIA_DIR / filename
+            content = await photo.read()
+            with open(dest, "wb") as f:
+                f.write(content)
+            current_photos.append(filename)
+
+    batch.photo_filenames = json.dumps(current_photos)
+    batch.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(batch)
+    return _batch_to_schema(batch)
+
+
+@router.delete(
+    "/batches/{batch_id}/photos/{filename}", response_model=schemas.BatchResponse
+)
+def delete_batch_photo(
+    batch_id: int,
+    filename: str,
+    db: Session = Depends(get_db),
+):
+    """Delete a specific photo from a shipment batch."""
+    batch = db.query(models.PartBatch).filter(models.PartBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    current_photos = json.loads(batch.photo_filenames) if batch.photo_filenames else []
+    if filename not in current_photos:
+        raise HTTPException(status_code=404, detail="Photo not found on batch")
+
+    updated_photos = [p for p in current_photos if p != filename]
+    batch.photo_filenames = json.dumps(updated_photos)
+    batch.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(batch)
+
+    # Best-effort delete of file from disk (only within MEDIA_DIR)
+    target = (config.MEDIA_DIR / filename).resolve()
+    try:
+        if target.parent == config.MEDIA_DIR.resolve() and target.is_file():
+            target.unlink()
+    except OSError:
+        pass
+
     return _batch_to_schema(batch)
 
 

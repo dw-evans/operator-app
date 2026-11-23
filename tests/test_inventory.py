@@ -1,9 +1,11 @@
+import io
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app import config
 from app.main import app
 from app.apps.inventory.database import Base as InventoryBase, get_db as get_inventory_db
 
@@ -247,3 +249,43 @@ def test_search_and_csv_export():
     assert "PCB-900" in csv_resp.text
     assert "Brain Board" in csv_resp.text
     assert "SMD-44" in csv_resp.text
+
+
+def test_batch_multiple_photos_upload_and_delete(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "MEDIA_DIR", tmp_path)
+
+    part = client.post(
+        "/api/v1/inventory/parts",
+        json={
+            "part_number": "SHP-100",
+            "revision": "1",
+            "name": "Bracket Shipment Test",
+            "initial_batch_number": "LOT-IMG",
+            "initial_quantity": 12,
+            "operator": "Alice",
+        },
+    ).json()
+    batch_id = part["batches"][0]["id"]
+
+    # Upload 2 photos to batch
+    up = client.post(
+        f"/api/v1/inventory/batches/{batch_id}/photos",
+        files=[
+            ("photos", ("box.jpg", io.BytesIO(b"fake-jpg-1"), "image/jpeg")),
+            ("photos", ("label.png", io.BytesIO(b"fake-png-2"), "image/png")),
+        ],
+    )
+    assert up.status_code == 200
+    b_data = up.json()
+    assert len(b_data["photo_filenames"]) == 2
+    assert len(b_data["photo_urls"]) == 2
+    first_file = b_data["photo_filenames"][0]
+    assert (tmp_path / first_file).is_file()
+
+    # Delete first photo
+    del_resp = client.delete(f"/api/v1/inventory/batches/{batch_id}/photos/{first_file}")
+    assert del_resp.status_code == 200
+    after = del_resp.json()
+    assert len(after["photo_filenames"]) == 1
+    assert first_file not in after["photo_filenames"]
+    assert not (tmp_path / first_file).exists()

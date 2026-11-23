@@ -20,6 +20,8 @@ export interface InventoryBatch {
   quantity: number;
   batch_status: BatchStatus;
   notes?: string | null;
+  photo_filenames: string[];
+  photo_urls: string[];
   created_at: string;
   updated_at: string;
 }

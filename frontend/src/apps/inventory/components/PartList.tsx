@@ -44,6 +44,7 @@ interface PartListProps {
   onAddBatch: (part: InventoryPart) => void;
   onEditBatch: (part: InventoryPart, batch: InventoryBatch) => void;
   onEditPart: (part: InventoryPart) => void;
+  onViewPhoto: (url: string) => void;
 }
 
 type VirtualEntry =
@@ -61,6 +62,7 @@ export const PartList: FC<PartListProps> = ({
   onAddBatch,
   onEditBatch,
   onEditPart,
+  onViewPhoto,
 }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [expanded, setExpanded] = useState<ExpandedState>({});
@@ -498,54 +500,80 @@ export const PartList: FC<PartListProps> = ({
                           {part.batches.map((batch) => (
                             <div
                               key={batch.id}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border/70 bg-background/70 text-xs"
+                              className="flex flex-col gap-2 px-3 py-2 rounded-lg border border-border/70 bg-background/70 text-xs"
                             >
-                              <div className="flex items-center gap-3 flex-wrap min-w-0">
-                                <span className="font-medium text-foreground">
-                                  Batch {batch.batch_number}
-                                </span>
-
-                                {batch.received_date && (
-                                  <span className="flex items-center gap-1 text-muted-foreground">
-                                    <Calendar className="w-3 h-3" />
-                                    {batch.received_date}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center gap-3 flex-wrap min-w-0">
+                                  <span className="font-medium text-foreground">
+                                    Batch {batch.batch_number}
                                   </span>
-                                )}
 
-                                {batch.location && (
-                                  <span className="flex items-center gap-1 text-muted-foreground">
-                                    <MapPin className="w-3 h-3" />
-                                    {batch.location}
-                                  </span>
-                                )}
+                                  {batch.received_date && (
+                                    <span className="flex items-center gap-1 text-muted-foreground">
+                                      <Calendar className="w-3 h-3" />
+                                      {batch.received_date}
+                                    </span>
+                                  )}
 
-                                {batch.notes && (
-                                  <span className="text-muted-foreground truncate max-w-[260px]">
-                                    — {batch.notes}
+                                  {batch.location && (
+                                    <span className="flex items-center gap-1 text-muted-foreground">
+                                      <MapPin className="w-3 h-3" />
+                                      {batch.location}
+                                    </span>
+                                  )}
+
+                                  {batch.notes && (
+                                    <span className="text-muted-foreground truncate max-w-[260px]">
+                                      — {batch.notes}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-muted-foreground tabular-nums">
+                                    Received:{' '}
+                                    <span className="text-foreground font-medium">
+                                      {batch.quantity}
+                                    </span>
                                   </span>
-                                )}
+
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    disabled={isOffline}
+                                    onClick={() => onEditBatch(part, batch)}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
+                                    title="Edit shipment batch details & photos"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </Button>
+                                </div>
                               </div>
 
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-muted-foreground tabular-nums">
-                                  Received:{' '}
-                                  <span className="text-foreground font-medium">
-                                    {batch.quantity}
-                                  </span>
-                                </span>
-
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  disabled={isOffline}
-                                  onClick={() => onEditBatch(part, batch)}
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-                                  title="Edit shipment batch details"
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </Button>
-                              </div>
+                              {batch.photo_urls && batch.photo_urls.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {batch.photo_urls.map((url, pIdx) => (
+                                    <button
+                                      key={pIdx}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onViewPhoto(url);
+                                      }}
+                                      className="w-12 h-12 rounded-md overflow-hidden border border-border hover:border-primary/70 transition-colors cursor-pointer bg-muted/30 shrink-0"
+                                      title="View shipment photo"
+                                    >
+                                      <img
+                                        src={url}
+                                        alt={`Shipment photo ${pIdx + 1}`}
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

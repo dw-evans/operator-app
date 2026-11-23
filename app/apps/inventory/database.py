@@ -48,6 +48,14 @@ def init_inventory_db():
                 )
             )
 
+        batch_cols = [
+            r[1] for r in conn.execute(text("PRAGMA table_info(part_batches)")).fetchall()
+        ]
+        if batch_cols and "photo_filenames" not in batch_cols:
+            conn.execute(
+                text("ALTER TABLE part_batches ADD COLUMN photo_filenames TEXT")
+            )
+
         # Make inventory_transactions.batch_id nullable so part-level adjustments don't need a batch
         tx_cols = {
             r[1]: r
