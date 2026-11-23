@@ -30,6 +30,7 @@ export interface InventoryPart {
   description?: string | null;
   category?: string | null;
   unit?: string;
+  quantity: number;
   lifecycle_status: LifecycleStatus;
   total_active_quantity: number;
   total_all_quantity: number;
@@ -40,14 +41,14 @@ export interface InventoryPart {
 
 export interface InventoryTransaction {
   id: number;
-  batch_id: number;
+  batch_id?: number | null;
   part_id: number;
   part_number: string;
   revision: string;
   iteration: string;
   part_name: string;
   common_name?: string | null;
-  batch_number: string;
+  batch_number?: string | null;
   delta: number;
   quantity_before: number;
   quantity_after: number;
@@ -113,6 +114,7 @@ export interface StockAdjustPayload {
 }
 
 export interface AdjustResponse {
-  batch: InventoryBatch;
+  part: InventoryPart;
+  batch?: InventoryBatch | null;
   transaction: InventoryTransaction;
 }

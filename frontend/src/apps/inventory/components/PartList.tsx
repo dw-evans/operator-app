@@ -40,7 +40,7 @@ interface PartListProps {
   isLoading: boolean;
   isOffline: boolean;
   isSearching?: boolean;
-  onAdjustBatch: (part: InventoryPart, batch: InventoryBatch) => void;
+  onAdjustPart: (part: InventoryPart) => void;
   onAddBatch: (part: InventoryPart) => void;
   onEditBatch: (part: InventoryPart, batch: InventoryBatch) => void;
   onEditPart: (part: InventoryPart) => void;
@@ -57,7 +57,7 @@ export const PartList: FC<PartListProps> = ({
   isLoading,
   isOffline,
   isSearching = false,
-  onAdjustBatch,
+  onAdjustPart,
   onAddBatch,
   onEditBatch,
   onEditPart,
@@ -74,43 +74,31 @@ export const PartList: FC<PartListProps> = ({
           <button
             type="button"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <span>Name</span>
             <ArrowUpDown className="w-3 h-3" />
           </button>
         ),
-        cell: ({ row }) => {
-          const part = row.original;
-          return (
-            <div className="min-w-[160px] max-w-[280px] whitespace-normal py-0.5">
-              <div className="font-medium text-foreground text-xs sm:text-sm leading-tight truncate">
-                {part.common_name || part.name}
-              </div>
-              {part.common_name && (
-                <div className="text-[11px] text-muted-foreground truncate">
-                  {part.name}
-                </div>
-              )}
-            </div>
-          );
-        },
+        cell: ({ getValue }) => (
+          <span className="text-sm font-normal text-foreground block max-w-[260px] truncate">
+            {getValue()}
+          </span>
+        ),
       }),
       columnHelper.accessor('part_number', {
         header: ({ column }) => (
           <button
             type="button"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <span>Part #</span>
             <ArrowUpDown className="w-3 h-3" />
           </button>
         ),
         cell: ({ getValue }) => (
-          <span className="font-mono text-xs font-semibold text-foreground">
-            {getValue()}
-          </span>
+          <span className="text-sm font-normal text-foreground">{getValue()}</span>
         ),
       }),
       columnHelper.accessor('revision', {
@@ -119,15 +107,15 @@ export const PartList: FC<PartListProps> = ({
           const part = row.original;
           const isObsolete = part.lifecycle_status === 'obsolete';
           return (
-            <div className="flex items-center gap-1.5">
-              <Badge variant="secondary" className="font-mono text-[11px]">
+            <div className="flex items-center gap-2 text-sm font-normal text-foreground">
+              <span>
                 {part.revision}
                 {part.iteration ? `.${part.iteration}` : ''}
-              </Badge>
+              </span>
               {isObsolete && (
                 <Badge
                   variant="outline"
-                  className="text-[10px] font-mono bg-amber-500/15 text-amber-400 border-amber-500/40"
+                  className="text-[11px] font-normal text-amber-400 border-amber-500/40 bg-amber-500/10"
                 >
                   Obsolete
                 </Badge>
@@ -142,7 +130,7 @@ export const PartList: FC<PartListProps> = ({
           <button
             type="button"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <span>Category</span>
             <ArrowUpDown className="w-3 h-3" />
@@ -150,51 +138,68 @@ export const PartList: FC<PartListProps> = ({
         ),
         cell: ({ getValue }) => {
           const val = getValue();
-          return val ? (
-            <Badge variant="outline" className="text-[10px] text-muted-foreground">
-              {val}
-            </Badge>
-          ) : (
-            <span className="text-xs text-muted-foreground/50">—</span>
+          return (
+            <span className={cn('text-sm font-normal', val ? 'text-muted-foreground' : 'text-muted-foreground/40')}>
+              {val || '—'}
+            </span>
           );
         },
       }),
-      columnHelper.accessor('total_active_quantity', {
+      columnHelper.accessor('quantity', {
         header: ({ column }) => (
           <button
             type="button"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer ml-auto"
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer ml-auto"
           >
             <span>Stock</span>
             <ArrowUpDown className="w-3 h-3" />
           </button>
         ),
         cell: ({ row }) => {
-          const part = row.original;
+          const qty = row.original.quantity;
           return (
             <div className="text-right">
-              <div
+              <span
                 className={cn(
-                  'font-mono text-sm font-bold',
-                  part.total_active_quantity < 0 ? 'text-amber-400' : 'text-foreground'
+                  'text-sm font-normal tabular-nums',
+                  qty < 0 ? 'text-amber-400' : 'text-foreground'
                 )}
               >
-                {part.total_active_quantity}
-              </div>
-              <div className="text-[10px] text-muted-foreground font-mono">
-                {part.batches.length}{' '}
-                {part.batches.length === 1 ? 'batch' : 'batches'}
-              </div>
+                {qty}
+              </span>
             </div>
           );
         },
       }),
       columnHelper.display({
+        id: 'adjust_stock',
+        header: () => <span className="sr-only">Adjust Stock</span>,
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="default"
+              size="xs"
+              disabled={isOffline}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdjustPart(row.original);
+              }}
+              className="gap-1 text-xs h-7 px-2.5 cursor-pointer"
+              title="Take or restock from total part supply"
+            >
+              <SlidersHorizontal className="w-3 h-3" />
+              <span>Adjust</span>
+            </Button>
+          </div>
+        ),
+      }),
+      columnHelper.display({
         id: 'add_batch',
         header: () => <span className="sr-only">Add Batch</span>,
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex justify-center">
             <Button
               type="button"
               variant="outline"
@@ -205,7 +210,7 @@ export const PartList: FC<PartListProps> = ({
                 onAddBatch(row.original);
               }}
               className="gap-1 text-xs h-7 px-2 cursor-pointer"
-              title="Add a new received batch"
+              title="Record a new received shipment batch"
             >
               <Plus className="w-3 h-3" />
               <span className="hidden md:inline">Batch</span>
@@ -237,7 +242,7 @@ export const PartList: FC<PartListProps> = ({
       }),
       columnHelper.display({
         id: 'more_info',
-        header: () => <span className="sr-only">Batches & Details</span>,
+        header: () => <span className="sr-only">Shipments & Details</span>,
         cell: ({ row }) => {
           const isExp = row.getIsExpanded();
           return (
@@ -251,7 +256,7 @@ export const PartList: FC<PartListProps> = ({
                   row.toggleExpanded();
                 }}
                 className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-                title={isExp ? 'Hide batches & details' : 'Show batches & details'}
+                title={isExp ? 'Hide shipment batches' : 'Show shipment batches & details'}
                 aria-expanded={isExp}
               >
                 <MoreHorizontal className="w-4 h-4" />
@@ -261,7 +266,7 @@ export const PartList: FC<PartListProps> = ({
         },
       }),
     ],
-    [isOffline, onAddBatch, onEditPart]
+    [isOffline, onAdjustPart, onAddBatch, onEditPart]
   );
 
   // When searching, keep backend fuzzy-relevance order unless user clicks a column sort header
@@ -286,7 +291,7 @@ export const PartList: FC<PartListProps> = ({
     getExpandedRowModel: getExpandedRowModel(),
   });
 
-  // Flatten visible rows + expanded batch detail rows so each virtual item is 1 <tr>
+  // Flatten visible rows + expanded shipment detail rows so each virtual item is 1 <tr>
   const tableRows = table.getRowModel().rows;
   const virtualEntries = useMemo<VirtualEntry[]>(() => {
     const entries: VirtualEntry[] = [];
@@ -310,9 +315,9 @@ export const PartList: FC<PartListProps> = ({
       const entry = virtualEntries[index];
       if (entry?.kind === 'details') {
         const batchCount = Math.max(1, entry.part.batches.length);
-        return 44 + batchCount * 46;
+        return 48 + batchCount * 44;
       }
-      return 52;
+      return 48;
     },
     overscan: 8,
   });
@@ -358,9 +363,10 @@ export const PartList: FC<PartListProps> = ({
                   <TableHead
                     key={header.id}
                     className={cn(
-                      'px-3 h-9 text-xs',
-                      header.id === 'total_active_quantity' && 'text-right',
-                      (header.id === 'add_batch' ||
+                      'px-3 h-10 text-xs',
+                      header.id === 'quantity' && 'text-right',
+                      (header.id === 'adjust_stock' ||
+                        header.id === 'add_batch' ||
                         header.id === 'edit_part' ||
                         header.id === 'more_info') &&
                         'w-10 px-1.5'
@@ -400,17 +406,18 @@ export const PartList: FC<PartListProps> = ({
                     ref={rowVirtualizer.measureElement}
                     onClick={() => row.toggleExpanded()}
                     className={cn(
-                      'cursor-pointer',
-                      isObsolete && 'opacity-70 bg-amber-950/10',
-                      isExp && 'bg-muted/40 border-b-0'
+                      'cursor-pointer h-12',
+                      isObsolete && 'opacity-65',
+                      isExp && 'bg-muted/35 border-b-0'
                     )}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
                         className={cn(
-                          'px-3 py-2',
-                          (cell.column.id === 'add_batch' ||
+                          'px-3 py-2.5',
+                          (cell.column.id === 'adjust_stock' ||
+                            cell.column.id === 'add_batch' ||
                             cell.column.id === 'edit_part' ||
                             cell.column.id === 'more_info') &&
                             'px-1.5'
@@ -423,123 +430,103 @@ export const PartList: FC<PartListProps> = ({
                 );
               }
 
-              // Expanded details / received batches row
+              // Expanded details / received shipment batches
               const { part } = entry;
               return (
                 <TableRow
                   key={entry.key}
                   data-index={vRow.index}
                   ref={rowVirtualizer.measureElement}
-                  className="bg-muted/20 hover:bg-muted/20"
+                  className="bg-muted/15 hover:bg-muted/15"
                 >
-                  <TableCell colSpan={colCount} className="p-3 whitespace-normal">
-                    <div className="space-y-2">
-                      {part.description && (
-                        <p className="text-xs text-muted-foreground">
-                          {part.description}
-                        </p>
+                  <TableCell colSpan={colCount} className="px-4 py-3 whitespace-normal">
+                    <div className="space-y-2.5">
+                      {(part.common_name || part.description) && (
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          {part.common_name && (
+                            <div>
+                              Formal name:{' '}
+                              <span className="text-foreground">{part.name}</span>
+                            </div>
+                          )}
+                          {part.description && <div>{part.description}</div>}
+                        </div>
                       )}
 
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                        Received Shipments ({part.batches.length})
+                      </div>
+
                       {part.batches.length === 0 ? (
-                        <div className="flex items-center justify-between text-xs text-muted-foreground italic py-1">
-                          <span>No batches received yet.</span>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground py-1">
+                          <span>No shipment batches recorded yet.</span>
                           <Button
                             type="button"
                             variant="outline"
                             size="xs"
                             disabled={isOffline}
                             onClick={() => onAddBatch(part)}
-                            className="gap-1 text-xs h-7 cursor-pointer not-italic"
+                            className="gap-1 text-xs h-7 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" />
-                            <span>Add First Batch</span>
+                            <span>Record Shipment</span>
                           </Button>
                         </div>
                       ) : (
                         <div className="space-y-1.5">
-                          {part.batches.map((batch) => {
-                            const isDepleted = batch.batch_status === 'depleted';
-                            return (
-                              <div
-                                key={batch.id}
-                                className={cn(
-                                  'flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs',
-                                  isDepleted
-                                    ? 'bg-background/40 border-border/60 opacity-70'
-                                    : 'bg-background/80 border-border/80'
-                                )}
-                              >
-                                <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-                                  <span className="font-mono font-semibold text-foreground">
-                                    Batch {batch.batch_number}
+                          {part.batches.map((batch) => (
+                            <div
+                              key={batch.id}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border/70 bg-background/70 text-xs"
+                            >
+                              <div className="flex items-center gap-3 flex-wrap min-w-0">
+                                <span className="font-medium text-foreground">
+                                  Batch {batch.batch_number}
+                                </span>
+
+                                {batch.received_date && (
+                                  <span className="flex items-center gap-1 text-muted-foreground">
+                                    <Calendar className="w-3 h-3" />
+                                    {batch.received_date}
                                   </span>
+                                )}
 
-                                  {batch.received_date && (
-                                    <span className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
-                                      <Calendar className="w-3 h-3" />
-                                      {batch.received_date}
-                                    </span>
-                                  )}
+                                {batch.location && (
+                                  <span className="flex items-center gap-1 text-muted-foreground">
+                                    <MapPin className="w-3 h-3" />
+                                    {batch.location}
+                                  </span>
+                                )}
 
-                                  {batch.location && (
-                                    <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                      <MapPin className="w-3 h-3" />
-                                      {batch.location}
-                                    </span>
-                                  )}
+                                {batch.notes && (
+                                  <span className="text-muted-foreground truncate max-w-[260px]">
+                                    — {batch.notes}
+                                  </span>
+                                )}
+                              </div>
 
-                                  {isDepleted && (
-                                    <Badge variant="outline" className="text-[10px] font-mono">
-                                      Depleted
-                                    </Badge>
-                                  )}
-
-                                  {batch.notes && (
-                                    <span className="text-[11px] text-muted-foreground truncate max-w-[260px]">
-                                      — {batch.notes}
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <span
-                                    className={cn(
-                                      'font-mono font-bold text-sm min-w-[2.5rem] text-right',
-                                      batch.quantity < 0
-                                        ? 'text-amber-400'
-                                        : 'text-foreground'
-                                    )}
-                                  >
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-muted-foreground tabular-nums">
+                                  Received:{' '}
+                                  <span className="text-foreground font-medium">
                                     {batch.quantity}
                                   </span>
+                                </span>
 
-                                  <Button
-                                    type="button"
-                                    variant="default"
-                                    size="xs"
-                                    disabled={isOffline}
-                                    onClick={() => onAdjustBatch(part, batch)}
-                                    className="gap-1 text-xs h-7 px-2.5 cursor-pointer"
-                                  >
-                                    <SlidersHorizontal className="w-3 h-3" />
-                                    <span>Adjust</span>
-                                  </Button>
-
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    disabled={isOffline}
-                                    onClick={() => onEditBatch(part, batch)}
-                                    className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-                                    title="Edit batch details"
-                                  >
-                                    <Pencil className="w-3 h-3" />
-                                  </Button>
-                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  disabled={isOffline}
+                                  onClick={() => onEditBatch(part, batch)}
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
+                                  title="Edit shipment batch details"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

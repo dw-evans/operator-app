@@ -46,10 +46,7 @@ export const InventoryApp: FC = () => {
   const [includeObsolete, setIncludeObsolete] = useState(true);
 
   // Modals
-  const [adjustTarget, setAdjustTarget] = useState<{
-    part: InventoryPart;
-    batch: InventoryBatch;
-  } | null>(null);
+  const [adjustTarget, setAdjustTarget] = useState<InventoryPart | null>(null);
   const [partModalOpen, setPartModalOpen] = useState(false);
   const [editingPart, setEditingPart] = useState<InventoryPart | null>(null);
   const [batchModalTarget, setBatchModalTarget] = useState<{
@@ -277,7 +274,7 @@ export const InventoryApp: FC = () => {
             isLoading={isLoading}
             isOffline={isOffline}
             isSearching={search.trim().length > 0}
-            onAdjustBatch={(part, batch) => setAdjustTarget({ part, batch })}
+            onAdjustPart={(part) => setAdjustTarget(part)}
             onAddBatch={(part) => setBatchModalTarget({ part, batch: null })}
             onEditBatch={(part, batch) => setBatchModalTarget({ part, batch })}
             onEditPart={(part) => {
@@ -303,8 +300,7 @@ export const InventoryApp: FC = () => {
         onOpenChange={(open) => {
           if (!open) setAdjustTarget(null);
         }}
-        part={adjustTarget?.part ?? null}
-        batch={adjustTarget?.batch ?? null}
+        part={adjustTarget}
         onSuccess={loadData}
       />
 

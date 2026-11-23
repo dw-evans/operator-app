@@ -51,6 +51,7 @@ class InventoryPart(Base):
     description = Column(Text, nullable=True)
     category = Column(String, index=True, nullable=True)
     unit = Column(String, nullable=False, default="")
+    quantity = Column(Integer, nullable=False, default=0)  # Top-level stock pool (negatives allowed)
     lifecycle_status = Column(
         String, nullable=False, default="active", index=True
     )  # active | obsolete
@@ -102,9 +103,9 @@ class InventoryTransaction(Base):
     id = Column(Integer, primary_key=True, index=True)
     batch_id = Column(
         Integer,
-        ForeignKey("part_batches.id", ondelete="CASCADE"),
+        ForeignKey("part_batches.id", ondelete="SET NULL"),
         index=True,
-        nullable=False,
+        nullable=True,
     )
     part_id = Column(
         Integer,

@@ -93,11 +93,11 @@ export async function updateBatch(
   return handleResponse<InventoryBatch>(res);
 }
 
-export async function adjustBatchStock(
-  batchId: number,
+export async function adjustPartStock(
+  partId: number,
   payload: StockAdjustPayload
 ): Promise<AdjustResponse> {
-  const res = await fetch(`${BASE}/batches/${batchId}/adjust`, {
+  const res = await fetch(`${BASE}/parts/${partId}/adjust`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

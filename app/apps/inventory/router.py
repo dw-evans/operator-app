@@ -54,8 +54,6 @@ def _batch_to_schema(batch: models.PartBatch) -> schemas.BatchResponse:
 
 def _part_to_schema(part: models.InventoryPart) -> schemas.PartResponse:
     batches = [_batch_to_schema(b) for b in part.batches]
-    total_active = sum(b.quantity for b in part.batches if b.batch_status == "active")
-    total_all = sum(b.quantity for b in part.batches)
     return schemas.PartResponse(
         id=part.id,
         part_number=part.part_number,
@@ -67,9 +65,10 @@ def _part_to_schema(part: models.InventoryPart) -> schemas.PartResponse:
         description=part.description,
         category=part.category,
         unit=part.unit,
+        quantity=part.quantity,
         lifecycle_status=part.lifecycle_status,
-        total_active_quantity=total_active,
-        total_all_quantity=total_all,
+        total_active_quantity=part.quantity,
+        total_all_quantity=part.quantity,
         batches=batches,
         created_at=part.created_at,
         updated_at=part.updated_at,
@@ -92,7 +91,7 @@ def _tx_to_schema(
         common_name=(
             part.common_name_rel.name if part and part.common_name_rel else None
         ),
-        batch_number=batch.batch_number if batch else "",
+        batch_number=batch.batch_number if batch else None,
         delta=tx.delta,
         quantity_before=tx.quantity_before,
         quantity_after=tx.quantity_after,
@@ -224,6 +223,7 @@ def create_part(payload: schemas.PartCreate, db: Session = Depends(get_db)):
         description=payload.description.strip() if payload.description else None,
         category=payload.category.strip() if payload.category else None,
         unit=(payload.unit or "").strip(),
+        quantity=payload.initial_quantity,
         lifecycle_status=payload.lifecycle_status,
     )
     db.add(part)
@@ -353,7 +353,7 @@ def update_part(
 def create_batch(
     part_id: int, payload: schemas.BatchCreate, db: Session = Depends(get_db)
 ):
-    """Add a new received batch/lot under an existing Part Version."""
+    """Record a newly received shipment batch and add its received quantity to the part's stock pool."""
     part = db.query(models.InventoryPart).filter(models.InventoryPart.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
@@ -371,13 +371,18 @@ def create_batch(
     db.flush()
 
     if payload.initial_quantity != 0:
+        qty_before = part.quantity
+        qty_after = qty_before + payload.initial_quantity
+        part.quantity = qty_after
+        part.updated_at = datetime.now(timezone.utc)
+
         tx = models.InventoryTransaction(
             batch_id=batch.id,
             part_id=part.id,
             delta=payload.initial_quantity,
-            quantity_before=0,
-            quantity_after=payload.initial_quantity,
-            reason="Batch received",
+            quantity_before=qty_before,
+            quantity_after=qty_after,
+            reason=f"Shipment received (Batch {batch.batch_number})",
             operator=payload.operator.strip() or "Operator",
             timestamp=datetime.now(timezone.utc),
         )
@@ -386,6 +391,73 @@ def create_batch(
     db.commit()
     db.refresh(batch)
     return _batch_to_schema(batch)
+
+
+@router.post("/parts/{part_id}/adjust", response_model=schemas.AdjustResponse)
+def adjust_part_stock(
+    part_id: int, payload: schemas.StockAdjustRequest, db: Session = Depends(get_db)
+):
+    """
+    Atomically adjust a part's top-level stock pool by an offset (delta) or exact count (set_quantity).
+    Negative quantities are allowed so production is never blocked.
+    """
+    if payload.delta is None and payload.set_quantity is None:
+        raise HTTPException(
+            status_code=400, detail="Either 'delta' or 'set_quantity' must be provided."
+        )
+
+    part = (
+        db.query(models.InventoryPart)
+        .options(
+            joinedload(models.InventoryPart.common_name_rel),
+            joinedload(models.InventoryPart.batches),
+        )
+        .filter(models.InventoryPart.id == part_id)
+        .first()
+    )
+    if not part:
+        raise HTTPException(status_code=404, detail="Part not found")
+
+    qty_before = part.quantity
+    if payload.set_quantity is not None:
+        delta = payload.set_quantity - qty_before
+        qty_after = payload.set_quantity
+        reason = (payload.reason or "").strip() or "Stocktake count"
+    else:
+        delta = payload.delta or 0
+        qty_after = qty_before + delta
+        reason = (payload.reason or "").strip() or (
+            "Taken for production" if delta < 0 else "Restock"
+        )
+
+    if delta == 0:
+        raise HTTPException(
+            status_code=400, detail="Adjustment delta is 0; no change recorded."
+        )
+
+    part.quantity = qty_after
+    part.updated_at = datetime.now(timezone.utc)
+
+    tx = models.InventoryTransaction(
+        batch_id=None,
+        part_id=part.id,
+        delta=delta,
+        quantity_before=qty_before,
+        quantity_after=qty_after,
+        reason=reason,
+        operator=payload.operator.strip() or "Operator",
+        timestamp=datetime.now(timezone.utc),
+    )
+    db.add(tx)
+    db.commit()
+    db.refresh(part)
+    db.refresh(tx)
+
+    return schemas.AdjustResponse(
+        part=_part_to_schema(part),
+        batch=None,
+        transaction=_tx_to_schema(tx, set()),
+    )
 
 
 @router.patch("/batches/{batch_id}", response_model=schemas.BatchResponse)
@@ -418,67 +490,11 @@ def update_batch(
 def adjust_batch_stock(
     batch_id: int, payload: schemas.StockAdjustRequest, db: Session = Depends(get_db)
 ):
-    """
-    Atomically adjust a batch's integer quantity by an offset (delta) or exact stocktake (set_quantity).
-    Negative quantities are allowed so production is never blocked.
-    """
-    if payload.delta is None and payload.set_quantity is None:
-        raise HTTPException(
-            status_code=400, detail="Either 'delta' or 'set_quantity' must be provided."
-        )
-
-    batch = (
-        db.query(models.PartBatch)
-        .options(
-            joinedload(models.PartBatch.part).joinedload(
-                models.InventoryPart.common_name_rel
-            )
-        )
-        .filter(models.PartBatch.id == batch_id)
-        .first()
-    )
+    """Legacy batch-level adjust delegates to part-level stock pool adjustment."""
+    batch = db.query(models.PartBatch).filter(models.PartBatch.id == batch_id).first()
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
-
-    qty_before = batch.quantity
-    if payload.set_quantity is not None:
-        delta = payload.set_quantity - qty_before
-        qty_after = payload.set_quantity
-        reason = (payload.reason or "").strip() or "Stocktake count"
-    else:
-        delta = payload.delta or 0
-        qty_after = qty_before + delta
-        reason = (payload.reason or "").strip() or (
-            "Taken for production" if delta < 0 else "Restock"
-        )
-
-    if delta == 0:
-        raise HTTPException(
-            status_code=400, detail="Adjustment delta is 0; no change recorded."
-        )
-
-    batch.quantity = qty_after
-    batch.updated_at = datetime.now(timezone.utc)
-
-    tx = models.InventoryTransaction(
-        batch_id=batch.id,
-        part_id=batch.part_id,
-        delta=delta,
-        quantity_before=qty_before,
-        quantity_after=qty_after,
-        reason=reason,
-        operator=payload.operator.strip() or "Operator",
-        timestamp=datetime.now(timezone.utc),
-    )
-    db.add(tx)
-    db.commit()
-    db.refresh(batch)
-    db.refresh(tx)
-
-    return schemas.AdjustResponse(
-        batch=_batch_to_schema(batch),
-        transaction=_tx_to_schema(tx, set()),
-    )
+    return adjust_part_stock(batch.part_id, payload, db)
 
 
 @router.post("/transactions/{tx_id}/undo", response_model=schemas.AdjustResponse)
@@ -486,7 +502,7 @@ def undo_transaction(
     tx_id: int, payload: schemas.UndoTransactionRequest, db: Session = Depends(get_db)
 ):
     """
-    Undo a previous stock transaction by creating a compensating inverse transaction.
+    Undo a previous stock transaction by applying its inverse delta to the part's stock pool.
     Preserves full immutable history and prevents double-undoing the same transaction.
     """
     orig = (
@@ -495,6 +511,9 @@ def undo_transaction(
             joinedload(models.InventoryTransaction.batch),
             joinedload(models.InventoryTransaction.part).joinedload(
                 models.InventoryPart.common_name_rel
+            ),
+            joinedload(models.InventoryTransaction.part).joinedload(
+                models.InventoryPart.batches
             ),
         )
         .filter(models.InventoryTransaction.id == tx_id)
@@ -513,16 +532,16 @@ def undo_transaction(
             status_code=409, detail=f"Transaction #{tx_id} has already been undone."
         )
 
-    batch = orig.batch
-    qty_before = batch.quantity
+    part = orig.part
+    qty_before = part.quantity
     undo_delta = -orig.delta
     qty_after = qty_before + undo_delta
 
-    batch.quantity = qty_after
-    batch.updated_at = datetime.now(timezone.utc)
+    part.quantity = qty_after
+    part.updated_at = datetime.now(timezone.utc)
 
     comp_tx = models.InventoryTransaction(
-        batch_id=batch.id,
+        batch_id=orig.batch_id,
         part_id=orig.part_id,
         delta=undo_delta,
         quantity_before=qty_before,
@@ -534,11 +553,12 @@ def undo_transaction(
     )
     db.add(comp_tx)
     db.commit()
-    db.refresh(batch)
+    db.refresh(part)
     db.refresh(comp_tx)
 
     return schemas.AdjustResponse(
-        batch=_batch_to_schema(batch),
+        part=_part_to_schema(part),
+        batch=_batch_to_schema(orig.batch) if orig.batch else None,
         transaction=_tx_to_schema(comp_tx, set()),
     )
 

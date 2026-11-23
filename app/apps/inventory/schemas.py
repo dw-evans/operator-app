@@ -80,6 +80,7 @@ class PartResponse(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     unit: str
+    quantity: int = 0
     lifecycle_status: str
     total_active_quantity: int = 0
     total_all_quantity: int = 0
@@ -101,14 +102,14 @@ class UndoTransactionRequest(BaseModel):
 
 class TransactionResponse(BaseModel):
     id: int
-    batch_id: int
+    batch_id: Optional[int] = None
     part_id: int
     part_number: str
     revision: str
     iteration: str
     part_name: str
     common_name: Optional[str] = None
-    batch_number: str
+    batch_number: Optional[str] = None
     delta: int
     quantity_before: int
     quantity_after: int
@@ -120,5 +121,6 @@ class TransactionResponse(BaseModel):
 
 
 class AdjustResponse(BaseModel):
-    batch: BatchResponse
+    part: PartResponse
+    batch: Optional[BatchResponse] = None
     transaction: TransactionResponse

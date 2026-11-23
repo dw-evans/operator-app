@@ -132,51 +132,52 @@ def test_batches_depleted_negative_offsets_and_undo():
 
     good_batch_id = part["batches"][0]["id"]
 
-    # Add second batch marked depleted
-    old_batch = client.post(
+    # Add second received shipment batch -> adds +20 to top-level part pool
+    second_batch = client.post(
         f"/api/v1/inventory/parts/{part['id']}/batches",
         json={
-            "batch_number": "LOT-OLD",
-            "received_date": "2026-10-10",
+            "batch_number": "LOT-2",
+            "received_date": "2026-11-10",
             "location": "Shelf B",
-            "initial_quantity": 0,
-            "batch_status": "depleted",
-            "notes": "Finished last week",
+            "initial_quantity": 20,
+            "batch_status": "active",
+            "notes": "Second shipment",
             "operator": "QA",
         },
     ).json()
-    assert old_batch["batch_status"] == "depleted"
+    assert second_batch["quantity"] == 20
 
-    # Active total reflects active batches
+    # Top-level part stock is now 10 + 20 = 30
     refreshed = client.get(f"/api/v1/inventory/parts/{part['id']}").json()
-    assert refreshed["total_active_quantity"] == 10
-    assert refreshed["total_all_quantity"] == 10
+    assert refreshed["quantity"] == 30
+    assert refreshed["total_active_quantity"] == 30
 
-    # Take -15 from good batch -> goes negative (-5) without blocking production
+    # Take -35 from top-level part -> goes negative (-5) without blocking production
     adj = client.post(
-        f"/api/v1/inventory/batches/{good_batch_id}/adjust",
+        f"/api/v1/inventory/parts/{part['id']}/adjust",
         json={
-            "delta": -15,
+            "delta": -35,
             "reason": "Taken for Line 2",
             "operator": "Charlie",
         },
     )
     assert adj.status_code == 200
     adj_data = adj.json()
-    assert adj_data["batch"]["quantity"] == -5
-    assert adj_data["transaction"]["quantity_before"] == 10
+    assert adj_data["part"]["quantity"] == -5
+    assert adj_data["transaction"]["batch_id"] is None
+    assert adj_data["transaction"]["quantity_before"] == 30
     assert adj_data["transaction"]["quantity_after"] == -5
     tx_id = adj_data["transaction"]["id"]
 
-    # Undo the -15 transaction -> restores to +10 with compensating +15 record
+    # Undo the -35 transaction -> restores to +30 with compensating +35 record
     undo = client.post(
         f"/api/v1/inventory/transactions/{tx_id}/undo",
         json={"operator": "Charlie"},
     )
     assert undo.status_code == 200
     undo_data = undo.json()
-    assert undo_data["batch"]["quantity"] == 10
-    assert undo_data["transaction"]["delta"] == 15
+    assert undo_data["part"]["quantity"] == 30
+    assert undo_data["transaction"]["delta"] == 35
     assert undo_data["transaction"]["reverts_transaction_id"] == tx_id
 
     # Double-undo is prevented with 409 Conflict

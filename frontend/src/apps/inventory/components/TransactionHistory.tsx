@@ -112,9 +112,11 @@ export const TransactionHistory: FC<TransactionHistoryProps> = ({
                   {tx.iteration ? `.${tx.iteration}` : ''}
                 </Badge>
 
-                <Badge variant="outline" className="font-mono text-[10px]">
-                  Batch {tx.batch_number}
-                </Badge>
+                {tx.batch_number && (
+                  <Badge variant="outline" className="font-mono text-[10px]">
+                    Batch {tx.batch_number}
+                  </Badge>
+                )}
 
                 {isUndoEntry && (
                   <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-500/30">

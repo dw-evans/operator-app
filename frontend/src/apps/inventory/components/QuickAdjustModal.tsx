@@ -13,14 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useOperatorName } from '@/services/settings';
-import { adjustBatchStock } from '../api';
-import type { InventoryBatch, InventoryPart } from '../types';
+import { adjustPartStock } from '../api';
+import type { InventoryPart } from '../types';
 
 interface QuickAdjustModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   part: InventoryPart | null;
-  batch: InventoryBatch | null;
   onSuccess: () => void;
 }
 
@@ -33,7 +32,6 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
   open,
   onOpenChange,
   part,
-  batch,
   onSuccess,
 }) => {
   const [operatorName] = useOperatorName();
@@ -44,31 +42,32 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open && batch) {
+    if (open && part) {
       setMode('take');
       setAmountStr('1');
       setReason('');
       setError(null);
     }
-  }, [open, batch]);
+  }, [open, part]);
 
-  if (!part || !batch) return null;
+  if (!part) return null;
 
+  const currentQty = part.quantity;
   const parsed = parseInt(amountStr, 10);
   const validNum = !Number.isNaN(parsed);
 
   let computedDelta = 0;
-  let previewAfter = batch.quantity;
+  let previewAfter = currentQty;
   if (validNum) {
     if (mode === 'take') {
       computedDelta = -Math.abs(parsed);
-      previewAfter = batch.quantity + computedDelta;
+      previewAfter = currentQty + computedDelta;
     } else if (mode === 'restock') {
       computedDelta = Math.abs(parsed);
-      previewAfter = batch.quantity + computedDelta;
+      previewAfter = currentQty + computedDelta;
     } else {
       previewAfter = parsed;
-      computedDelta = parsed - batch.quantity;
+      computedDelta = parsed - currentQty;
     }
   }
 
@@ -88,7 +87,7 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
 
     setIsSaving(true);
     try {
-      await adjustBatchStock(batch.id, {
+      await adjustPartStock(part.id, {
         ...(mode === 'set' ? { set_quantity: previewAfter } : { delta: computedDelta }),
         reason: reason.trim() || undefined,
         operator: op,
@@ -116,13 +115,9 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
               {part.iteration ? `.${part.iteration}` : ''}
             </Badge>
           </DialogTitle>
-          <div className="text-xs text-muted-foreground space-y-0.5">
+          <div className="text-xs text-muted-foreground">
             <div className="font-medium text-foreground">
-              {part.common_name ? `${part.common_name} — ${part.name}` : part.name}
-            </div>
-            <div className="flex items-center gap-2 font-mono text-[11px]">
-              <span>Batch: {batch.batch_number}</span>
-              {batch.location && <span>• {batch.location}</span>}
+              {part.common_name || part.name}
             </div>
           </div>
         </DialogHeader>
@@ -166,7 +161,7 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
               type="button"
               onClick={() => {
                 setMode('set');
-                setAmountStr(String(batch.quantity));
+                setAmountStr(String(currentQty));
               }}
               className={cn(
                 'flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors',
@@ -226,7 +221,7 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
             )}
           >
             <span>
-              Current: <strong>{batch.quantity}</strong> → New:{' '}
+              Current: <strong>{currentQty}</strong> → New:{' '}
               <strong>{previewAfter}</strong>
             </span>
             <Badge
