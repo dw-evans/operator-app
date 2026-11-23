@@ -22,7 +22,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   updateQualityIssue,
   uploadQualityIssuePhotos,
-  deleteQualityIssuePhoto,
 } from '../api';
 import type { QualityIssue, QualityIssueStatus } from '../types';
 
@@ -99,19 +98,6 @@ export const QualityIssueDetailDialog: FC<QualityIssueDetailDialogProps> = ({
       onUpdated(updated);
     } catch (err: any) {
       setError(err?.message || 'Failed to upload photos.');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleDeletePhoto = async (filename: string) => {
-    setIsBusy(true);
-    setError(null);
-    try {
-      const updated = await deleteQualityIssuePhoto(issue.id, filename);
-      onUpdated(updated);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to delete photo.');
     } finally {
       setIsBusy(false);
     }
@@ -323,39 +309,25 @@ export const QualityIssueDetailDialog: FC<QualityIssueDetailDialogProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {issue.photo_urls.map((url, idx) => {
-                  const filename = issue.photo_filenames[idx];
-                  return (
-                    <div
-                      key={url}
-                      className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted"
+                {issue.photo_urls.map((url, idx) => (
+                  <div
+                    key={url}
+                    className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onViewPhotos(issue.photo_urls, idx)}
+                      className="w-full h-full cursor-pointer block"
+                      title={`View photo ${idx + 1}`}
                     >
-                      <button
-                        type="button"
-                        onClick={() => onViewPhotos(issue.photo_urls, idx)}
-                        className="w-full h-full cursor-pointer block"
-                        title={`View photo ${idx + 1}`}
-                      >
-                        <img
-                          src={url}
-                          alt={`Issue #${issue.id} photo ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
-                      {filename && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePhoto(filename)}
-                          disabled={isBusy}
-                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/75 text-white flex items-center justify-center opacity-80 hover:opacity-100 hover:bg-destructive cursor-pointer transition-opacity"
-                          title="Delete photo"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                      <img
+                        src={url}
+                        alt={`Issue #${issue.id} photo ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

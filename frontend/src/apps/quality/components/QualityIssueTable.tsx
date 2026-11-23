@@ -29,10 +29,9 @@ interface QualityIssueTableProps {
   isLoading: boolean;
   onViewPhotos: (urls: string[], index: number) => void;
   onOpenDetail: (issue: QualityIssue) => void;
-  onChangeStatus: (issue: QualityIssue, status: QualityIssueStatus) => void;
 }
 
-const STATUS_SELECT_STYLES: Record<QualityIssueStatus, string> = {
+const STATUS_BADGE_STYLES: Record<QualityIssueStatus, string> = {
   open: 'border-amber-500/40 bg-amber-500/15 text-amber-400',
   resolved: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-400',
   obsolete: 'border-border bg-muted/60 text-muted-foreground',
@@ -69,7 +68,6 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
   isLoading,
   onViewPhotos,
   onOpenDetail,
-  onChangeStatus,
 }) => {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
@@ -274,8 +272,8 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
         ),
       }),
       columnHelper.accessor('status', {
-        size: 108,
-        minSize: 90,
+        size: 96,
+        minSize: 80,
         header: ({ column }) => (
           <button
             type="button"
@@ -287,32 +285,17 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
           </button>
         ),
         cell: ({ row }) => {
-          const issue = row.original;
-          const currentStatus: QualityIssueStatus = issue.status || 'open';
+          const currentStatus: QualityIssueStatus = row.original.status || 'open';
           return (
-            <select
-              value={currentStatus}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                e.stopPropagation();
-                onChangeStatus(issue, e.target.value as QualityIssueStatus);
-              }}
-              aria-label={`Status for issue #${issue.id}`}
+            <Badge
+              variant="outline"
               className={cn(
-                'h-6 w-full rounded-md border px-1.5 text-[11px] font-medium capitalize focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer',
-                STATUS_SELECT_STYLES[currentStatus]
+                'text-[11px] font-medium capitalize px-2 py-0.5',
+                STATUS_BADGE_STYLES[currentStatus]
               )}
             >
-              <option value="open" className="bg-background text-foreground">
-                Open
-              </option>
-              <option value="resolved" className="bg-background text-foreground">
-                Resolved
-              </option>
-              <option value="obsolete" className="bg-background text-foreground">
-                Obsolete
-              </option>
-            </select>
+              {currentStatus}
+            </Badge>
           );
         },
       }),
@@ -420,7 +403,7 @@ export const QualityIssueTable: FC<QualityIssueTableProps> = ({
         ),
       }),
     ],
-    [onViewPhotos, onOpenDetail, onChangeStatus]
+    [onViewPhotos, onOpenDetail]
   );
 
   const table = useReactTable({

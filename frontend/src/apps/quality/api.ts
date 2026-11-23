@@ -54,13 +54,6 @@ export async function updateQualityIssue(
   return handleResponse<QualityIssue>(res);
 }
 
-export async function deleteQualityIssue(issueId: number): Promise<void> {
-  const res = await fetch(`${API_BASE}/issues/${issueId}`, {
-    method: 'DELETE',
-  });
-  await handleResponse<{ deleted: boolean }>(res);
-}
-
 export async function uploadQualityIssuePhotos(
   issueId: number,
   files: File[]
@@ -72,17 +65,6 @@ export async function uploadQualityIssuePhotos(
   const res = await fetch(`${API_BASE}/issues/${issueId}/photos`, {
     method: 'POST',
     body: formData,
-  });
-  return handleResponse<QualityIssue>(res);
-}
-
-export async function deleteQualityIssuePhoto(
-  issueId: number,
-  filename: string
-): Promise<QualityIssue> {
-  const encoded = filename.split('/').map(encodeURIComponent).join('/');
-  const res = await fetch(`${API_BASE}/issues/${issueId}/photos/${encoded}`, {
-    method: 'DELETE',
   });
   return handleResponse<QualityIssue>(res);
 }

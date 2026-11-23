@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { PhotoLightboxModal } from '@/components/PhotoLightboxModal';
 import { fetchParts } from '@/apps/inventory/api';
 import type { InventoryPart } from '@/apps/inventory/types';
-import { fetchQualityIssues, updateQualityIssue } from './api';
-import type { QualityIssue, QualityIssueStatus } from './types';
+import { fetchQualityIssues } from './api';
+import type { QualityIssue } from './types';
 import { QualityIssueTable } from './components/QualityIssueTable';
 import { SubmitQualityIssueDialog } from './components/SubmitQualityIssueDialog';
 import { QualityIssueDetailDialog } from './components/QualityIssueDetailDialog';
@@ -176,26 +176,6 @@ export const QualityApp: FC = () => {
     setIssues((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
   };
 
-  const handleStatusChange = async (
-    issue: QualityIssue,
-    nextStatus: QualityIssueStatus
-  ) => {
-    // Optimistic update
-    setIssues((prev) =>
-      prev.map((i) => (i.id === issue.id ? { ...i, status: nextStatus } : i))
-    );
-    try {
-      const updated = await updateQualityIssue(issue.id, { status: nextStatus });
-      handleIssueUpdated(updated);
-    } catch (err: any) {
-      // Revert on failure
-      setIssues((prev) =>
-        prev.map((i) => (i.id === issue.id ? issue : i))
-      );
-      setErrorMsg(err?.message || 'Failed to update issue status.');
-    }
-  };
-
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-background">
       <div className="flex-1 min-h-0 w-full max-w-7xl mx-auto p-3 sm:p-5 flex flex-col gap-3 overflow-hidden">
@@ -343,7 +323,6 @@ export const QualityApp: FC = () => {
           isLoading={isLoading}
           onViewPhotos={(urls, index) => setLightboxState({ urls, index })}
           onOpenDetail={(issue) => openDetailDialog(issue.id)}
-          onChangeStatus={handleStatusChange}
         />
       </div>
 

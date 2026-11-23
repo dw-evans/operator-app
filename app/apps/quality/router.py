@@ -57,17 +57,6 @@ def _load_issue_with_relations(db: Session, issue_id: int) -> models.QualityIssu
     )
 
 
-def _delete_photo_file(rel_path: str) -> None:
-    """Safely delete a stored quality photo under MEDIA_DIR."""
-    try:
-        target = (config.MEDIA_DIR / rel_path).resolve()
-        media_root = config.MEDIA_DIR.resolve()
-        if str(target).startswith(str(media_root)) and target.is_file():
-            target.unlink()
-    except OSError:
-        pass
-
-
 @router.get("/issues", response_model=List[schemas.QualityIssueResponse])
 def list_quality_issues(db: Session = Depends(get_db)):
     """List all quality issues, newest first."""
@@ -177,27 +166,6 @@ def update_quality_issue(
     return _issue_to_schema(reloaded)
 
 
-@router.delete("/issues/{issue_id}")
-def delete_quality_issue(issue_id: int, db: Session = Depends(get_db)):
-    """Delete a quality issue and any attached photo files."""
-    issue = (
-        db.query(models.QualityIssue)
-        .filter(models.QualityIssue.id == issue_id)
-        .first()
-    )
-    if not issue:
-        raise HTTPException(status_code=404, detail="Quality issue not found.")
-
-    photo_names = json.loads(issue.photo_filenames) if issue.photo_filenames else []
-    db.delete(issue)
-    db.commit()
-
-    for rel_path in photo_names:
-        _delete_photo_file(rel_path)
-
-    return {"deleted": True, "id": issue_id}
-
-
 @router.post("/issues/{issue_id}/photos", response_model=schemas.QualityIssueResponse)
 async def upload_quality_issue_photos(
     issue_id: int,
@@ -233,36 +201,6 @@ async def upload_quality_issue_photos(
     issue.photo_filenames = json.dumps(current_photos)
     issue.updated_at = datetime.now(timezone.utc)
     db.commit()
-
-    reloaded = _load_issue_with_relations(db, issue.id)
-    assert reloaded is not None
-    return _issue_to_schema(reloaded)
-
-
-@router.delete(
-    "/issues/{issue_id}/photos/{filename:path}",
-    response_model=schemas.QualityIssueResponse,
-)
-def delete_quality_issue_photo(
-    issue_id: int,
-    filename: str,
-    db: Session = Depends(get_db),
-):
-    """Remove a single photo attached to a quality issue."""
-    issue = _load_issue_with_relations(db, issue_id)
-    if not issue:
-        raise HTTPException(status_code=404, detail="Quality issue not found.")
-
-    current_photos = json.loads(issue.photo_filenames) if issue.photo_filenames else []
-    if filename not in current_photos:
-        raise HTTPException(status_code=404, detail="Photo not found on this issue.")
-
-    current_photos = [p for p in current_photos if p != filename]
-    issue.photo_filenames = json.dumps(current_photos)
-    issue.updated_at = datetime.now(timezone.utc)
-    db.commit()
-
-    _delete_photo_file(filename)
 
     reloaded = _load_issue_with_relations(db, issue.id)
     assert reloaded is not None
