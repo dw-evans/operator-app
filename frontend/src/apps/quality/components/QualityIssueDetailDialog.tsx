@@ -3,7 +3,6 @@ import type { FC, ChangeEvent } from 'react';
 import {
   Camera,
   ImagePlus,
-  Trash2,
   Pencil,
   Check,
   X,
@@ -17,13 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   updateQualityIssue,
-  deleteQualityIssue,
   uploadQualityIssuePhotos,
   deleteQualityIssuePhoto,
 } from '../api';
@@ -33,7 +30,6 @@ interface QualityIssueDetailDialogProps {
   issue: QualityIssue | null;
   onClose: () => void;
   onUpdated: (issue: QualityIssue) => void;
-  onDeleted: (issueId: number) => void;
   onViewPhotos: (urls: string[], index: number) => void;
 }
 
@@ -41,7 +37,6 @@ export const QualityIssueDetailDialog: FC<QualityIssueDetailDialogProps> = ({
   issue,
   onClose,
   onUpdated,
-  onDeleted,
   onViewPhotos,
 }) => {
   const [isEditingDesc, setIsEditingDesc] = useState(false);
@@ -118,20 +113,6 @@ export const QualityIssueDetailDialog: FC<QualityIssueDetailDialogProps> = ({
     } catch (err: any) {
       setError(err?.message || 'Failed to delete photo.');
     } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleDeleteIssue = async () => {
-    if (!window.confirm('Delete this quality report permanently?')) return;
-    setIsBusy(true);
-    setError(null);
-    try {
-      await deleteQualityIssue(issue.id);
-      onDeleted(issue.id);
-      onClose();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to delete quality report.');
       setIsBusy(false);
     }
   };
@@ -379,29 +360,6 @@ export const QualityIssueDetailDialog: FC<QualityIssueDetailDialogProps> = ({
             )}
           </div>
         </div>
-
-        <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleDeleteIssue}
-            disabled={isBusy}
-            className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Delete Report</span>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            className="cursor-pointer"
-          >
-            Close
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

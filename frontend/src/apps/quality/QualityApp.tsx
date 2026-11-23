@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { FC } from 'react';
 import { Plus, Search, RefreshCw, AlertTriangle, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,39 @@ export const QualityApp: FC = () => {
     urls: string[];
     index: number;
   } | null>(null);
+  const detailHistoryPushedRef = useRef(false);
+
+  const openDetailDialog = useCallback((issueId: number) => {
+    setDetailIssueId(issueId);
+    if (!detailHistoryPushedRef.current) {
+      window.history.pushState(
+        { qualityDetailOpen: true },
+        '',
+        window.location.pathname + window.location.search
+      );
+      detailHistoryPushedRef.current = true;
+    }
+  }, []);
+
+  const closeDetailDialog = useCallback(() => {
+    setDetailIssueId(null);
+    if (detailHistoryPushedRef.current) {
+      detailHistoryPushedRef.current = false;
+      window.history.back();
+    }
+  }, []);
+
+  // Browser / device Back button closes the detail popover and returns to the table
+  useEffect(() => {
+    const handlePopState = () => {
+      if (detailHistoryPushedRef.current) {
+        detailHistoryPushedRef.current = false;
+        setDetailIssueId(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -141,10 +174,6 @@ export const QualityApp: FC = () => {
 
   const handleIssueUpdated = (updated: QualityIssue) => {
     setIssues((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
-  };
-
-  const handleIssueDeleted = (issueId: number) => {
-    setIssues((prev) => prev.filter((i) => i.id !== issueId));
   };
 
   const handleStatusChange = async (
@@ -313,7 +342,7 @@ export const QualityApp: FC = () => {
           issues={filteredIssues}
           isLoading={isLoading}
           onViewPhotos={(urls, index) => setLightboxState({ urls, index })}
-          onOpenDetail={(issue) => setDetailIssueId(issue.id)}
+          onOpenDetail={(issue) => openDetailDialog(issue.id)}
           onChangeStatus={handleStatusChange}
         />
       </div>
@@ -329,9 +358,8 @@ export const QualityApp: FC = () => {
       {/* Quality Report Detail Dialog */}
       <QualityIssueDetailDialog
         issue={activeDetailIssue}
-        onClose={() => setDetailIssueId(null)}
+        onClose={closeDetailDialog}
         onUpdated={handleIssueUpdated}
-        onDeleted={handleIssueDeleted}
         onViewPhotos={(urls, index) => setLightboxState({ urls, index })}
       />
 
