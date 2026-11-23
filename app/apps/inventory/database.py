@@ -47,6 +47,13 @@ def init_inventory_db():
                     "CREATE INDEX IF NOT EXISTS ix_parts_subassembly_id ON parts (subassembly_id)"
                 )
             )
+        if part_cols and "batch_number" not in part_cols:
+            conn.execute(
+                text("ALTER TABLE parts ADD COLUMN batch_number VARCHAR NOT NULL DEFAULT ''")
+            )
+            conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_parts_batch_number ON parts (batch_number)")
+            )
 
         batch_cols = [
             r[1] for r in conn.execute(text("PRAGMA table_info(part_batches)")).fetchall()

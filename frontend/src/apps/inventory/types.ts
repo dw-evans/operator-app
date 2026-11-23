@@ -31,6 +31,7 @@ export interface InventoryPart {
   part_number: string;
   revision: string;
   iteration: string;
+  batch_number: string;
   name: string;
   common_name?: string | null;
   common_name_id?: number | null;
@@ -72,6 +73,7 @@ export interface PartCreatePayload {
   part_number: string;
   revision: string;
   iteration: string;
+  batch_number: string;
   name: string;
   common_name?: string | null;
   subassembly?: string | null;
@@ -90,6 +92,7 @@ export interface PartUpdatePayload {
   part_number?: string;
   revision?: string;
   iteration?: string;
+  batch_number?: string;
   name?: string;
   common_name?: string | null;
   subassembly?: string | null;

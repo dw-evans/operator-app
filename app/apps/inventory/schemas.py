@@ -50,6 +50,7 @@ class PartCreate(BaseModel):
     part_number: str = Field(..., min_length=1)
     revision: str = Field(default="1", min_length=1)
     iteration: str = Field(default="")
+    batch_number: str = Field(default="")
     name: str = Field(..., min_length=1)
     common_name: Optional[str] = None
     subassembly: Optional[str] = None
@@ -69,6 +70,7 @@ class PartUpdate(BaseModel):
     part_number: Optional[str] = None
     revision: Optional[str] = None
     iteration: Optional[str] = None
+    batch_number: Optional[str] = None
     name: Optional[str] = None
     common_name: Optional[str] = None
     subassembly: Optional[str] = None
@@ -83,6 +85,7 @@ class PartResponse(BaseModel):
     part_number: str
     revision: str
     iteration: str
+    batch_number: str = ""
     name: str
     common_name: Optional[str] = None
     common_name_id: Optional[int] = None

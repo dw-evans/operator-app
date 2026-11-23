@@ -50,6 +50,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
   const [partNumber, setPartNumber] = useState('');
   const [revision, setRevision] = useState('1');
   const [iteration, setIteration] = useState('');
+  const [partBatchNumber, setPartBatchNumber] = useState('');
   const [name, setName] = useState('');
   const [commonName, setCommonName] = useState('');
   const [subassembly, setSubassembly] = useState('');
@@ -75,6 +76,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
       setPartNumber(editingPart.part_number);
       setRevision(editingPart.revision);
       setIteration(editingPart.iteration || '');
+      setPartBatchNumber(editingPart.batch_number || '');
       setName(editingPart.name);
       setCommonName(editingPart.common_name || '');
       setSubassembly(editingPart.subassembly || '');
@@ -85,6 +87,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
       setPartNumber('');
       setRevision('1');
       setIteration('');
+      setPartBatchNumber('');
       setName('');
       setCommonName('');
       setSubassembly('');
@@ -114,6 +117,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
           part_number: partNumber.trim(),
           revision: revision.trim(),
           iteration: iteration.trim(),
+          batch_number: partBatchNumber.trim(),
           name: name.trim(),
           common_name: commonName.trim(),
           subassembly: subassembly.trim(),
@@ -127,6 +131,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
           part_number: partNumber.trim(),
           revision: revision.trim(),
           iteration: iteration.trim(),
+          batch_number: partBatchNumber.trim(),
           name: name.trim(),
           common_name: commonName.trim() || null,
           subassembly: subassembly.trim() || null,
@@ -161,7 +166,7 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-12 gap-2.5">
-            <div className="col-span-6 space-y-1">
+            <div className="col-span-5 space-y-1">
               <label className="text-xs font-medium">Part Number *</label>
               <Input
                 value={partNumber}
@@ -171,8 +176,8 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
                 required
               />
             </div>
-            <div className="col-span-3 space-y-1">
-              <label className="text-xs font-medium">Revision *</label>
+            <div className="col-span-2 space-y-1">
+              <label className="text-xs font-medium">Rev *</label>
               <Input
                 value={revision}
                 onChange={(e) => setRevision(e.target.value)}
@@ -181,8 +186,8 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
                 required
               />
             </div>
-            <div className="col-span-3 space-y-1">
-              <label className="text-xs font-medium">Iteration</label>
+            <div className="col-span-2 space-y-1">
+              <label className="text-xs font-medium">Iter</label>
               <Input
                 value={iteration}
                 onChange={(e) => setIteration(e.target.value)}
@@ -190,6 +195,37 @@ export const AddEditPartModal: FC<AddEditPartModalProps> = ({
                 className="h-8 text-xs font-mono"
               />
             </div>
+            <div className="col-span-3 space-y-1">
+              <label className="text-xs font-medium">Batch #</label>
+              <Input
+                value={partBatchNumber}
+                onChange={(e) => setPartBatchNumber(e.target.value)}
+                placeholder="1, 2, 3"
+                className="h-8 text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 -mt-1.5">
+            <span className="text-[11px] text-muted-foreground">Quick Batch:</span>
+            {['1', '2', '3'].map((b) => {
+              const isSelected = partBatchNumber.trim() === b;
+              return (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setPartBatchNumber(b)}
+                  className={cn(
+                    'text-[11px] px-2 py-0.5 rounded-full border cursor-pointer transition-colors font-mono',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground border-primary font-medium'
+                      : 'bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground border-border/60'
+                  )}
+                >
+                  Batch {b}
+                </button>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

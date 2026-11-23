@@ -56,6 +56,7 @@ class InventoryPart(Base):
     part_number = Column(String, index=True, nullable=False)
     revision = Column(String, nullable=False, default="1")
     iteration = Column(String, nullable=False, default="")
+    batch_number = Column(String, nullable=False, default="", index=True)
     name = Column(String, nullable=False)
     common_name_id = Column(
         Integer, ForeignKey("common_names.id", ondelete="SET NULL"), nullable=True

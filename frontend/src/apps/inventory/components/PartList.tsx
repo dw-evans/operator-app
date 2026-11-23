@@ -126,6 +126,32 @@ export const PartList: FC<PartListProps> = ({
           );
         },
       }),
+      columnHelper.accessor((row) => row.batch_number || '', {
+        id: 'batch_number',
+        header: ({ column }) => (
+          <button
+            type="button"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <span>Batch #</span>
+            <ArrowUpDown className="w-3 h-3" />
+          </button>
+        ),
+        sortingFn: (rowA, rowB) => {
+          const a = rowA.original.batch_number || '';
+          const b = rowB.original.batch_number || '';
+          return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+        },
+        cell: ({ getValue }) => {
+          const val = getValue();
+          return (
+            <span className={cn('text-sm font-normal', val ? 'text-foreground' : 'text-muted-foreground/40')}>
+              {val || '—'}
+            </span>
+          );
+        },
+      }),
       columnHelper.accessor((row) => row.subassembly || '', {
         id: 'subassembly',
         header: ({ column }) => (

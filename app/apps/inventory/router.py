@@ -84,6 +84,7 @@ def _part_to_schema(part: models.InventoryPart) -> schemas.PartResponse:
         part_number=part.part_number,
         revision=part.revision,
         iteration=part.iteration,
+        batch_number=part.batch_number or "",
         name=part.name,
         common_name=part.common_name_rel.name if part.common_name_rel else None,
         common_name_id=part.common_name_id,
@@ -213,6 +214,8 @@ def _part_fuzzy_score(part: models.InventoryPart, query: str) -> float:
         (part.description or "").lower(),
         f"rev {part.revision}".lower(),
         part.revision.lower(),
+        f"batch {part.batch_number}".lower() if part.batch_number else "",
+        (part.batch_number or "").lower(),
     ]
     for b in part.batches:
         fields.append(b.batch_number.lower())
@@ -280,6 +283,7 @@ def create_part(payload: schemas.PartCreate, db: Session = Depends(get_db)):
         part_number=payload.part_number.strip(),
         revision=payload.revision.strip(),
         iteration=(payload.iteration or "").strip(),
+        batch_number=(payload.batch_number or "").strip(),
         name=payload.name.strip(),
         common_name_id=common_name_id,
         subassembly_id=subassembly_id,
@@ -379,6 +383,8 @@ def update_part(
         part.revision = payload.revision.strip()
     if payload.iteration is not None:
         part.iteration = payload.iteration.strip()
+    if payload.batch_number is not None:
+        part.batch_number = payload.batch_number.strip()
     if payload.name is not None:
         part.name = payload.name.strip()
     if payload.common_name is not None:
