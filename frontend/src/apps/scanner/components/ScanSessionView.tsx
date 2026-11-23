@@ -77,7 +77,7 @@ export const ScanSessionView: FC<ScanSessionViewProps> = ({
     4: '',
   });
   const [mode, setMode] = useState<ScanMode>('auto');
-  const [formatPreset, setFormatPreset] = useState<FormatPresetKey>('manufacturing');
+  const [formatPreset, setFormatPreset] = useState<FormatPresetKey>('all');
   const [activeSlot, setActiveSlot] = useState<SlotNumber | null>(1);
   const [manualInput, setManualInput] = useState('');
   const [lastScanned, setLastScanned] = useState<string | null>(null);

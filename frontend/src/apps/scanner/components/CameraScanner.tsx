@@ -35,6 +35,7 @@ interface CameraScannerProps {
 
 const CAPTURE_COOLDOWN_MS = 650;
 const DECODE_INTERVAL_MS = 120;
+const REQUIRED_CONSECUTIVE_READS = 3;
 
 export const CameraScanner: FC<CameraScannerProps> = ({
   isActive,
@@ -51,17 +52,28 @@ export const CameraScanner: FC<CameraScannerProps> = ({
   const formatsRef = useRef(formats);
   const isLinearRef = useRef(isLinear);
   const lastCaptureTimeRef = useRef<number>(0);
+  const consecutiveTextRef = useRef<string | null>(null);
+  const consecutiveCountRef = useRef<number>(0);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(true);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [flashSuccess, setFlashSuccess] = useState(false);
+  const [confirmProgress, setConfirmProgress] = useState(0);
 
   onDetectedRef.current = onDetected;
   isActiveRef.current = isActive;
   formatsRef.current = formats;
   isLinearRef.current = isLinear;
+
+  useEffect(() => {
+    if (!isActive) {
+      consecutiveTextRef.current = null;
+      consecutiveCountRef.current = 0;
+      setConfirmProgress(0);
+    }
+  }, [isActive]);
 
   // Start rear camera stream on mount and clean up on unmount
   useEffect(() => {
@@ -186,20 +198,38 @@ export const CameraScanner: FC<CameraScannerProps> = ({
               maxNumberOfSymbols: 1,
             });
 
-            if (running && isActiveRef.current && results.length > 0) {
-              const rawText = results[0].text;
+            if (running && isActiveRef.current) {
+              const rawText = results.length > 0 ? results[0].text : '';
               if (rawText) {
-                lastCaptureTimeRef.current = Date.now();
-                setFlashSuccess(true);
-                setTimeout(() => setFlashSuccess(false), 320);
-                if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-                  try {
-                    navigator.vibrate(60);
-                  } catch {
-                    // ignore vibration errors
-                  }
+                if (rawText === consecutiveTextRef.current) {
+                  consecutiveCountRef.current += 1;
+                } else {
+                  consecutiveTextRef.current = rawText;
+                  consecutiveCountRef.current = 1;
                 }
-                onDetectedRef.current(rawText);
+
+                if (consecutiveCountRef.current >= REQUIRED_CONSECUTIVE_READS) {
+                  consecutiveTextRef.current = null;
+                  consecutiveCountRef.current = 0;
+                  setConfirmProgress(0);
+                  lastCaptureTimeRef.current = Date.now();
+                  setFlashSuccess(true);
+                  setTimeout(() => setFlashSuccess(false), 320);
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try {
+                      navigator.vibrate(60);
+                    } catch {
+                      // ignore vibration errors
+                    }
+                  }
+                  onDetectedRef.current(rawText);
+                } else {
+                  setConfirmProgress(consecutiveCountRef.current);
+                }
+              } else if (consecutiveCountRef.current > 0) {
+                consecutiveTextRef.current = null;
+                consecutiveCountRef.current = 0;
+                setConfirmProgress(0);
               }
             }
           }
@@ -256,8 +286,10 @@ export const CameraScanner: FC<CameraScannerProps> = ({
                 : 'w-52 h-52 sm:w-64 sm:h-64',
               flashSuccess
                 ? 'border-emerald-400 bg-emerald-400/15 scale-105'
-                : isActive
-                  ? 'border-white/75 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]'
+                : confirmProgress > 0
+                  ? 'border-amber-400 bg-amber-400/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]'
+                  : isActive
+                    ? 'border-white/75 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]'
                   : 'border-white/30 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
             )}
           />
