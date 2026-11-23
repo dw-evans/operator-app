@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
-  archivePart,
   fetchCommonNames,
   fetchParts,
   fetchTransactions,
@@ -45,7 +44,6 @@ export const InventoryApp: FC = () => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [includeObsolete, setIncludeObsolete] = useState(true);
-  const [showNonConformant, setShowNonConformant] = useState(true);
 
   // Modals
   const [adjustTarget, setAdjustTarget] = useState<{
@@ -121,19 +119,6 @@ export const InventoryApp: FC = () => {
     });
     return Array.from(set).sort();
   }, [parts]);
-
-  const handleArchivePart = async (part: InventoryPart) => {
-    const ok = window.confirm(
-      `Archive "${part.common_name || part.name}" (${part.part_number} Rev ${part.revision})? Transaction history will be preserved.`
-    );
-    if (!ok) return;
-    try {
-      await archivePart(part.id);
-      loadData();
-    } catch (err: any) {
-      alert(err?.message || 'Failed to archive part');
-    }
-  };
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto bg-background">
@@ -281,16 +266,6 @@ export const InventoryApp: FC = () => {
                 />
                 <span>Show Obsolete</span>
               </label>
-
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none px-1.5">
-                <input
-                  type="checkbox"
-                  checked={showNonConformant}
-                  onChange={(e) => setShowNonConformant(e.target.checked)}
-                  className="rounded border-border"
-                />
-                <span>Show Non-Conformant</span>
-              </label>
             </div>
           </div>
         )}
@@ -301,7 +276,7 @@ export const InventoryApp: FC = () => {
             parts={parts}
             isLoading={isLoading}
             isOffline={isOffline}
-            showNonConformant={showNonConformant}
+            isSearching={search.trim().length > 0}
             onAdjustBatch={(part, batch) => setAdjustTarget({ part, batch })}
             onAddBatch={(part) => setBatchModalTarget({ part, batch: null })}
             onEditBatch={(part, batch) => setBatchModalTarget({ part, batch })}
@@ -309,7 +284,6 @@ export const InventoryApp: FC = () => {
               setEditingPart(part);
               setPartModalOpen(true);
             }}
-            onArchivePart={handleArchivePart}
           />
         ) : (
           <TransactionHistory

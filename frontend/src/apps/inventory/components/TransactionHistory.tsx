@@ -39,7 +39,11 @@ export const TransactionHistory: FC<TransactionHistoryProps> = ({
 
   const handleUndo = async (tx: InventoryTransaction) => {
     setError(null);
-    const op = operatorName.trim() || 'Operator';
+    const op = operatorName.trim();
+    if (!op) {
+      setError('Please configure your Operator Name in Settings (top-right ⚙ menu) before undoing.');
+      return;
+    }
     setUndoingId(tx.id);
     try {
       await undoTransaction(tx.id, op);

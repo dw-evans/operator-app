@@ -69,11 +69,6 @@ export async function updatePart(
   return handleResponse<InventoryPart>(res);
 }
 
-export async function archivePart(partId: number): Promise<{ status: string; id: number }> {
-  const res = await fetch(`${BASE}/parts/${partId}`, { method: 'DELETE' });
-  return handleResponse<{ status: string; id: number }>(res);
-}
-
 export async function createBatch(
   partId: number,
   payload: BatchCreatePayload

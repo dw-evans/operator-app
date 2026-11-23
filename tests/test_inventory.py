@@ -115,7 +115,7 @@ def test_create_parts_with_shared_common_name_and_versions():
     assert active_only[0]["revision"] == "2"
 
 
-def test_batches_non_conformant_negative_offsets_and_undo():
+def test_batches_depleted_negative_offsets_and_undo():
     part = client.post(
         "/api/v1/inventory/parts",
         json={
@@ -132,25 +132,25 @@ def test_batches_non_conformant_negative_offsets_and_undo():
 
     good_batch_id = part["batches"][0]["id"]
 
-    # Add second batch and flag it non_conformant
-    bad_batch = client.post(
+    # Add second batch marked depleted
+    old_batch = client.post(
         f"/api/v1/inventory/parts/{part['id']}/batches",
         json={
-            "batch_number": "LOT-BAD",
-            "received_date": "2026-11-10",
-            "location": "Quarantine Shelf",
-            "initial_quantity": 50,
-            "batch_status": "non_conformant",
-            "notes": "Wrong thread pitch",
+            "batch_number": "LOT-OLD",
+            "received_date": "2026-10-10",
+            "location": "Shelf B",
+            "initial_quantity": 0,
+            "batch_status": "depleted",
+            "notes": "Finished last week",
             "operator": "QA",
         },
     ).json()
-    assert bad_batch["batch_status"] == "non_conformant"
+    assert old_batch["batch_status"] == "depleted"
 
-    # Active total excludes non_conformant batch, all total includes it
+    # Active total reflects active batches
     refreshed = client.get(f"/api/v1/inventory/parts/{part['id']}").json()
     assert refreshed["total_active_quantity"] == 10
-    assert refreshed["total_all_quantity"] == 60
+    assert refreshed["total_all_quantity"] == 10
 
     # Take -15 from good batch -> goes negative (-5) without blocking production
     adj = client.post(
@@ -208,10 +208,19 @@ def test_search_and_csv_export():
         },
     )
 
-    # Search by colloquial name
+    # Search by colloquial name (exact & typo fuzzy match)
     res_cn = client.get("/api/v1/inventory/parts?search=brain").json()
     assert len(res_cn) == 1
     assert res_cn[0]["part_number"] == "PCB-900"
+
+    res_typo = client.get("/api/v1/inventory/parts?search=bran%20bord").json()
+    assert len(res_typo) == 1
+    assert res_typo[0]["part_number"] == "PCB-900"
+
+    # Search by subsequence
+    res_subseq = client.get("/api/v1/inventory/parts?search=pcb9").json()
+    assert len(res_subseq) == 1
+    assert res_subseq[0]["part_number"] == "PCB-900"
 
     # Search by batch number
     res_b = client.get("/api/v1/inventory/parts?search=SMD-44").json()

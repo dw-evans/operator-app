@@ -13,9 +13,7 @@ class BatchCreate(BaseModel):
     received_date: Optional[str] = None
     location: Optional[str] = None
     initial_quantity: int = 0
-    batch_status: str = Field(
-        default="active", pattern="^(active|non_conformant|depleted)$"
-    )
+    batch_status: str = Field(default="active", pattern="^(active|depleted)$")
     notes: Optional[str] = None
     operator: str = Field(default="Operator")
 
@@ -24,9 +22,7 @@ class BatchUpdate(BaseModel):
     batch_number: Optional[str] = None
     received_date: Optional[str] = None
     location: Optional[str] = None
-    batch_status: Optional[str] = Field(
-        None, pattern="^(active|non_conformant|depleted)$"
-    )
+    batch_status: Optional[str] = Field(None, pattern="^(active|depleted)$")
     notes: Optional[str] = None
 
 
@@ -71,7 +67,6 @@ class PartUpdate(BaseModel):
     category: Optional[str] = None
     unit: Optional[str] = None
     lifecycle_status: Optional[str] = Field(None, pattern="^(active|obsolete)$")
-    is_archived: Optional[bool] = None
 
 
 class PartResponse(BaseModel):
@@ -86,7 +81,6 @@ class PartResponse(BaseModel):
     category: Optional[str] = None
     unit: str
     lifecycle_status: str
-    is_archived: bool
     total_active_quantity: int = 0
     total_all_quantity: int = 0
     batches: List[BatchResponse] = Field(default_factory=list)

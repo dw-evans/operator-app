@@ -4,7 +4,7 @@ export interface CommonNameItem {
 }
 
 export type LifecycleStatus = 'active' | 'obsolete';
-export type BatchStatus = 'active' | 'non_conformant' | 'depleted';
+export type BatchStatus = 'active' | 'depleted';
 
 export interface InventoryBatch {
   id: number;
@@ -31,7 +31,6 @@ export interface InventoryPart {
   category?: string | null;
   unit: string;
   lifecycle_status: LifecycleStatus;
-  is_archived: boolean;
   total_active_quantity: number;
   total_all_quantity: number;
   batches: InventoryBatch[];

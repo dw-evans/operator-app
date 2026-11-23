@@ -1,5 +1,7 @@
 import csv
+import difflib
 import io
+import re
 from datetime import datetime, timezone
 from typing import List, Optional, Set
 
@@ -66,7 +68,6 @@ def _part_to_schema(part: models.InventoryPart) -> schemas.PartResponse:
         category=part.category,
         unit=part.unit,
         lifecycle_status=part.lifecycle_status,
-        is_archived=part.is_archived,
         total_active_quantity=total_active,
         total_all_quantity=total_all,
         batches=batches,
@@ -114,22 +115,78 @@ def list_common_names(db: Session = Depends(get_db)):
     return [schemas.CommonNameItem(id=c.id, name=c.name) for c in items]
 
 
+def _is_subsequence(needle: str, haystack: str) -> bool:
+    """Return True if all characters of needle appear in order inside haystack."""
+    it = iter(haystack)
+    return all(ch in it for ch in needle)
+
+
+def _fuzzy_token_score(token: str, fields: List[str]) -> float:
+    """Score how well a single query token matches any of the part's searchable fields."""
+    best = 0.0
+    for field in fields:
+        if not field:
+            continue
+        if token in field:
+            # Exact / prefix / substring match gets highest priority
+            score = 1.0 if field.startswith(token) else 0.92
+            if score > best:
+                best = score
+            continue
+        if len(token) >= 2 and _is_subsequence(token, field):
+            best = max(best, 0.78)
+        # Word-level typo tolerance (e.g. "braket" -> "bracket")
+        for word in re.split(r"[\s\-_/.,]+", field):
+            if not word:
+                continue
+            ratio = difflib.SequenceMatcher(None, token, word).ratio()
+            if ratio >= 0.65:
+                best = max(best, ratio * 0.85)
+    return best
+
+
+def _part_fuzzy_score(part: models.InventoryPart, query: str) -> float:
+    """Compute aggregate fuzzy match score for a part (0.0 if any token fails to match)."""
+    tokens = [t for t in re.split(r"\s+", query.strip().lower()) if t]
+    if not tokens:
+        return 1.0
+
+    fields = [
+        part.part_number.lower(),
+        part.name.lower(),
+        part.common_name_rel.name.lower() if part.common_name_rel else "",
+        (part.category or "").lower(),
+        (part.description or "").lower(),
+        f"rev {part.revision}".lower(),
+        part.revision.lower(),
+    ]
+    for b in part.batches:
+        fields.append(b.batch_number.lower())
+        if b.location:
+            fields.append(b.location.lower())
+
+    total = 0.0
+    for token in tokens:
+        score = _fuzzy_token_score(token, fields)
+        if score <= 0.0:
+            return 0.0
+        total += score
+    return total / len(tokens)
+
+
 @router.get("/parts", response_model=List[schemas.PartResponse])
 def list_parts(
     search: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     include_obsolete: bool = Query(True),
-    include_archived: bool = Query(False),
     db: Session = Depends(get_db),
 ):
-    """List inventory part versions with their nested batches."""
+    """List inventory part versions with their nested batches (supports fuzzy search)."""
     query = db.query(models.InventoryPart).options(
         joinedload(models.InventoryPart.common_name_rel),
         joinedload(models.InventoryPart.batches),
     )
 
-    if not include_archived:
-        query = query.filter(models.InventoryPart.is_archived == False)
     if not include_obsolete:
         query = query.filter(models.InventoryPart.lifecycle_status == "active")
     if category and category.strip():
@@ -142,26 +199,13 @@ def list_parts(
     ).all()
 
     if search and search.strip():
-        q = search.strip().lower()
-        filtered = []
+        scored = []
         for p in parts:
-            cn_name = p.common_name_rel.name.lower() if p.common_name_rel else ""
-            batch_match = any(
-                q in b.batch_number.lower()
-                or (b.location and q in b.location.lower())
-                for b in p.batches
-            )
-            if (
-                q in p.part_number.lower()
-                or q in p.name.lower()
-                or q in cn_name
-                or (p.category and q in p.category.lower())
-                or (p.description and q in p.description.lower())
-                or q in p.revision.lower()
-                or batch_match
-            ):
-                filtered.append(p)
-        parts = filtered
+            score = _part_fuzzy_score(p, search)
+            if score > 0.0:
+                scored.append((score, p))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        parts = [p for _, p in scored]
 
     return [_part_to_schema(p) for p in parts]
 
@@ -279,8 +323,6 @@ def update_part(
         part.unit = payload.unit.strip() or "pcs"
     if payload.lifecycle_status is not None:
         part.lifecycle_status = payload.lifecycle_status
-    if payload.is_archived is not None:
-        part.is_archived = payload.is_archived
 
     part.updated_at = datetime.now(timezone.utc)
     try:
@@ -293,18 +335,6 @@ def update_part(
         )
     db.refresh(part)
     return _part_to_schema(part)
-
-
-@router.delete("/parts/{part_id}")
-def archive_part(part_id: int, db: Session = Depends(get_db)):
-    """Soft-archive a part so transaction history remains intact."""
-    part = db.query(models.InventoryPart).filter(models.InventoryPart.id == part_id).first()
-    if not part:
-        raise HTTPException(status_code=404, detail="Part not found")
-    part.is_archived = True
-    part.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    return {"status": "archived", "id": part.id}
 
 
 @router.post(
@@ -553,7 +583,6 @@ def export_inventory_csv(db: Session = Depends(get_db)):
             joinedload(models.InventoryPart.common_name_rel),
             joinedload(models.InventoryPart.batches),
         )
-        .filter(models.InventoryPart.is_archived == False)
         .order_by(models.InventoryPart.part_number.asc())
         .all()
     )

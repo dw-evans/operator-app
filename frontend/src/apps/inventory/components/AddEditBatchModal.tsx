@@ -155,7 +155,6 @@ export const AddEditBatchModal: FC<AddEditBatchModalProps> = ({
                 className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
               >
                 <option value="active">Active</option>
-                <option value="non_conformant">Non-Conformant (Quarantine)</option>
                 <option value="depleted">Depleted</option>
               </select>
             </div>

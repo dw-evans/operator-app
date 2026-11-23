@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Minus, Plus, Equal, AlertTriangle } from 'lucide-react';
+import { Minus, Plus, Equal, User } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,7 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
   batch,
   onSuccess,
 }) => {
-  const [operatorName, setOperatorName] = useOperatorName();
+  const [operatorName] = useOperatorName();
   const [mode, setMode] = useState<AdjustMode>('take');
   const [amountStr, setAmountStr] = useState('1');
   const [reason, setReason] = useState('');
@@ -82,7 +82,7 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
     }
     const op = operatorName.trim();
     if (!op) {
-      setError('Please enter your Operator Name before recording a stock change.');
+      setError('Please configure your Operator Name in Settings (top-right ⚙ menu) first.');
       return;
     }
 
@@ -126,13 +126,6 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
             </div>
           </div>
         </DialogHeader>
-
-        {batch.batch_status === 'non_conformant' && (
-          <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>Warning: This batch is flagged as Non-Conformant.</span>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           {/* Mode Switcher */}
@@ -282,18 +275,18 @@ export const QuickAdjustModal: FC<QuickAdjustModalProps> = ({
             </div>
           </div>
 
-          {/* Operator Name (synced with global Navbar setting) */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-foreground block">
-              Operator Name
-            </label>
-            <Input
-              type="text"
-              value={operatorName}
-              onChange={(e) => setOperatorName(e.target.value)}
-              placeholder="Your name..."
-              className="h-8 text-xs"
-            />
+          {/* Operator Attribution (read from global top-right Settings menu) */}
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pt-1">
+            <User className="w-3.5 h-3.5 shrink-0" />
+            {operatorName.trim() ? (
+              <span>
+                Recording as <strong className="text-foreground">{operatorName.trim()}</strong>
+              </span>
+            ) : (
+              <span className="text-amber-400">
+                Set your Operator Name in the top-right ⚙ Settings menu before saving.
+              </span>
+            )}
           </div>
 
           {error && (

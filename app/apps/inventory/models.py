@@ -54,7 +54,6 @@ class InventoryPart(Base):
     lifecycle_status = Column(
         String, nullable=False, default="active", index=True
     )  # active | obsolete
-    is_archived = Column(Boolean, default=False, nullable=False, index=True)
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
@@ -86,7 +85,7 @@ class PartBatch(Base):
     quantity = Column(Integer, nullable=False, default=0)  # Negatives allowed
     batch_status = Column(
         String, nullable=False, default="active", index=True
-    )  # active | non_conformant | depleted
+    )  # active | depleted
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
