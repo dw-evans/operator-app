@@ -1,31 +1,45 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    DateTime,
+    Text,
+    ForeignKey,
+    Float,
+)
 from sqlalchemy.orm import relationship
-from database import Base
+
+from app.apps.instructions.database import Base
+
 
 class Document(Base):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, index=True)
-    slot_id = Column(Integer, index=True, nullable=False)  # Slots 1 through 10
+    slot_id = Column(Integer, index=True, nullable=False)  # 1 to 10
     title = Column(String, nullable=False)
-    filename = Column(String, nullable=False)  # Stored filename in storage/manuals
+    filename = Column(String, nullable=False)
     original_filename = Column(String, nullable=False)
     file_hash = Column(String, nullable=False)
-    file_size = Column(Integer, default=0)
-    version = Column(Integer, default=1)
-    is_live = Column(Boolean, default=True)
+    file_size = Column(Integer, nullable=False, default=0)
+    version = Column(Integer, nullable=False, default=1)
+    is_live = Column(Boolean, default=True, index=True)
     upload_date = Column(DateTime, default=datetime.utcnow)
     obsolescence_date = Column(DateTime, nullable=True)
 
     feedback = relationship("Feedback", back_populates="document")
+
 
 class Feedback(Base):
     __tablename__ = "feedback"
 
     id = Column(String, primary_key=True)  # Client-generated UUID
     slot_id = Column(Integer, index=True, nullable=False)
-    document_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    document_id = Column(
+        Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
+    )
     page_ref = Column(Integer, nullable=False)
     section_ref = Column(String, nullable=True)
     pin_x = Column(Float, nullable=True, default=0.0)
@@ -33,7 +47,9 @@ class Feedback(Base):
     author = Column(String, nullable=False)
     text_comment = Column(Text, nullable=True)
     video_filename = Column(String, nullable=True)
-    photo_filenames = Column(Text, nullable=True)  # JSON-encoded list of photo filenames
+    photo_filenames = Column(
+        Text, nullable=True
+    )  # JSON-encoded list of photo filenames
     timestamp = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="open")  # open, reviewed, resolved
     is_deleted = Column(Boolean, default=False, nullable=False)

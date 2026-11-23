@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Navbar } from './components/Navbar';
+import { Navbar, type ActiveApp } from './components/Navbar';
+import { AppLauncher } from './components/AppLauncher';
 import { SlotSelector } from './components/SlotSelector';
 import { SlotViewerVariant } from './components/SlotViewerVariant';
 import { AdminPortal } from './components/AdminPortal';
 import { AdminPinGate } from './components/AdminPinGate';
+import { InventoryApp } from './apps/inventory/InventoryApp';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Bug, Trash2, CheckCircle2 } from 'lucide-react';
@@ -20,6 +22,7 @@ import { syncManager } from './services/sync';
 import type { SlotSummary, DocumentRevision } from './types';
 
 export function App() {
+  const [activeApp, setActiveApp] = useState<ActiveApp>('home');
   const [slots, setSlots] = useState<SlotSummary[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(true);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
@@ -43,60 +46,85 @@ export function App() {
       });
   }, []);
 
-  const isPinLocked = isAdmin && isPinRequired !== false && !isAdminUnlocked;
+  const isPinLocked = activeApp === 'instructions' && isAdmin && isPinRequired !== false && !isAdminUnlocked;
 
   // Synchronize UI state with current URL pathname
   const syncStateFromUrl = useCallback(() => {
     const pathname = window.location.pathname;
-    if (pathname === '/admin') {
-      setIsAdmin(true);
-      setSelectedSlotId(null);
-      setSelectedVersion(null);
-      setSpecificRevision(null);
-    } else {
-      // 1. Admin with specific version: /admin/manual/:slotId/v/:version or /admin/slot/:slotId/v/:version
-      const adminVersionMatch = pathname.match(/^\/admin\/(?:manual|slot)\/(\d+)\/v\/(\d+)$/);
-      if (adminVersionMatch) {
-        setIsAdmin(true);
-        setSelectedSlotId(parseInt(adminVersionMatch[1], 10));
-        setSelectedVersion(parseInt(adminVersionMatch[2], 10));
-        return;
-      }
 
-      // 2. Admin live: /admin/manual/:slotId or /admin/slot/:slotId
-      const adminSlotMatch = pathname.match(/^\/admin\/(?:manual|slot)\/(\d+)$/);
-      if (adminSlotMatch) {
-        setIsAdmin(true);
-        setSelectedSlotId(parseInt(adminSlotMatch[1], 10));
-        setSelectedVersion(null);
-        setSpecificRevision(null);
-        return;
-      }
-
-      // 3. Operator with specific version: /manual/:slotId/v/:version or /slot/:slotId/v/:version
-      const operatorVersionMatch = pathname.match(/^\/(?:manual|slot)\/(\d+)\/v\/(\d+)$/);
-      if (operatorVersionMatch) {
-        setIsAdmin(false);
-        setSelectedSlotId(parseInt(operatorVersionMatch[1], 10));
-        setSelectedVersion(parseInt(operatorVersionMatch[2], 10));
-        return;
-      }
-
-      // 4. Operator live: /manual/:slotId or /slot/:slotId
-      const match = pathname.match(/^\/(?:manual|slot)\/(\d+)$/);
-      if (match) {
-        setIsAdmin(false);
-        setSelectedSlotId(parseInt(match[1], 10));
-        setSelectedVersion(null);
-        setSpecificRevision(null);
-        return;
-      }
-
+    // 1. Home launcher
+    if (pathname === '/' || pathname === '') {
+      setActiveApp('home');
       setIsAdmin(false);
       setSelectedSlotId(null);
       setSelectedVersion(null);
       setSpecificRevision(null);
+      return;
     }
+
+    // 2. Inventory sub-app
+    if (pathname === '/inventory' || pathname.startsWith('/inventory/')) {
+      setActiveApp('inventory');
+      setIsAdmin(false);
+      setSelectedSlotId(null);
+      setSelectedVersion(null);
+      setSpecificRevision(null);
+      return;
+    }
+
+    // 3. Instructions sub-app (new /instructions/* prefix + legacy /manual/*, /slot/*, /admin/*)
+    const subPath = pathname.startsWith('/instructions')
+      ? pathname.slice('/instructions'.length) || '/'
+      : pathname;
+
+    setActiveApp('instructions');
+
+    if (subPath === '/admin') {
+      setIsAdmin(true);
+      setSelectedSlotId(null);
+      setSelectedVersion(null);
+      setSpecificRevision(null);
+      return;
+    }
+
+    const adminVersionMatch = subPath.match(/^\/admin\/(?:manual|slot)\/(\d+)\/v\/(\d+)$/);
+    if (adminVersionMatch) {
+      setIsAdmin(true);
+      setSelectedSlotId(parseInt(adminVersionMatch[1], 10));
+      setSelectedVersion(parseInt(adminVersionMatch[2], 10));
+      return;
+    }
+
+    const adminSlotMatch = subPath.match(/^\/admin\/(?:manual|slot)\/(\d+)$/);
+    if (adminSlotMatch) {
+      setIsAdmin(true);
+      setSelectedSlotId(parseInt(adminSlotMatch[1], 10));
+      setSelectedVersion(null);
+      setSpecificRevision(null);
+      return;
+    }
+
+    const operatorVersionMatch = subPath.match(/^\/(?:manual|slot)\/(\d+)\/v\/(\d+)$/);
+    if (operatorVersionMatch) {
+      setIsAdmin(false);
+      setSelectedSlotId(parseInt(operatorVersionMatch[1], 10));
+      setSelectedVersion(parseInt(operatorVersionMatch[2], 10));
+      return;
+    }
+
+    const match = subPath.match(/^\/(?:manual|slot)\/(\d+)$/);
+    if (match) {
+      setIsAdmin(false);
+      setSelectedSlotId(parseInt(match[1], 10));
+      setSelectedVersion(null);
+      setSpecificRevision(null);
+      return;
+    }
+
+    setIsAdmin(false);
+    setSelectedSlotId(null);
+    setSelectedVersion(null);
+    setSpecificRevision(null);
   }, []);
 
   // Safe navigation that pushes URL into history so back button works
@@ -140,14 +168,6 @@ export function App() {
     // Listen for browser / hardware back and forward buttons
     window.addEventListener('popstate', syncStateFromUrl);
 
-    // Initial state parse from current URL or restore from session
-    const pathname = window.location.pathname;
-    if (pathname === '/' || pathname === '') {
-      const lastActive = sessionStorage.getItem('assembly_last_path');
-      if (lastActive && lastActive !== '/') {
-        window.history.replaceState(null, '', lastActive);
-      }
-    }
     syncStateFromUrl();
     loadSlots();
 
@@ -156,28 +176,32 @@ export function App() {
     };
   }, [syncStateFromUrl]);
 
-  // Keep session storage updated so PWA keeps location as long as app isn't shut down
+  // Keep session storage updated with current path
   useEffect(() => {
     let currentPath = '/';
-    if (isAdmin) {
-      if (selectedSlotId !== null) {
-        currentPath = selectedVersion !== null
-          ? `/admin/manual/${selectedSlotId}/v/${selectedVersion}`
-          : `/admin/manual/${selectedSlotId}`;
+    if (activeApp === 'inventory') {
+      currentPath = '/inventory';
+    } else if (activeApp === 'instructions') {
+      if (isAdmin) {
+        if (selectedSlotId !== null) {
+          currentPath = selectedVersion !== null
+            ? `/instructions/admin/manual/${selectedSlotId}/v/${selectedVersion}`
+            : `/instructions/admin/manual/${selectedSlotId}`;
+        } else {
+          currentPath = '/instructions/admin';
+        }
       } else {
-        currentPath = '/admin';
-      }
-    } else {
-      if (selectedSlotId !== null) {
-        currentPath = selectedVersion !== null
-          ? `/manual/${selectedSlotId}/v/${selectedVersion}`
-          : `/manual/${selectedSlotId}`;
-      } else {
-        currentPath = '/';
+        if (selectedSlotId !== null) {
+          currentPath = selectedVersion !== null
+            ? `/instructions/manual/${selectedSlotId}/v/${selectedVersion}`
+            : `/instructions/manual/${selectedSlotId}`;
+        } else {
+          currentPath = '/instructions';
+        }
       }
     }
     sessionStorage.setItem('assembly_last_path', currentPath);
-  }, [isAdmin, selectedSlotId, selectedVersion]);
+  }, [activeApp, isAdmin, selectedSlotId, selectedVersion]);
 
   const [debugInfo, setDebugInfo] = useState({
     viewport: `${window.innerWidth}x${window.innerHeight}`,
@@ -278,7 +302,11 @@ export function App() {
       await adminReinstateRevision(docId);
       await loadSlots();
       if (selectedSlotId !== null) {
-        navigateTo(isAdmin ? `/admin/manual/${selectedSlotId}` : `/manual/${selectedSlotId}`);
+        navigateTo(
+          isAdmin
+            ? `/instructions/admin/manual/${selectedSlotId}`
+            : `/instructions/manual/${selectedSlotId}`
+        );
       }
     } catch (err: any) {
       alert(`Failed to reinstate revision: ${err.message}`);
@@ -301,8 +329,10 @@ export function App() {
   return (
     <div className="fixed inset-0 h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-background text-foreground flex flex-col font-sans select-none pb-[env(safe-area-inset-bottom)]">
       <Navbar
+        activeApp={activeApp}
+        onNavigate={navigateTo}
         currentSlotId={selectedSlotId}
-        onBackToSlots={() => navigateTo(isAdmin ? '/admin' : '/')}
+        onBackToSlots={() => navigateTo(isAdmin ? '/instructions/admin' : '/instructions')}
         isAdmin={isAdmin}
         onToggleAdmin={() => {
           if (isAdmin) {
@@ -310,20 +340,20 @@ export function App() {
             setIsAdminUnlocked(false);
             if (selectedSlotId !== null) {
               const target = selectedVersion !== null
-                ? `/manual/${selectedSlotId}/v/${selectedVersion}`
-                : `/manual/${selectedSlotId}`;
+                ? `/instructions/manual/${selectedSlotId}/v/${selectedVersion}`
+                : `/instructions/manual/${selectedSlotId}`;
               navigateTo(target);
             } else {
-              navigateTo('/');
+              navigateTo('/instructions');
             }
           } else {
             if (selectedSlotId !== null) {
               const target = selectedVersion !== null
-                ? `/admin/manual/${selectedSlotId}/v/${selectedVersion}`
-                : `/admin/manual/${selectedSlotId}`;
+                ? `/instructions/admin/manual/${selectedSlotId}/v/${selectedVersion}`
+                : `/instructions/admin/manual/${selectedSlotId}`;
               navigateTo(target);
             } else {
-              navigateTo('/admin');
+              navigateTo('/instructions/admin');
             }
           }
         }}
@@ -379,7 +409,7 @@ export function App() {
       )}
 
       {/* Single-line Document Info Strip directly underneath Navbar */}
-      {selectedSlotId !== null && !isPinLocked && (
+      {activeApp === 'instructions' && selectedSlotId !== null && !isPinLocked && (
         <div className="shrink-0 bg-muted/40 border-b border-border px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs min-h-[2.125rem]">
           <div className="flex items-center gap-2 min-w-0">
             <Badge variant="outline" className="font-mono text-[11px] shrink-0 font-bold">
@@ -440,7 +470,11 @@ export function App() {
       )}
 
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {isPinLocked ? (
+        {activeApp === 'home' ? (
+          <AppLauncher onSelectApp={navigateTo} />
+        ) : activeApp === 'inventory' ? (
+          <InventoryApp />
+        ) : isPinLocked ? (
           <AdminPinGate
             onUnlock={() => {
               sessionStorage.setItem('assembly_admin_unlocked', 'true');
@@ -449,11 +483,11 @@ export function App() {
             onCancel={() => {
               if (selectedSlotId !== null) {
                 const target = selectedVersion !== null
-                  ? `/manual/${selectedSlotId}/v/${selectedVersion}`
-                  : `/manual/${selectedSlotId}`;
+                  ? `/instructions/manual/${selectedSlotId}/v/${selectedVersion}`
+                  : `/instructions/manual/${selectedSlotId}`;
                 navigateTo(target);
               } else {
-                navigateTo('/');
+                navigateTo('/instructions');
               }
             }}
           />
@@ -473,13 +507,13 @@ export function App() {
               onClose={() => {
                 sessionStorage.removeItem('assembly_admin_unlocked');
                 setIsAdminUnlocked(false);
-                navigateTo('/');
+                navigateTo('/instructions');
               }}
               onSlotsUpdated={loadSlots}
               onViewSlot={(slotId, version) => {
                 const target = version !== undefined
-                  ? `/admin/manual/${slotId}/v/${version}`
-                  : `/admin/manual/${slotId}`;
+                  ? `/instructions/admin/manual/${slotId}/v/${version}`
+                  : `/instructions/admin/manual/${slotId}`;
                 navigateTo(target);
               }}
             />
@@ -489,7 +523,7 @@ export function App() {
             <SlotSelector
               slots={slots}
               onSelectSlot={(slotId) => {
-                navigateTo(`/manual/${slotId}`);
+                navigateTo(`/instructions/manual/${slotId}`);
               }}
               isLoading={isLoadingSlots}
             />

@@ -9,6 +9,9 @@ import {
   Download,
   Settings,
   User,
+  Home,
+  BookOpen,
+  Boxes,
 } from "lucide-react";
 import { syncManager, type SyncState } from "../services/sync";
 import { useOperatorName } from "../services/settings";
@@ -17,7 +20,11 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+export type ActiveApp = "home" | "instructions" | "inventory";
+
 interface NavbarProps {
+  activeApp: ActiveApp;
+  onNavigate: (path: string) => void;
   currentSlotId: number | null;
   onBackToSlots: () => void;
   isAdmin: boolean;
@@ -41,6 +48,8 @@ const formatSyncDateTime = (date: Date): string => {
 };
 
 export const Navbar: FC<NavbarProps> = ({
+  activeApp,
+  onNavigate,
   currentSlotId,
   onBackToSlots,
   isAdmin,
@@ -54,33 +63,88 @@ export const Navbar: FC<NavbarProps> = ({
     return syncManager.subscribe(setSyncState);
   }, []);
 
+  const showSyncBadge = activeApp === "instructions" || syncState.pendingCount > 0;
+
   return (
-    <header className="sticky top-0 z-40 bg-background/95 border-b px-3 sm:px-4 py-2 flex items-center justify-between shrink-0">
-      <div className="flex items-center gap-3">
-        {currentSlotId !== null ? (
+    <header className="sticky top-0 z-40 bg-background/95 border-b px-3 sm:px-4 py-2 flex items-center justify-between gap-2 shrink-0">
+      <div className="flex items-center gap-2 min-w-0">
+        {activeApp === "instructions" && currentSlotId !== null ? (
           <Button
             variant="outline"
             size="icon"
             onClick={onBackToSlots}
             title={isAdmin ? "Back to Admin" : "All Manuals"}
             aria-label={isAdmin ? "Back to Admin" : "All Manuals"}
+            className="shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
         ) : (
-          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigate("/")}
+            className="flex items-center gap-2 cursor-pointer shrink-0 rounded-lg hover:opacity-85 transition-opacity"
+            title="Home — All Apps"
+            aria-label="Home — All Apps"
+          >
             <img
               src="/favicon.svg"
               alt="Logo"
               className="w-8 h-8 rounded-lg object-contain shrink-0 select-none"
             />
-          </div>
+          </button>
         )}
+
+        {/* Compact Sub-App Switcher */}
+        <nav className="flex items-center gap-1 bg-muted/50 p-0.5 rounded-lg border border-border/80">
+          <button
+            type="button"
+            onClick={() => onNavigate("/")}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors",
+              activeApp === "home"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Home"
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Home</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("/instructions")}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors",
+              activeApp === "instructions"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Assembly Instructions"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Instructions</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("/inventory")}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors",
+              activeApp === "inventory"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Inventory Manager"
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Inventory</span>
+          </button>
+        </nav>
       </div>
 
-      <div className="flex items-center gap-2">
-        {/* Lengthened Sync Button with Datetime of Successful Sync */}
-        {syncState.pendingCount > 0 ? (
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Lengthened Sync Button with Datetime of Successful Sync (Instructions offline queue) */}
+        {showSyncBadge && (syncState.pendingCount > 0 ? (
           <Button
             variant="outline"
             size="sm"
@@ -132,7 +196,7 @@ export const Navbar: FC<NavbarProps> = ({
               </span>
             )}
           </Button>
-        )}
+        ))}
 
         {/* Network Connection Indicator */}
         <div
@@ -162,16 +226,18 @@ export const Navbar: FC<NavbarProps> = ({
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
 
-        {/* Admin Portal Toggle */}
-        <Button
-          variant={isAdmin ? "default" : "outline"}
-          size="sm"
-          onClick={onToggleAdmin}
-          className="gap-1.5 text-xs"
-        >
-          <Shield className="h-3.5 w-3.5" />
-          <span>{isAdmin ? "Exit Admin" : "Admin"}</span>
-        </Button>
+        {/* Admin Portal Toggle (Instructions sub-app) */}
+        {activeApp === "instructions" && (
+          <Button
+            variant={isAdmin ? "default" : "outline"}
+            size="sm"
+            onClick={onToggleAdmin}
+            className="gap-1.5 text-xs"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            <span>{isAdmin ? "Exit Admin" : "Admin"}</span>
+          </Button>
+        )}
 
         {/* Settings Menu Button */}
         <Popover>

@@ -1,9 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
 
-import main
+from app import config
+from app.main import app
 
-client = TestClient(main.app)
+client = TestClient(app)
 
 
 def test_download_ca_crt():
@@ -24,7 +25,7 @@ def test_download_ca_crt_aliases():
 def test_download_ca_crt_missing(tmp_path, monkeypatch):
     empty_certs_dir = tmp_path / "empty_certs"
     empty_certs_dir.mkdir()
-    monkeypatch.setattr(main, "CERTS_DIR", empty_certs_dir)
+    monkeypatch.setattr(config, "CERTS_DIR", empty_certs_dir)
 
     resp = client.get("/api/v1/cert/ca.crt")
     assert resp.status_code == 404
