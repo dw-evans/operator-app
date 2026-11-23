@@ -17,6 +17,8 @@ export const LegScannerApp: FC = () => {
     slot: SlotNumber;
   } | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [editingLabelLegId, setEditingLabelLegId] = useState<string | null>(null);
+  const [editLabelValue, setEditLabelValue] = useState('');
 
   useEffect(() => {
     saveScannedLegs(legs);
@@ -42,6 +44,44 @@ export const LegScannerApp: FC = () => {
     if (editingRow?.legId === id) {
       setEditingRow(null);
       setEditValue('');
+    }
+    if (editingLabelLegId === id) {
+      setEditingLabelLegId(null);
+      setEditLabelValue('');
+    }
+  };
+
+  const handleStartEditLabel = (leg: ScannedLeg) => {
+    setEditingLabelLegId(leg.id);
+    setEditLabelValue(leg.label);
+  };
+
+  const handleCancelEditLabel = () => {
+    setEditingLabelLegId(null);
+    setEditLabelValue('');
+  };
+
+  const handleSaveEditLabel = () => {
+    if (!editingLabelLegId) return;
+    const trimmed = editLabelValue.trim();
+    if (trimmed) {
+      setLegs((prev) =>
+        prev.map((leg) =>
+          leg.id === editingLabelLegId ? { ...leg, label: trimmed } : leg,
+        ),
+      );
+    }
+    setEditingLabelLegId(null);
+    setEditLabelValue('');
+  };
+
+  const handleEditLabelKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEditLabel();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEditLabel();
     }
   };
 
@@ -158,10 +198,54 @@ export const LegScannerApp: FC = () => {
               {legs.map((leg) => (
                 <Card key={leg.id} className="p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-foreground">
-                        {leg.label}
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      {editingLabelLegId === leg.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={editLabelValue}
+                            onChange={(e) => setEditLabelValue(e.target.value)}
+                            onKeyDown={handleEditLabelKeyDown}
+                            autoFocus
+                            className="h-7 px-2 py-0 text-sm font-medium"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={handleSaveEditLabel}
+                            className="h-7 w-7 text-emerald-500 hover:text-emerald-400 cursor-pointer shrink-0"
+                            title="Save name"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={handleCancelEditLabel}
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                            title="Cancel"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">
+                            {leg.label}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => handleStartEditLabel(leg)}
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                            title="Rename leg"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="text-[11px] text-muted-foreground">
                         {new Date(leg.scannedAt).toLocaleString(undefined, {
                           month: 'short',
