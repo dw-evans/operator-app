@@ -7,8 +7,9 @@ engine, SessionLocal, Base, get_db = create_sqlite_db(
 
 
 def init_inventory_db():
-    """Create all tables for inventory.db and run lightweight schema cleanups."""
+    """Create all tables for inventory.db (including quality_issues) and run lightweight schema cleanups."""
     from app.apps.inventory import models  # noqa: F401
+    from app.apps.quality import models as quality_models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
 
