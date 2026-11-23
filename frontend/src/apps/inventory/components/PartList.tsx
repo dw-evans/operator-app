@@ -9,6 +9,7 @@ import {
   createColumnHelper,
   type SortingState,
   type ExpandedState,
+  type ColumnSizingState,
   type Row,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -53,6 +54,18 @@ type VirtualEntry =
 
 const columnHelper = createColumnHelper<InventoryPart>();
 
+const COLUMN_SIZING_KEY = 'inventory_table_column_sizing';
+
+const loadSavedColumnSizing = (): ColumnSizingState => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(COLUMN_SIZING_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
 export const PartList: FC<PartListProps> = ({
   parts,
   isLoading,
@@ -66,7 +79,22 @@ export const PartList: FC<PartListProps> = ({
 }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(loadSavedColumnSizing);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleColumnSizingChange = (
+    updater: ColumnSizingState | ((old: ColumnSizingState) => ColumnSizingState)
+  ) => {
+    setColumnSizing((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        localStorage.setItem(COLUMN_SIZING_KEY, JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  };
 
   // Accordion behavior: allow at most one expanded row at a time
   const handleExpandedChange = (
@@ -85,6 +113,8 @@ export const PartList: FC<PartListProps> = ({
     () => [
       columnHelper.accessor((row) => row.common_name || row.name, {
         id: 'name',
+        size: 220,
+        minSize: 100,
         header: ({ column }) => (
           <button
             type="button"
@@ -96,12 +126,14 @@ export const PartList: FC<PartListProps> = ({
           </button>
         ),
         cell: ({ getValue }) => (
-          <span className="text-sm font-normal text-foreground block max-w-[260px] truncate">
+          <span className="text-sm font-normal text-foreground block truncate">
             {getValue()}
           </span>
         ),
       }),
       columnHelper.accessor('part_number', {
+        size: 120,
+        minSize: 80,
         header: ({ column }) => (
           <button
             type="button"
@@ -113,24 +145,28 @@ export const PartList: FC<PartListProps> = ({
           </button>
         ),
         cell: ({ getValue }) => (
-          <span className="text-sm font-normal text-foreground">{getValue()}</span>
+          <span className="text-sm font-normal text-foreground block truncate">
+            {getValue()}
+          </span>
         ),
       }),
       columnHelper.accessor('revision', {
+        size: 95,
+        minSize: 65,
         header: 'Rev',
         cell: ({ row }) => {
           const part = row.original;
           const isObsolete = part.lifecycle_status === 'obsolete';
           return (
-            <div className="flex items-center gap-2 text-sm font-normal text-foreground">
-              <span>
+            <div className="flex items-center gap-1.5 text-sm font-normal text-foreground overflow-hidden">
+              <span className="truncate">
                 {part.revision}
                 {part.iteration ? `.${part.iteration}` : ''}
               </span>
               {isObsolete && (
                 <Badge
                   variant="outline"
-                  className="text-[11px] font-normal text-amber-400 border-amber-500/40 bg-amber-500/10"
+                  className="text-[11px] font-normal text-amber-400 border-amber-500/40 bg-amber-500/10 shrink-0"
                 >
                   Obsolete
                 </Badge>
@@ -141,6 +177,8 @@ export const PartList: FC<PartListProps> = ({
       }),
       columnHelper.accessor((row) => row.batch_number || '', {
         id: 'batch_number',
+        size: 90,
+        minSize: 65,
         header: ({ column }) => (
           <button
             type="button"
@@ -159,7 +197,7 @@ export const PartList: FC<PartListProps> = ({
         cell: ({ getValue }) => {
           const val = getValue();
           return (
-            <span className={cn('text-sm font-normal', val ? 'text-foreground' : 'text-muted-foreground/40')}>
+            <span className={cn('text-sm font-normal block truncate', val ? 'text-foreground' : 'text-muted-foreground/40')}>
               {val || '—'}
             </span>
           );
@@ -167,6 +205,8 @@ export const PartList: FC<PartListProps> = ({
       }),
       columnHelper.accessor((row) => row.subassembly || '', {
         id: 'subassembly',
+        size: 140,
+        minSize: 85,
         header: ({ column }) => (
           <button
             type="button"
@@ -180,7 +220,7 @@ export const PartList: FC<PartListProps> = ({
         cell: ({ getValue }) => {
           const val = getValue();
           return (
-            <span className={cn('text-sm font-normal', val ? 'text-muted-foreground' : 'text-muted-foreground/40')}>
+            <span className={cn('text-sm font-normal block truncate', val ? 'text-muted-foreground' : 'text-muted-foreground/40')}>
               {val || '—'}
             </span>
           );
@@ -188,6 +228,8 @@ export const PartList: FC<PartListProps> = ({
       }),
       columnHelper.accessor((row) => row.category || '', {
         id: 'category',
+        size: 115,
+        minSize: 80,
         header: ({ column }) => (
           <button
             type="button"
@@ -201,13 +243,15 @@ export const PartList: FC<PartListProps> = ({
         cell: ({ getValue }) => {
           const val = getValue();
           return (
-            <span className={cn('text-sm font-normal', val ? 'text-muted-foreground' : 'text-muted-foreground/40')}>
+            <span className={cn('text-sm font-normal block truncate', val ? 'text-muted-foreground' : 'text-muted-foreground/40')}>
               {val || '—'}
             </span>
           );
         },
       }),
       columnHelper.accessor('quantity', {
+        size: 80,
+        minSize: 65,
         header: ({ column }) => (
           <button
             type="button"
@@ -236,6 +280,8 @@ export const PartList: FC<PartListProps> = ({
       }),
       columnHelper.display({
         id: 'adjust_stock',
+        size: 88,
+        enableResizing: false,
         header: () => <span className="sr-only">Adjust Stock</span>,
         cell: ({ row }) => (
           <div className="flex justify-end">
@@ -259,6 +305,8 @@ export const PartList: FC<PartListProps> = ({
       }),
       columnHelper.display({
         id: 'add_batch',
+        size: 84,
+        enableResizing: false,
         header: () => <span className="sr-only">Add Batch</span>,
         cell: ({ row }) => (
           <div className="flex justify-center">
@@ -282,6 +330,8 @@ export const PartList: FC<PartListProps> = ({
       }),
       columnHelper.display({
         id: 'edit_part',
+        size: 40,
+        enableResizing: false,
         header: () => <span className="sr-only">Edit</span>,
         cell: ({ row }) => (
           <div className="flex justify-center">
@@ -304,6 +354,8 @@ export const PartList: FC<PartListProps> = ({
       }),
       columnHelper.display({
         id: 'more_info',
+        size: 40,
+        enableResizing: false,
         header: () => <span className="sr-only">Shipments & Details</span>,
         cell: ({ row }) => {
           const isExp = row.getIsExpanded();
@@ -343,10 +395,14 @@ export const PartList: FC<PartListProps> = ({
     state: {
       sorting: effectiveSorting,
       expanded,
+      columnSizing,
     },
+    columnResizeMode: 'onChange',
+    enableColumnResizing: true,
     getRowId: (row) => String(row.id),
     onSortingChange: setSorting,
     onExpandedChange: handleExpandedChange,
+    onColumnSizingChange: handleColumnSizingChange,
     getRowCanExpand: () => true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -417,21 +473,26 @@ export const PartList: FC<PartListProps> = ({
   return (
     <div className="flex-1 min-h-0 rounded-xl border border-border bg-card overflow-hidden flex flex-col">
       <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-auto relative">
-        <table data-slot="table" className="w-full caption-bottom text-sm">
+        <table
+          data-slot="table"
+          className="table-fixed caption-bottom text-sm"
+          style={{ width: `${table.getCenterTotalSize()}px`, minWidth: '100%' }}
+        >
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur-xs border-b border-border">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
+                    style={{ width: `${header.getSize()}px` }}
                     className={cn(
-                      'px-3 h-10 text-xs',
+                      'relative px-3 h-10 text-xs overflow-hidden select-none',
                       header.id === 'quantity' && 'text-right',
                       (header.id === 'adjust_stock' ||
                         header.id === 'add_batch' ||
                         header.id === 'edit_part' ||
                         header.id === 'more_info') &&
-                        'w-10 px-1.5'
+                        'px-1.5'
                     )}
                   >
                     {header.isPlaceholder
@@ -440,6 +501,22 @@ export const PartList: FC<PartListProps> = ({
                           header.column.columnDef.header,
                           header.getContext()
                         )}
+
+                    {header.column.getCanResize() && (
+                      <div
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                        onDoubleClick={() => header.column.resetSize()}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Drag to resize column (double-click to reset)"
+                        className={cn(
+                          'absolute right-0 top-1.5 bottom-1.5 w-1.5 cursor-col-resize select-none touch-none rounded-full transition-colors',
+                          header.column.getIsResizing()
+                            ? 'bg-primary'
+                            : 'bg-transparent hover:bg-border'
+                        )}
+                      />
+                    )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -476,8 +553,9 @@ export const PartList: FC<PartListProps> = ({
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
+                        style={{ width: `${cell.column.getSize()}px` }}
                         className={cn(
-                          'px-3 py-2.5',
+                          'px-3 py-2.5 overflow-hidden',
                           (cell.column.id === 'adjust_stock' ||
                             cell.column.id === 'add_batch' ||
                             cell.column.id === 'edit_part' ||
