@@ -68,6 +68,19 @@ export const PartList: FC<PartListProps> = ({
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Accordion behavior: allow at most one expanded row at a time
+  const handleExpandedChange = (
+    updater: ExpandedState | ((old: ExpandedState) => ExpandedState)
+  ) => {
+    setExpanded((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (typeof next !== 'object' || next === null) return {};
+      const prevObj = typeof prev === 'object' && prev !== null ? prev : {};
+      const newlyExpanded = Object.keys(next).find((k) => next[k] && !prevObj[k]);
+      return newlyExpanded ? { [newlyExpanded]: true } : {};
+    });
+  };
+
   const columns = useMemo(
     () => [
       columnHelper.accessor((row) => row.common_name || row.name, {
@@ -333,7 +346,7 @@ export const PartList: FC<PartListProps> = ({
     },
     getRowId: (row) => String(row.id),
     onSortingChange: setSorting,
-    onExpandedChange: setExpanded,
+    onExpandedChange: handleExpandedChange,
     getRowCanExpand: () => true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
