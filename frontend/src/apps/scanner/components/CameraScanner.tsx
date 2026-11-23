@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
-import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
+import {
+  prepareZXingModule,
+  readBarcodes,
+  type ReadInputBarcodeFormat,
+} from 'zxing-wasm/reader';
 import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
 import { CameraOff, Flashlight, FlashlightOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,9 +23,13 @@ prepareZXingModule({
 interface CameraScannerProps {
   /** Whether the scanner loop should actively decode frames. */
   isActive: boolean;
+  /** Barcode formats to decode (e.g. ['DataMatrix', 'Code128'] or ['EAN13', 'UPCA']). */
+  formats: ReadInputBarcodeFormat[];
+  /** Use wider rectangular reticle for 1D linear barcodes. */
+  isLinear?: boolean;
   /** Label displayed on the camera overlay (e.g. "Scanning #1" or "Ready to finish"). */
   statusLabel: string;
-  /** Called whenever a Data Matrix or Code 128 barcode is decoded (raw string). */
+  /** Called whenever a barcode is decoded (raw string). */
   onDetected: (rawText: string) => void;
 }
 
@@ -30,6 +38,8 @@ const DECODE_INTERVAL_MS = 120;
 
 export const CameraScanner: FC<CameraScannerProps> = ({
   isActive,
+  formats,
+  isLinear = false,
   statusLabel,
   onDetected,
 }) => {
@@ -38,6 +48,8 @@ export const CameraScanner: FC<CameraScannerProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const onDetectedRef = useRef(onDetected);
   const isActiveRef = useRef(isActive);
+  const formatsRef = useRef(formats);
+  const isLinearRef = useRef(isLinear);
   const lastCaptureTimeRef = useRef<number>(0);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -48,6 +60,8 @@ export const CameraScanner: FC<CameraScannerProps> = ({
 
   onDetectedRef.current = onDetected;
   isActiveRef.current = isActive;
+  formatsRef.current = formats;
+  isLinearRef.current = isLinear;
 
   // Start rear camera stream on mount and clean up on unmount
   useEffect(() => {
@@ -146,11 +160,11 @@ export const CameraScanner: FC<CameraScannerProps> = ({
         Date.now() - lastCaptureTimeRef.current >= CAPTURE_COOLDOWN_MS
       ) {
         try {
-          // Crop central 65% region around the aiming reticle for fast, accurate decoding
+          // Crop around aiming reticle (wider crop for 1D linear barcodes)
           const vw = video.videoWidth;
           const vh = video.videoHeight;
-          const cropW = Math.round(vw * 0.65);
-          const cropH = Math.round(vh * 0.65);
+          const cropW = Math.round(vw * (isLinearRef.current ? 0.85 : 0.65));
+          const cropH = Math.round(vh * (isLinearRef.current ? 0.5 : 0.65));
           const sx = Math.round((vw - cropW) / 2);
           const sy = Math.round((vh - cropH) / 2);
 
@@ -165,7 +179,7 @@ export const CameraScanner: FC<CameraScannerProps> = ({
             const imageData = ctx.getImageData(0, 0, cropW, cropH);
 
             const results = await readBarcodes(imageData, {
-              formats: ['DataMatrix', 'Code128'],
+              formats: formatsRef.current,
               tryHarder: true,
               tryRotate: true,
               tryInvert: true,
@@ -236,7 +250,10 @@ export const CameraScanner: FC<CameraScannerProps> = ({
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div
             className={cn(
-              'w-52 h-52 sm:w-64 sm:h-64 rounded-2xl border-2 transition-all duration-150',
+              'rounded-2xl border-2 transition-all duration-150',
+              isLinear
+                ? 'w-72 h-32 sm:w-80 sm:h-36'
+                : 'w-52 h-52 sm:w-64 sm:h-64',
               flashSuccess
                 ? 'border-emerald-400 bg-emerald-400/15 scale-105'
                 : isActive

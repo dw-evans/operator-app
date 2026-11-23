@@ -1,11 +1,65 @@
 import { useState, useCallback } from 'react';
 import type { FC, FormEvent } from 'react';
+import type { ReadInputBarcodeFormat } from 'zxing-wasm/reader';
 import { Check, X, ArrowLeft, Hand, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { CameraScanner } from './CameraScanner';
 import { SLOT_NUMBERS, type ScanMode, type SlotNumber } from '../types';
+
+type FormatPresetKey =
+  | 'manufacturing'
+  | 'datamatrix'
+  | 'code128'
+  | 'grocery'
+  | 'qrcode'
+  | 'all';
+
+const FORMAT_PRESETS: Record<
+  FormatPresetKey,
+  { label: string; formats: ReadInputBarcodeFormat[]; isLinear: boolean }
+> = {
+  manufacturing: {
+    label: 'Data Matrix + Code 128',
+    formats: ['DataMatrix', 'Code128'],
+    isLinear: false,
+  },
+  datamatrix: {
+    label: 'Data Matrix only',
+    formats: ['DataMatrix'],
+    isLinear: false,
+  },
+  code128: {
+    label: 'Code 128 only',
+    formats: ['Code128'],
+    isLinear: true,
+  },
+  grocery: {
+    label: 'Grocery / 1D (EAN / UPC / Code 128)',
+    formats: ['EAN13', 'EAN8', 'UPCA', 'UPCE', 'Code128'],
+    isLinear: true,
+  },
+  qrcode: {
+    label: 'QR Code',
+    formats: ['QRCode'],
+    isLinear: false,
+  },
+  all: {
+    label: 'All Common Formats',
+    formats: [
+      'DataMatrix',
+      'Code128',
+      'Code39',
+      'QRCode',
+      'EAN13',
+      'EAN8',
+      'UPCA',
+      'UPCE',
+    ],
+    isLinear: false,
+  },
+};
 
 interface ScanSessionViewProps {
   onFinish: (serials: Record<SlotNumber, string>) => void;
@@ -23,6 +77,7 @@ export const ScanSessionView: FC<ScanSessionViewProps> = ({
     4: '',
   });
   const [mode, setMode] = useState<ScanMode>('auto');
+  const [formatPreset, setFormatPreset] = useState<FormatPresetKey>('manufacturing');
   const [activeSlot, setActiveSlot] = useState<SlotNumber | null>(1);
   const [manualInput, setManualInput] = useState('');
   const [lastScanned, setLastScanned] = useState<string | null>(null);
@@ -101,7 +156,21 @@ export const ScanSessionView: FC<ScanSessionViewProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={formatPreset}
+            onChange={(e) => setFormatPreset(e.target.value as FormatPresetKey)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground max-w-[200px]"
+            aria-label="Barcode format"
+            title="Select barcode format to scan"
+          >
+            {(Object.keys(FORMAT_PRESETS) as FormatPresetKey[]).map((key) => (
+              <option key={key} value={key}>
+                {FORMAT_PRESETS[key].label}
+              </option>
+            ))}
+          </select>
+
           <span className="text-xs text-muted-foreground font-mono">
             {filledCount} / 4
           </span>
@@ -124,6 +193,8 @@ export const ScanSessionView: FC<ScanSessionViewProps> = ({
           <div className="flex-1 min-h-0">
             <CameraScanner
               isActive={activeSlot !== null}
+              formats={FORMAT_PRESETS[formatPreset].formats}
+              isLinear={FORMAT_PRESETS[formatPreset].isLinear}
               statusLabel={statusLabel}
               onDetected={handleCameraDetected}
             />
